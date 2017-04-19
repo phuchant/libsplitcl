@@ -1,0 +1,9 @@
+Dependencies : clang-3.6 llvm-3.6
+
+http://llvm.org/releases/3.6.0/cfe-3.6.0.src.tar.xz
+http://llvm.org/releases/3.6.0/llvm-3.6.0.src.tar.xz
+
+http://llvm.org/docs/GettingStarted.html
+
+After building llvm and clang, LLVM_CONFIG_PATH CLANG_INCLUDE_PATH and CLANG_LIB_PATH
+must be updated in the Makefile.
