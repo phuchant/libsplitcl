@@ -28,6 +28,7 @@ namespace libsplit {
       BADBROYDEN,
       BROYDEN,
       ENV,
+      FIXEDPOINT,
       MKGR,
     };
 

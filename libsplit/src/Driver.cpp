@@ -4,6 +4,7 @@
 #include <Scheduler/SchedulerBadBroyden.h>
 #include <Scheduler/SchedulerBroyden.h>
 #include <Scheduler/SchedulerEnv.h>
+#include <Scheduler/SchedulerFixedPoint.h>
 #include <Scheduler/SchedulerMKGR.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
@@ -63,6 +64,9 @@ namespace libsplit {
       break;
     case Scheduler::BROYDEN:
       scheduler = new SchedulerBroyden(bufferMgr, nbDevices);
+      break;
+    case Scheduler::FIXEDPOINT:
+      scheduler = new SchedulerFixedPoint(bufferMgr, nbDevices);
       break;
     case Scheduler::MKGR:
       scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
