@@ -1,13 +1,13 @@
-LLVM_CONFIG_PATH := ~/mytools/llvm-3.6-alaric/bin/llvm-config
-CLANG_INCLUDE_PATH := /home/phuchant/mytools/llvm-3.6-alaric/include
-CLANG_LIB_PATH := /home/phuchant/mytools/llvm-3.6-alaric/lib
+LLVM_CONFIG_PATH := ~/mytools/llvm-3.6/bin/llvm-config
+CLANG_INCLUDE_PATH := /home/phuchant/mytools/llvm-3.6/include
+CLANG_LIB_PATH := /home/phuchant/mytools/llvm-3.6/lib
 $(info -----------------------------------------------)
 $(info Using LLVM_CONFIG_PATH = $(LLVM_CONFIG_PATH))
 $(info Using CLANG_INCLUDE_PATH = $(CLANG_INCLUDE_PATH))
 $(info Using CLANG_LIB_PATH = $(CLANG_LIB_PATH))
 $(info -----------------------------------------------)
 
-CXX := g++
+CXX := g++-4.9
 CXXFLAGS := -fno-rtti -O0 -g -std=c++11
 PLUGIN_CXXFLAGS := -fpic
 
