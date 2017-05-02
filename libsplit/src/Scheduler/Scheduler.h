@@ -26,6 +26,7 @@ namespace libsplit {
 
     enum TYPE {
       BADBROYDEN,
+      BROYDEN,
       ENV,
       MKGR,
     };

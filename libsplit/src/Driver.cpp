@@ -2,6 +2,7 @@
 #include <Queue/Event.h>
 #include <Scheduler/Scheduler.h>
 #include <Scheduler/SchedulerBadBroyden.h>
+#include <Scheduler/SchedulerBroyden.h>
 #include <Scheduler/SchedulerEnv.h>
 #include <Scheduler/SchedulerMKGR.h>
 #include <Utils/Debug.h>
@@ -59,6 +60,9 @@ namespace libsplit {
     switch(optScheduler) {
     case Scheduler::BADBROYDEN:
       scheduler = new SchedulerBadBroyden(bufferMgr, nbDevices);
+      break;
+    case Scheduler::BROYDEN:
+      scheduler = new SchedulerBroyden(bufferMgr, nbDevices);
       break;
     case Scheduler::MKGR:
       scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
