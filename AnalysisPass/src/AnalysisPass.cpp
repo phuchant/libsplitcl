@@ -1,7 +1,6 @@
 #include "AnalysisPass.h"
 #include "ConditionBuilder.h"
 #include "IndexExprBuilder.h"
-#include "Loops.h"
 
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/PostDominators.h"
