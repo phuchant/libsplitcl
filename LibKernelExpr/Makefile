@@ -1,10 +1,9 @@
 CXX=g++-4.9
-
 SRC_DIR := $(PWD)/src
 LIB_DIR := $(PWD)/lib
-COMMON_FLAGS=-Wall -Wextra -g
+COMMON_FLAGS=-Wall -Wextra -g -std=c++11
 CPPFLAGS=-I$(PWD)/include
-CXXFLAGS=$(COMMON_FLAGS) -O3 -fPIC #-DNDEBUG
+CXXFLAGS=$(COMMON_FLAGS) -O3 -fPIC
 
 LDFLAGS	= -ldl -shared -fPIC
 OBJ	= $(SRC_DIR)/ArgumentAnalysis.o \

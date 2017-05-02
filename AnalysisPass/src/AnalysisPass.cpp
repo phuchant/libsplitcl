@@ -109,8 +109,24 @@ AnalysisPass::runOnFunction(Function &F) {
   }
 #endif
 
+  std::vector<size_t> argsSizes;
+  for (Argument &arg : F.getArgumentList()) {
+    Type *argTy = arg.getType();
+    unsigned sizeInBytes;
+    if (!argTy->isPointerTy()) {
+      sizeInBytes = dataLayout->getTypeAllocSize(argTy);
+    } else {
+      PointerType *PT = cast<PointerType>(argTy);
+      Type *elemTy = PT->getElementType();
+      sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
+    }
+    argsSizes.push_back(sizeInBytes);
+  }
+
   KernelAnalysis *analysis =
     new KernelAnalysis(F.getName().data(),
+		       F.arg_size(),
+		       argsSizes,
 		       argsAnalysis,
 		       hasAtomic(F) || hasGlobalBarrier(F));
 

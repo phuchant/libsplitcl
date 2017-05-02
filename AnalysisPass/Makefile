@@ -1,3 +1,5 @@
+CXX=g++-4.9
+
 LLVM_CONFIG := ~/mytools/llvm-3.2/bin/llvm-config
 KERNELEXPR_LIBDIR := $(PWD)/../LibKernelExpr/lib
 KERNELEXPR_INCLUDEDIR := $(PWD)/../LibKernelExpr/include
@@ -8,7 +10,7 @@ LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath,$(KERNELEXPR_LIBDIR) \
 COMMON_FLAGS=-Wall -Wextra -gdwarf-3
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags) -std=c++11
 CPPFLAGS+=$(shell $(LLVM_CONFIG) --cppflags) -I$(PWD)/include \
-	-I$(KERNELEXPR_INCLUDEDIR) -DDEBUG
+	-I$(KERNELEXPR_INCLUDEDIR) #-DDEBUG
 
 ifeq ($shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
@@ -47,4 +49,4 @@ check_deps:
 	$(KERNELEXPR_INCLUDEDIR) does not exist
 
 clean::
-	@rm -f $(KERNELANALYSISPASS) $(KERNELANALYSISPASS_OBJECTS) *~
+	@rm -f $(KERNELANALYSISPASS) $(KERNELANALYSISPASS_OBJECTS) *~ include/*~ src/*~

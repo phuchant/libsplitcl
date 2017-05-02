@@ -138,6 +138,13 @@ findConditionsRec(vector<const ICmpInst *> &conds,
   const BinaryOperator *bo = dyn_cast<BinaryOperator>(v);
 
   if (bo) {
+    if (bo->getOpcode() == Instruction::Xor) {
+      Value *op1 = bo->getOperand(1);
+      Type *op1Ty = op1->getType();
+      Value *op1True = ConstantInt::getTrue(op1Ty);
+      if (op1 == op1True)
+	truth = !truth;
+    }
     findConditionsRec(conds, condsTruth, bo->getOperand(0), truth);
     findConditionsRec(conds, condsTruth, bo->getOperand(1), truth);
     return;

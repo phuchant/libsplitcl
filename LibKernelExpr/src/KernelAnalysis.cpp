@@ -1,17 +1,27 @@
 #include "KernelAnalysis.h"
 
+#include <cassert>
 #include <iostream>
 #include <sstream>
 
 #include <string.h>
 
 KernelAnalysis::KernelAnalysis(const char *name,
+			       unsigned numArgs,
+			       std::vector<size_t> argsSizes,
 			       std::vector<ArgumentAnalysis *> argsAnalysis,
 			       bool hasAtomicOrBarrier)
-  : mHasAtomicOrBarrier(hasAtomicOrBarrier) {
+  : numArgs(numArgs), numGlobalArgs(0), argsSizes(argsSizes),
+    mHasAtomicOrBarrier(hasAtomicOrBarrier) {
   mName = strdup(name);
 
+  for (unsigned i=0; i<numArgs; i++)
+    argIsGlobalMap[i] = false;
+
   for (unsigned i=0; i<argsAnalysis.size(); i++) {
+    numGlobalArgs++;
+    globalArg2PosMap[i] = argsAnalysis[i]->getPos();
+    argIsGlobalMap[argsAnalysis[i]->getPos()] = true;
     mArgsAnalysis.push_back(argsAnalysis[i]);
   }
 }
@@ -30,12 +40,35 @@ KernelAnalysis::getName() const {
 
 unsigned
 KernelAnalysis::getNbArguments() const {
-  return mArgsAnalysis.size();
+  return numArgs;
+}
+
+unsigned
+KernelAnalysis::getNbGlobalArguments() const {
+  return numGlobalArgs;
 }
 
 ArgumentAnalysis *
-KernelAnalysis::getArgAnalysis(unsigned i) {
+KernelAnalysis::getGlobalArgAnalysis(unsigned i) {
   return mArgsAnalysis[i];
+}
+
+bool
+KernelAnalysis::argIsGlobal(unsigned i) {
+  assert(i < numArgs);
+  return argIsGlobalMap[i];
+}
+
+size_t
+KernelAnalysis::getArgSize(unsigned i) {
+  assert(i < numArgs);
+  return argsSizes[i];
+}
+
+unsigned
+KernelAnalysis::getGlobalArgPos(unsigned i) {
+  assert(i < numGlobalArgs);
+  return globalArg2PosMap[i];
 }
 
 bool
@@ -50,11 +83,17 @@ KernelAnalysis::write(std::stringstream &s) const {
   s.write((char *) &len, sizeof(len));
   s.write(mName, len);
 
-  // Write Argument Analysis
-  unsigned nbArgs = mArgsAnalysis.size();
-  s.write(reinterpret_cast<const char *>(&nbArgs), sizeof(nbArgs));
+  // Write Arguments sizes
+  s.write(reinterpret_cast<const char *>(&numArgs), sizeof(numArgs));
+  for (unsigned i=0; i<numArgs; i++)
+    s.write(reinterpret_cast<const char *>(&argsSizes[i]),
+	    sizeof(argsSizes[i]));
 
-  for (unsigned i=0; i<nbArgs; i++) {
+  // Write Global Arguments Analyses
+  s.write(reinterpret_cast<const char *>(&numGlobalArgs),
+	  sizeof(numGlobalArgs));
+
+  for (unsigned i=0; i<numGlobalArgs; i++) {
     mArgsAnalysis[i]->write(s);
   }
 
@@ -78,7 +117,9 @@ KernelAnalysis *
 KernelAnalysis::open(std::stringstream &s) {
   unsigned len;
   char *name;
-  unsigned nbArgs;
+  unsigned numArgs;
+  std::vector<size_t> argsSizes;
+  unsigned numGlobalArgs;
   std::vector<ArgumentAnalysis *> argsAnalysis;
   bool hasAtomicOrBarrier;
 
@@ -87,8 +128,15 @@ KernelAnalysis::open(std::stringstream &s) {
   s.read(name, len);
   name[len] = '\0';
 
-  s.read(reinterpret_cast<char *>(&nbArgs), sizeof(nbArgs));
-  for (unsigned i=0; i<nbArgs; i++) {
+  s.read(reinterpret_cast<char *>(&numArgs), sizeof(numArgs));
+  for (unsigned i=0; i<numArgs; i++) {
+    size_t size;
+    s.read(reinterpret_cast<char *>(&size), sizeof(size));
+    argsSizes.push_back(size);
+  }
+
+  s.read(reinterpret_cast<char *>(&numGlobalArgs), sizeof(numGlobalArgs));
+  for (unsigned i=0; i<numGlobalArgs; i++) {
     argsAnalysis.push_back(ArgumentAnalysis::open(s));
   }
 
@@ -96,7 +144,8 @@ KernelAnalysis::open(std::stringstream &s) {
   	 sizeof(hasAtomicOrBarrier));
 
   KernelAnalysis *ret =
-    new KernelAnalysis(name, argsAnalysis, hasAtomicOrBarrier);
+    new KernelAnalysis(name, numArgs, argsSizes, argsAnalysis,
+		       hasAtomicOrBarrier);
 
   free(name);
 
@@ -117,7 +166,8 @@ void
 KernelAnalysis::debug() {
   std::cerr << "KernelAnalysis " << mName << "\n";
 
-  std::cerr << mArgsAnalysis.size() << " arguments\n";
+  std::cerr << numArgs << " arguments, " << numGlobalArgs << " of which are "
+	    << " global.\n";
 
   if (mHasAtomicOrBarrier)
     std::cerr << "kernel has atomic instruction or global barrier\n";
