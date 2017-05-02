@@ -189,12 +189,6 @@ namespace libsplit {
     return id;
   }
 
-  unsigned
-  KernelHandle::getArgNoFromMemhandle(MemoryHandle *m) const {
-    // TODO
-    return 0;
-  }
-
   void
   KernelHandle::getKernelWorkgroupInfo(cl_device_id device,
 				       cl_kernel_work_group_info param_name,

@@ -125,6 +125,16 @@ namespace libsplit {
     createFakeEvent(event, queue);
   }
 
+  static void printDriverTimers(double t1, double t2, double t3, double t4,
+				double t5, double t6)
+  {
+    std::cerr << "driver getPartition " << (t2-t1)*1.0e3 << "\n";
+    std::cerr << "driver compute transfers " << (t3-t2)*1.0e3 << "\n";
+    std::cerr << "driver D2H tranfers " << (t4-t3)*1.0e3 << "\n";
+    std::cerr << "driver enqueue H2D + subkernels " << (t5-t4)*1.0e3 << "\n";
+    std::cerr << "driver finish H2D + subkernels " << (t6-t5)*1.0e3 << "\n";
+  }
+
   void
   Driver::enqueueNDRangeKernel(cl_command_queue queue,
 			       KernelHandle *k,
@@ -189,7 +199,6 @@ namespace libsplit {
     }
     double t6 = get_time();
 
-
     // Case where we need another execution to complete the whole original
     // NDRange.
     if (needOtherExecutionToComplete) {
@@ -202,11 +211,7 @@ namespace libsplit {
 
     createFakeEvent(event, queue);
 
-    // std::cerr << "get partition " << (t2-t1)*1.0e3 << "\n";
-    // std::cerr << "compute transfers " << (t3-t2)*1.0e3 << "\n";
-    // std::cerr << "D2H tranfers " << (t4-t3)*1.0e3 << "\n";
-    std::cerr << "enqueue " << (t5-t4)*1.0e3 << "\n";
-    std::cerr << "exec " << (t6-t5)*1.0e3 << "\n";
+    DEBUG("drivertimers", printDriverTimers(t1, t2, t3, t4, t5, t6));
   }
 
   void
