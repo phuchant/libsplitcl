@@ -35,6 +35,8 @@ namespace libsplit {
 
   void
   DeviceLFQueue::enqueue(Command *command, Event *event) {
+    bool blocking = command->blocking;
+
     if (event)
       *event = command->getEvent();
     if (lastEvent)
@@ -43,7 +45,7 @@ namespace libsplit {
 
     while (!threadQueue->Enqueue(command));
 
-    if (command->blocking)
+    if (blocking)
       lastEvent->wait();
   }
 

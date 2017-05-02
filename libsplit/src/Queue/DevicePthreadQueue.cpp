@@ -43,6 +43,8 @@ namespace libsplit {
 
   void
   DevicePthreadQueue::enqueue(Command *command, Event *event) {
+    bool blocking = command->blocking;
+
     if (event)
       *event = command->getEvent();
     if (lastEvent)
@@ -54,7 +56,7 @@ namespace libsplit {
     pthread_cond_broadcast(&wakeupCond);
     PTHREAD_UNLOCK(&queueLock);
 
-    if (command->blocking)
+    if (blocking)
       lastEvent->wait();
   }
 
