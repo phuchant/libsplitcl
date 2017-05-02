@@ -282,6 +282,9 @@ namespace libsplit {
     unsigned globalId = 0;
     for (unsigned i=0; i<mNumArgs; i++) {
       argIsGlobalMap[i] = mAnalysis->argIsGlobal(i);
+      if (!argIsGlobalMap[i])
+	continue;
+
       argPos2GlobalPosMap[i] = globalId++;
     }
 
