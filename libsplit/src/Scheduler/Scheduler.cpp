@@ -337,7 +337,7 @@ namespace libsplit {
     for (unsigned i=0; i<nbGlobals; i++) {
       ArgumentAnalysis *argAnalysis = analysis->getGlobalArgAnalysis(i);
       argAnalysis->performAnalysis(argsValues, origNDRange, subNDRanges);
-      // argAnalysis->dump();
+      //      argAnalysis->dump();
       canSplit = canSplit && argAnalysis->canSplit();
     }
 

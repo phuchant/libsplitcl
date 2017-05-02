@@ -4,9 +4,9 @@
 #include <IndexExpr/IndexExprOCL.h>
 
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Value.h"
 
 bool isKernel(const llvm::Function *func);
 

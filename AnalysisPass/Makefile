@@ -1,11 +1,12 @@
 CXX=g++-4.9
 
-LLVM_CONFIG := ~/mytools/llvm-3.2/bin/llvm-config
+include Makefile.inc
+
 KERNELEXPR_LIBDIR := $(PWD)/../LibKernelExpr/lib
 KERNELEXPR_INCLUDEDIR := $(PWD)/../LibKernelExpr/include
 
 SRC_DIR := $(PWD)/src
-LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath,$(KERNELEXPR_LIBDIR) \
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) $(shell $(LLVM_CONFIG) --system-libs) -Wl,-rpath,$(KERNELEXPR_LIBDIR) \
 	-L$(KERNELEXPR_LIBDIR) -lkernelexpr
 COMMON_FLAGS=-Wall -Wextra -gdwarf-3
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags) -std=c++11

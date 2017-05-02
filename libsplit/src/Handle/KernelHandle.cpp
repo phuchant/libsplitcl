@@ -245,11 +245,13 @@ namespace libsplit {
 
   void
   KernelHandle::launchAnalysis() {
-    // Launch KernelAnalysis Pass over the SPIR binary
+    // Launch KernelAnalysis Pass over the LLVM IR binary
     char opt_command[1024];
     sprintf(opt_command, "%s -load %s %s -kernelname=%s .spir%d.bc > /dev/null",
 	    OPTPATH, KERNELANALYSIS_SO_PATH, PASSARG, mName, mProgram->getId());
 
+    DEBUG("kernelhandle",
+	  std::cerr << "opt command: " << opt_command << "\n");
     system(opt_command);
 
     // Get results from analysis using mmap

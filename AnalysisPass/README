@@ -1,31 +1,11 @@
-Dependencies : llvm-3.2 clang 3.2 (optional) libkernelexpr
-
-* llvm-3.2 *
-
-The LLVM source code could be download from:
-http://www.llvm.org/releases/3.2/llvm-3.2.src.tar.gz
-
-It is also available directly from the LLVM svn server:
-svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_32/final llvm
-
-Or could be cloned from LLVM git repository:
-
-git clone http://llvm.org/git/llvm.git llvm
-cd llvm
-git checkout --track -b release_32 remotes/origin/release_32
-
-After building llvm-3.2, the path to LLVM_CONFIG needs to be updated in the Makefile.
-
-* clang *
-clang is needed to compile from OpenCL C (.cl) to spir (.bc)
-
-see : https://github.com/KhronosGroup/SPIR
-
-* libkernelexpr *
-
-The variables KERNELEXPR_LIBDIR and KERNELEXPR_INCLUDEDIR must be set in the Makefile.
+Dependencies : clang/LLVM 3.9.1 and libkernelexpr
 
 Compilation :
+
+1) Edit Makefile.inc
+
+2) Compile the LLVM pass:
+
 $ make
 
 Usage :

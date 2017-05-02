@@ -1,0 +1,9 @@
+Dependencies : libkernelexpr, AnalysisPass, ClInline, ClTransform, MKGR, libgsl, glpk
+
+Compilation :
+
+1) Edit Makefile.inc
+
+2) Compile the library:
+
+$ make

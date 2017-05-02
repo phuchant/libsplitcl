@@ -12,18 +12,18 @@
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Constants.h"
-#include "llvm/DataLayout.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Metadata.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Type.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 
 #include <map>
 #include <set>
@@ -45,7 +45,7 @@ namespace {
     llvm::LoopInfo *loopInfo;
     llvm::ScalarEvolution *scalarEvolution;
 
-    llvm::DataLayout *dataLayout;
+    const llvm::DataLayout *dataLayout;
     llvm::Type *syclRangeType;
 
     std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >

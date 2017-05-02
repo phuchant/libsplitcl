@@ -1,12 +1,13 @@
 #include "Utils.h"
 
-#include "llvm/Instruction.h"
-#include "llvm/Metadata.h"
-#include "llvm/Module.h"
-#include "llvm/Support/CFG.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Type.h"
 
 #include <map>
 #include <sstream>
@@ -15,20 +16,7 @@ using namespace llvm;
 using namespace std;
 
 bool isKernel(const Function *func) {
-  const Module *module = func->getParent();
-  const llvm::NamedMDNode *kernelsMD =
-    module->getNamedMetadata("opencl.kernels");
-
-  if (!kernelsMD)
-    return false;
-
-  for (int i = 0, end = kernelsMD->getNumOperands(); i != end; i++) {
-    const llvm::MDNode &kernelMD = *kernelsMD->getOperand(i);
-    if (kernelMD.getOperand(0) == func)
-      return true;
-  }
-
-  return false;
+  return func->getMetadata("kernel_arg_addr_space");
 }
 
 unsigned isOpenCLCall(const Instruction *inst) {
@@ -70,13 +58,9 @@ void getGlobalArguments(TinyPtrVector<Argument *> &v, Function &F) {
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end();
        I != E; ++I) {
     Argument &arg = *I;
-    Type *argType = arg.getType();
 
-    if (PointerType *p = dyn_cast<PointerType>(argType)) {
-      if (p->getAddressSpace() == 1) {
-	v.push_back(&arg);
-      }
-    }
+    if (isGlobalArgument(&arg))
+      v.push_back(&arg);
   }
 }
 
@@ -84,32 +68,46 @@ void getConstantArguments(TinyPtrVector<Argument *> &v, Function &F) {
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end();
        I != E; ++I) {
     Argument &arg = *I;
-    Type *argType = arg.getType();
 
-    if (PointerType *p = dyn_cast<PointerType>(argType)) {
-      if (p->getAddressSpace() == 2) {
-	v.push_back(&arg);
-      }
-    }
+    if (isConstantArgument(&arg))
+      v.push_back(&arg);
   }
 }
 
 bool isGlobalArgument(const Argument *A) {
-  Type *argType = A->getType();
-  if (!isa<PointerType>(argType))
+  MDNode *mdNode = A->getParent()->getMetadata("kernel_arg_addr_space");
+  if (!mdNode)
     return false;
 
-  PointerType *p = cast<PointerType>(argType);
-  return p->getAddressSpace() == 1;
+  unsigned pos = A->getArgNo();
+
+  assert(pos < mdNode->getNumOperands());
+
+  ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(mdNode->getOperand(pos).get());
+  assert(VAM);
+  Value *addrspaceValue = VAM->getValue();
+  ConstantInt *addrspaceCstInt = dyn_cast<ConstantInt>(addrspaceValue);
+  assert(addrspaceCstInt);
+
+  return addrspaceCstInt->getSExtValue() == 1;
 }
 
 bool isConstantArgument(const Argument *A) {
-  Type *argType = A->getType();
-  if (!isa<PointerType>(argType))
+  MDNode *mdNode = A->getParent()->getMetadata("kernel_arg_addr_space");
+  if (!mdNode)
     return false;
 
-  PointerType *p = cast<PointerType>(argType);
-  return p->getAddressSpace() == 2;
+  unsigned pos = A->getArgNo();
+
+  assert(pos < mdNode->getNumOperands());
+
+  ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(mdNode->getOperand(pos).get());
+  assert(VAM);
+  Value *addrspaceValue = VAM->getValue();
+  ConstantInt *addrspaceCstInt = dyn_cast<ConstantInt>(addrspaceValue);
+  assert(addrspaceCstInt);
+
+  return addrspaceCstInt->getSExtValue() == 2;
 }
 
 void getGetNumGroupsCalls(llvm::TinyPtrVector<llvm::CallInst *> &v,
@@ -170,7 +168,7 @@ isForLoopA(const PHINode *phi, Value **lowerBound, Value **higherBound) {
 
   *lowerBound = phi->getIncomingValue(0);
   Value *inc = phi->getIncomingValue(1);
-  ICmpInst *cmp = dyn_cast<ICmpInst>(phi->getIncomingValue(1)->use_back());
+  ICmpInst *cmp = dyn_cast<ICmpInst>(*phi->getIncomingValue(1)->use_begin());
   if (!cmp)
     return false;
 
@@ -192,7 +190,7 @@ isForLoopB(const PHINode *phi, Value **lowerBound, Value **higherBound) {
 
   *lowerBound = phi->getIncomingValue(1);
   Value *inc = phi->getIncomingValue(0);
-  ICmpInst *cmp = dyn_cast<ICmpInst>(phi->getIncomingValue(0)->use_back());
+  ICmpInst *cmp = dyn_cast<ICmpInst>(*phi->getIncomingValue(0)->use_begin());
   if (!cmp)
     return false;
 
@@ -218,8 +216,8 @@ bool isForLoop(const PHINode *phi, Value **lowerBound, Value **higherBound) {
 
 bool
 isWrite(const Value *value) {
-  for (Value::const_use_iterator I = value->use_begin(),
-	 E = value->use_end(); I != E; ++I) {
+  for (Value::const_user_iterator I = value->user_begin(),
+	 E = value->user_end(); I != E; ++I) {
     if (isa<StoreInst>(*I))
       return true;
 

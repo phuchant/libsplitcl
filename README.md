@@ -42,12 +42,49 @@ sub-kernel is sent to the devices and the sub-kernels are executed.
 
 ### Prerequisites
 
-This project clang/LLVM 3.6 (see CLTransform/README) and clang/LLVM 3.2 to
-support SPIR (see AnalysisPass/README).
+This project requires clang/LLVM 3.9.1 and g++ 4.9.
+
+To build clang and LLVM 3.9.1 from sources, follow these steps:
+
+```
+svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_391/final llvm
+```
+
+```
+cd llvm/tools
+```
+
+```
+svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_391/final clang
+```
+
+```
+cd ..
+```
+
+```
+mkdir build
+```
+
+```
+cd build
+```
+
+```
+cmake .. -DCMAKE_INSTALL_PREFIX=PATH_TO_LLVM/build -DCMAKE_C_COMPILER=gcc-4.9 -DCMAKE_CXX_COMPILER=g++-4.9 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_TARGETS_TO_BUILD="X86"
+```
+
+```
+make -j 8 && make install
+```
 
 ### Installing
 
-First compile LibKernelExpr : see LibKernelExpr/README.
+First compile LibKernelExpr :
+
+```
+cd LibKernelExpr && make && cd ..
+```
 
 Then compile AnalysisPass : see AnalysisPass/README.
 

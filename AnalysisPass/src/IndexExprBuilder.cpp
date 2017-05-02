@@ -10,7 +10,7 @@ using namespace std;
 
 IndexExprBuilder::IndexExprBuilder(llvm::LoopInfo *loopInfo,
 				   llvm::ScalarEvolution *scalarEvolution,
-				   llvm::DataLayout *dataLayout,
+				   const llvm::DataLayout *dataLayout,
 				   llvm::Type *syclRangeType)
  : loopInfo(loopInfo),
    scalarEvolution(scalarEvolution),
@@ -420,7 +420,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 
       size_t numOperands = scNExpr->getNumOperands();
 
-      IndexExpr *opExprs[numOperands];
+      IndexExpr **opExprs = new IndexExpr *[numOperands];
 
       for (size_t i=0; i<numOperands; i++)
 	parseSCEV(scNExpr->getOperand(i), &opExprs[i], arg);
@@ -430,6 +430,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 	ret = new IndexExprBinop(op, opExprs[i], ret);
 
       *indexExpr = new IndexExprBinop(op, opExprs[0], ret);
+      delete[] opExprs;
       return;
     }
 

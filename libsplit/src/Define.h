@@ -3,27 +3,24 @@
 
 namespace libsplit {
 
-#define SPIRFLAGS "-cc1 -cl-std=CL1.2 "		\
+#define OPENCLFLAGS "-cc1 -cl-std=CL1.2 "		\
   "-emit-llvm-bc "				\
-  "-triple spir64-unknown-unknown "		\
-  "-include " SPIRHEADER			\
+  "-isystem " LLVM_LIB_DIR "/clang/3.9.1/include/ -finclude-default-header" \
   " -O0"
 
 #define OPTPASSES							\
-  "-targetlibinfo -no-aa -tbaa -basicaa -globalopt -ipsccp -deadargelim " \
+  "-targetlibinfo -tbaa -basicaa -globalopt -ipsccp -deadargelim " \
   "-simplifycfg -basiccg -prune-eh -always-inline -functionattrs -sroa " \
-  "-domtree -early-cse -simplify-libcalls -lazy-value-info -jump-threading " \
+  "-domtree -early-cse -lazy-value-info -jump-threading " \
   "-correlated-propagation -simplifycfg -tailcallelim -simplifycfg "	\
   "-reassociate -domtree -loops -loop-simplify -lcssa -loop-rotate -licm " \
   "-lcssa -loop-unswitch -scalar-evolution -loop-simplify -lcssa -indvars " \
   "-loop-idiom -loop-deletion -loop-unroll -memdep -memcpyopt -sccp "	\
   "-lazy-value-info -jump-threading -correlated-propagation -domtree -memdep " \
-  "-dse -adce -simplifycfg -strip-dead-prototypes -preverify -domtree -verify"
+  "-dse -adce -simplifycfg -strip-dead-prototypes -domtree -verify"
 
 
 #define PASSARG "-klanalysis"
-
-#define SPIRPASS "-spirtransform"
 
 #define QUOTE(name) #name
 #define STR(macro) QUOTE(macro)

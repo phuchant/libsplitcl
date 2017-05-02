@@ -107,7 +107,7 @@ namespace libsplit {
       clCheck(err, __FILE__, __LINE__);
     }
 
-    // If it is not a binary, generate SPIR.
+    // If it is not a binary, generate LLVM IR.
     if (!isBinary) {
       char src_filename[64];
       sprintf(src_filename, ".source%d.cl", idx);
@@ -138,7 +138,7 @@ namespace libsplit {
 	char command[1024];
 	sprintf(command, "%s %s %s %s -o %s",
 		CLANGPATH,
-		SPIRFLAGS,
+		OPENCLFLAGS,
 		options ? options : "",
 		inline_filename,
 		bc_filename);
@@ -229,6 +229,9 @@ namespace libsplit {
 	      "-Dcl_khr_fp64", src_filename, trans_filename);
       // cl_khr_fp64 is defined to avoid Clang errors when using doubles
 
+      DEBUG("programhandle",
+	    std::cerr << "cltranform command : " << command << "\n";
+	    );
       system(command);
     }
 
@@ -250,51 +253,53 @@ namespace libsplit {
 
   void
   ProgramHandle::createProgramsWithBinary() {
-    cl_int err;
+    std::cerr << "Error: clCreateProgramWithBinary() not handled yet !\n";
+    exit(EXIT_FAILURE);
+    // cl_int err;
 
-    // Write binary
-    char bin_filename[64];
-    sprintf(bin_filename, ".spir%d.bc", idx);
+    // // Write binary
+    // char bin_filename[64];
+    // sprintf(bin_filename, ".spir%d.bc", idx);
 
-    std::ofstream ofile(bin_filename, std::ios::out | std::ios::trunc
-			| std::ios::binary);
+    // std::ofstream ofile(bin_filename, std::ios::out | std::ios::trunc
+    // 			| std::ios::binary);
 
-    ofile.write((const char *) programBinary, binaryLength);
-    ofile.close();
+    // ofile.write((const char *) programBinary, binaryLength);
+    // ofile.close();
 
-    // Transform sources with ClTransform
-    char trans_filename[64];
-    sprintf(trans_filename, ".trans%d.bc", idx);
-    {
-      char command[1024];
-      sprintf(command, "%s -load %s %s %s > %s 2> /dev/null",
-	      OPTPATH, SPIRTRANSFORMPATH, SPIRPASS, bin_filename, trans_filename);
+    // // Transform sources with ClTransform
+    // char trans_filename[64];
+    // sprintf(trans_filename, ".trans%d.bc", idx);
+    // {
+    //   char command[1024];
+    //   sprintf(command, "%s -load %s %s %s > %s 2> /dev/null",
+    // 	      OPTPATH, SPIRTRANSFORMPATH, SPIRPASS, bin_filename, trans_filename);
 
-      system(command);
-    }
+    //   system(command);
+    // }
 
-    // Load transformed binary
-    size_t transBinarySize;
-    unsigned char *transBinary = binary_load(trans_filename,
-						   &transBinarySize);
+    // // Load transformed binary
+    // size_t transBinarySize;
+    // unsigned char *transBinary = binary_load(trans_filename,
+    // 						   &transBinarySize);
 
-    assert(context->getNbContexts() == context->getNbDevices());
+    // assert(context->getNbContexts() == context->getNbDevices());
 
-    // Create split programs
-    for (unsigned i=0; i<nbPrograms; i++) {
-      cl_context c = context->getContext(i);
-      cl_device_id d = context->getDevice(i);
-      programs[i] = real_clCreateProgramWithBinary(c,
-						   1,
-						   &d,
-						   &transBinarySize,
-						   (const unsigned char **)
-						   &transBinary,
-						   NULL, &err);
-      clCheck(err, __FILE__, __LINE__);
-    }
+    // // Create split programs
+    // for (unsigned i=0; i<nbPrograms; i++) {
+    //   cl_context c = context->getContext(i);
+    //   cl_device_id d = context->getDevice(i);
+    //   programs[i] = real_clCreateProgramWithBinary(c,
+    // 						   1,
+    // 						   &d,
+    // 						   &transBinarySize,
+    // 						   (const unsigned char **)
+    // 						   &transBinary,
+    // 						   NULL, &err);
+    //   clCheck(err, __FILE__, __LINE__);
+    // }
 
-    free(transBinary);
+    // free(transBinary);
   }
 
   cl_program

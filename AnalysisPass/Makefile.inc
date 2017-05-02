@@ -1,0 +1,1 @@
+LLVM_CONFIG=/home/phuchant/mytools/llvm-3.9/bin/llvm-config

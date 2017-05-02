@@ -5,13 +5,13 @@
 
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 
 class IndexExprBuilder {
 public:
   IndexExprBuilder(llvm::LoopInfo *loopInfo,
 		   llvm::ScalarEvolution *scalarEvolution,
-		   llvm::DataLayout *dataLayout,
+		   const llvm::DataLayout *dataLayout,
 		   llvm::Type *syclRangeType);
   ~IndexExprBuilder();
 
@@ -46,7 +46,7 @@ private:
   llvm::LoopInfo *loopInfo;
   llvm::ScalarEvolution *scalarEvolution;
 
-  llvm::DataLayout *dataLayout;
+  const llvm::DataLayout *dataLayout;
   llvm::Type *syclRangeType;
 
   void parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,

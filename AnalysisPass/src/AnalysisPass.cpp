@@ -2,14 +2,14 @@
 #include "ConditionBuilder.h"
 #include "IndexExprBuilder.h"
 
-#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Argument.h"
-#include "llvm/Function.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/InstIterator.h"
 
 #include <GuardExpr.h>
 #include <ArgumentAnalysis.h>
@@ -36,9 +36,9 @@ AnalysisPass::AnalysisPass() : FunctionPass(ID), conditionBuilder(NULL),
 void
 AnalysisPass::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
-  au.addRequired<LoopInfo>();
-  au.addRequired<PostDominatorTree>();
-  au.addRequired<ScalarEvolution>();
+  au.addRequired<LoopInfoWrapperPass>();
+  au.addRequired<PostDominatorTreeWrapperPass>();
+  au.addRequired<ScalarEvolutionWrapperPass>();
 }
 
 bool
@@ -58,18 +58,17 @@ AnalysisPass::runOnFunction(Function &F) {
   if (KernelName.compare("") && KernelName.compare(F.getName()))
     return false;
 
-#ifdef DEBUG
-  errs() << "\033[1;31mKernel " << F.getName() << ":\033[0m\n";
-#endif /* DEBUG */
+// #ifdef DEBUG
+//   errs() << "\033[1;31mKernel " << F.getName() << ":\033[0m\n";
+// #endif /* DEBUG */
 
   // Get analysis passes
-  loopInfo = &getAnalysis<LoopInfo>();
-  scalarEvolution = &getAnalysis<ScalarEvolution>();
-  PDT = &getAnalysis<PostDominatorTree>();
+  loopInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  scalarEvolution = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
   // Get Data Layout
-  const std::string &dataLayoutStr = F.getParent()->getDataLayout();
-  dataLayout = new DataLayout(dataLayoutStr);
+  dataLayout = &F.getParent()->getDataLayout(); //new DataLayout(dataLayoutStr);
 
 
   indexExprBuilder = new IndexExprBuilder(loopInfo, scalarEvolution,
@@ -85,9 +84,9 @@ AnalysisPass::runOnFunction(Function &F) {
   // Get constant arguments;
   getConstantArguments(args, F);
 
-#ifdef DEBUG
-  errs() << "\033[1;31m" << args.size() << " global args\033[0m\n";
-#endif /* DEBUG */
+// #ifdef DEBUG
+//   errs() << "\033[1;31m" << args.size() << " global args\033[0m\n";
+// #endif /* DEBUG */
 
   std::vector<ArgumentAnalysis *> argsAnalysis;
 
@@ -102,11 +101,11 @@ AnalysisPass::runOnFunction(Function &F) {
     argsAnalysis.push_back(argAnalysis);
   }
 
-#ifdef DEBUG
-  for (unsigned i=0; i<argsAnalysis.size(); i++) {
-    argsAnalysis[i]->dump();
-  }
-#endif
+// #ifdef DEBUG
+//   for (unsigned i=0; i<argsAnalysis.size(); i++) {
+//     argsAnalysis[i]->dump();
+//   }
+// #endif
 
   std::vector<size_t> argsSizes;
   for (Argument &arg : F.getArgumentList()) {

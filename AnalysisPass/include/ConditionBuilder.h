@@ -7,8 +7,8 @@
 #include "IndexExpr/IndexExprs.h"
 
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Instructions.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Value.h"
 
 class ConditionBuilder {
 public:

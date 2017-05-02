@@ -14,19 +14,17 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/AST/Decl.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
-#define NUMGROUPSVAR "__libsplit_num_groups_"
-#define SPLITDIMVAR  "__libsplit_split_dim_"
-
 using namespace clang;
+
+// By implementing RecursiveASTVisitor, we can specify which AST nodes
+// we're interested in by overriding relevant methods.
 class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor> {
 public:
-  MyASTVisitor(Rewriter &R, CompilerInstance &ci, SourceManager &sm)
-    : TheRewriter(R), ci(ci), sm(sm) {}
+  MyASTVisitor(Rewriter &R, SourceManager &sm) : TheRewriter(R), sm(sm) {}
 
   bool VisitFunctionDecl(FunctionDecl *f) {
     // Skip kernels
@@ -53,7 +51,6 @@ public:
 
 private:
   Rewriter &TheRewriter;
-  CompilerInstance &ci;
   SourceManager &sm;
 };
 
@@ -61,8 +58,7 @@ private:
 // by the Clang parser.
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R, CompilerInstance &ci,
-		SourceManager &sm) : Visitor(R, ci, sm) {}
+  MyASTConsumer(Rewriter &R, SourceManager &sm) : Visitor(R, sm) {}
 
   // Override the method that gets called for each parsed top-level
   // declaration.
@@ -79,7 +75,7 @@ private:
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    llvm::errs() << "Usage: rewritersample <options> <filename>\n";
+    llvm::errs() << "Usage: clinline <filename>\n";
     return 1;
   }
 
@@ -94,8 +90,9 @@ int main(int argc, char *argv[]) {
   TheCompInst.setInvocation(Invocation);
 
   LangOptions &lo = TheCompInst.getLangOpts();
-  lo.OpenCL = true;
-  lo.C99 = true;
+  lo.OpenCL = 1;
+  lo.C99 = 1;
+  lo.OpenCLVersion = 120;
 
   // Initialize target info with the default triple for our platform.
   auto TO = std::make_shared<TargetOptions>();
@@ -124,11 +121,11 @@ int main(int argc, char *argv[]) {
 
   // Create an AST consumer instance which is going to get called by
   // ParseAST.
-  MyASTConsumer TheConsumer(TheRewriter, TheCompInst, SourceMgr);
+  MyASTConsumer TheConsumer(TheRewriter, SourceMgr);
 
   // Parse the file to AST, registering our consumer as the AST consumer.
   ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
-	   TheCompInst.getASTContext());
+           TheCompInst.getASTContext());
 
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.

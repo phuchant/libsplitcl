@@ -2,11 +2,8 @@
 #include <memory>
 #include <string>
 #include <sstream>
-#include <vector>
-#include <set>
 
 #include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
@@ -17,7 +14,6 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/AST/Decl.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
@@ -288,9 +284,10 @@ private:
   SecondVisitor secondPass;
 };
 
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    llvm::errs() << "Usage: rewritersample <options> <filename>\n";
+    llvm::errs() << "Usage: cltranform <options> <filename>\n";
     return 1;
   }
 
@@ -305,8 +302,9 @@ int main(int argc, char *argv[]) {
   TheCompInst.setInvocation(Invocation);
 
   LangOptions &lo = TheCompInst.getLangOpts();
-  lo.OpenCL = true;
-  lo.C99 = true;
+  lo.OpenCL = 1;
+  lo.C99 = 1;
+  lo.OpenCLVersion = 120;
 
   // Initialize target info with the default triple for our platform.
   auto TO = std::make_shared<TargetOptions>();
@@ -339,13 +337,18 @@ int main(int argc, char *argv[]) {
 
   // Parse the file to AST, registering our consumer as the AST consumer.
   ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
-	   TheCompInst.getASTContext());
+           TheCompInst.getASTContext());
 
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.
   const RewriteBuffer *RewriteBuf =
       TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
-  llvm::outs() << std::string(RewriteBuf->begin(), RewriteBuf->end());
+
+  if (RewriteBuf)
+    llvm::outs() << std::string(RewriteBuf->begin(), RewriteBuf->end());
+  else
+    llvm::outs() << std::string(TheRewriter.getEditBuffer(SourceMgr.getMainFileID()).begin(),
+				TheRewriter.getEditBuffer(SourceMgr.getMainFileID()).end());
 
   return 0;
 }
