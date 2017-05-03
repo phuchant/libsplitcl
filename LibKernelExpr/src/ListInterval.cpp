@@ -280,7 +280,7 @@ size_t
 ListInterval::total() const {
   size_t total = 0;
   for (unsigned i=0;i<mList.size(); ++i)
-    total += mList[i].hb - mList[i].lb;
+    total += mList[i].hb - mList[i].lb + 1;
 
   return total;
 }
