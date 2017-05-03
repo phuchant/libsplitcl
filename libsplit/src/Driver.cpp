@@ -6,6 +6,7 @@
 #include <Scheduler/SchedulerEnv.h>
 #include <Scheduler/SchedulerFixedPoint.h>
 #include <Scheduler/SchedulerMKGR.h>
+#include <Scheduler/SchedulerSample.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
 #include <Driver.h>
@@ -70,6 +71,9 @@ namespace libsplit {
       break;
     case Scheduler::MKGR:
       scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+      break;
+    case Scheduler::SAMPLE:
+      scheduler = new SchedulerSample(bufferMgr, nbDevices);
       break;
     default:
       scheduler = new SchedulerEnv(bufferMgr, nbDevices);

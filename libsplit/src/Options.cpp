@@ -32,6 +32,7 @@ namespace libsplit {
   unsigned optCycleLength = 0;
   std::vector<double> optDComm;
   bool optLockFreeQueue = false;
+  int optSampleSteps = 0;
 
   struct option {
     const char *name;
@@ -62,6 +63,7 @@ namespace libsplit {
   static void cyclelengthOption(char *env);
   static void dcommOption(char *env);
   static void lockfreequeueOption(char *env);
+  static void samplestepsOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -78,7 +80,7 @@ namespace libsplit {
     {"DONTSPLIT", "When set to 1 no kernel is split.", false, dontsplitOption},
     {"NBSKIPITER", "Number of iterations to skip before splitting the kernel.",
      false, nbskipiterOption},
-    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR)",
+    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR, SAMPLE)",
      false, schedOption},
     {"NOMEMCPY", "(not safe)", false, nomemcpyOption},
     {"PARTITION", "Kernel partition of the following form : " \
@@ -106,7 +108,10 @@ namespace libsplit {
     {"DCOMM", "<d11> <12> for scheduler MKGR.",
      false, dcommOption},
     {"LOCKFREEQUEUE", "Use a lock free queue instead of a mutex queue.", false,
-     lockfreequeueOption}
+     lockfreequeueOption},
+    {"SAMPLESTEPS", "Number of granularity steps sampled for each subkernels.",
+     false,
+     samplestepsOption}
   };
 
   static void helpOption(char *env)
@@ -196,6 +201,8 @@ namespace libsplit {
 	optScheduler = Scheduler::FIXEDPOINT;
       } else if (!strcmp(env, "MKGR")) {
 	optScheduler = Scheduler::MKGR;
+      } else if (!strcmp(env, "SAMPLE")) {
+	optScheduler = Scheduler::SAMPLE;
       } else {
 	optScheduler = Scheduler::ENV;
       }
@@ -322,6 +329,13 @@ namespace libsplit {
       optLockFreeQueue = true;
   }
 
+  static void samplestepsOption(char *env) {
+    if (!env)
+      return;
+
+    optSampleSteps = atoi(env);
+  }
+
   void parseEnvOptions()
   {
     for (option o : opts) {
@@ -338,7 +352,13 @@ namespace libsplit {
 
     if (optScheduler == Scheduler::MKGR && optCycleLength == 0) {
       std::cerr << "Error: option CYCLELENGTH must be set when using MKGR " \
-	"schduler.\n";
+	"scheduler.\n";
+      exit(EXIT_FAILURE);
+    }
+
+    if (optScheduler == Scheduler::SAMPLE && optSampleSteps <= 0) {
+      std::cerr << "Error: option SAMPLESTEPS must be set when using SAMPLE " \
+	"scheduler.\n";
       exit(EXIT_FAILURE);
     }
   }

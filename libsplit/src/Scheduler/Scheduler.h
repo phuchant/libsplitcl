@@ -30,6 +30,7 @@ namespace libsplit {
       ENV,
       FIXEDPOINT,
       MKGR,
+      SAMPLE,
     };
 
     Scheduler(BufferManager *buffManager, unsigned nbDevices);

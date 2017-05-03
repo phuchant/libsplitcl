@@ -1,7 +1,7 @@
 include Makefile.inc
 
 CXX=g++-4.9
-CXXFLAGS = -std=c++11 -shared -fPIC -Wall -Wextra -O3 -gdwarf-3 -Isrc/ \
+CXXFLAGS = -std=c++11 -shared -fPIC -Wall -Wextra -O2 -gdwarf-3 -Isrc/ \
 	-I$(KERNELEXPR_INCLUDE_PATH) \
 	-DCLANGPATH=\"$(CLANGPATH)\" -DOPTPATH=\"$(OPTPATH)\" \
 	-I$(MKGR_INCLUDE_PATH) \
@@ -53,6 +53,7 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Scheduler/SchedulerEnv.cpp \
 	src/Scheduler/SchedulerFixedPoint.cpp \
 	src/Scheduler/SchedulerMKGR.cpp \
+	src/Scheduler/SchedulerSample.cpp \
 	src/Utils/Algebra.cpp \
 	src/Utils/Debug.cpp \
 	src/Utils/Logger.cpp \

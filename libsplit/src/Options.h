@@ -24,6 +24,7 @@ namespace libsplit {
   extern unsigned optCycleLength;
   extern std::vector<double> optDComm;
   extern bool optLockFreeQueue;
+  extern int optSampleSteps;
 
   void parseEnvOptions();
 
