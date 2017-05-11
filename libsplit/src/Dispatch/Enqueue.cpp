@@ -407,7 +407,6 @@ clEnqueueWaitForEvents(cl_command_queue /* command_queue */,
 cl_int
 clEnqueueBarrier(cl_command_queue /* command_queue */)
 {
-  std::cerr << "Error : function " << __FUNCTION__ << " not handled yet !\n";
-  exit(EXIT_FAILURE);
+  // Nothing to do since we use in order queues.
   return CL_SUCCESS;
 }
