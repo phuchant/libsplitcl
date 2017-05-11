@@ -306,4 +306,9 @@ namespace libsplit {
     mNbSkipIter = optNbSkipIter;
   }
 
+  const char *
+  KernelHandle::getName() const {
+    return mName;
+  }
+
 };

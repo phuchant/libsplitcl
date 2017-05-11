@@ -127,7 +127,7 @@ namespace libsplit {
       }
 
       if (!canSplit) {
-	std::cerr << "Error: cannot split kernel !\n";
+	std::cerr << "Error: cannot split kernel " << k->getName() << " !\n";
 	exit(EXIT_FAILURE);
       }
     }
@@ -376,6 +376,7 @@ namespace libsplit {
     for (unsigned a=0; a<nbGlobals; a++) {
       ArgumentAnalysis *argAnalysis = analysis->getGlobalArgAnalysis(a);
       MemoryHandle *m = k->getGlobalArgHandle(a);
+      assert(m);
 
       for (int i=0; i<nbSplits; i++) {
 	ListInterval readRegion, writtenRegion;

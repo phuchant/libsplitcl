@@ -65,6 +65,8 @@ namespace libsplit {
     std::vector<int> getArgsValuesAsInt();
     MemoryHandle *getGlobalArgHandle(unsigned i);
 
+    const char *getName() const;
+
   private:
     // Kernel name
     char *mName;
