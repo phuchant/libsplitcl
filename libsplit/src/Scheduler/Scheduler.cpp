@@ -117,6 +117,28 @@ namespace libsplit {
       SI->real_size_gr = SI->req_size_gr;
 
       for (unsigned i=0; i<work_dim; i++) {
+
+	// Check if there is enough workgroups for the requested partition.
+	unsigned nbSplits = SI->real_size_gr / 3;
+	unsigned nbWgs = global_work_size[dimOrder[i]] /
+	  local_work_size[dimOrder[i]];
+	if (nbWgs < nbSplits) {
+	  std::cerr << "kernel " << k->getName()
+		    << ": insufficient number of workgroups !"
+		    << " (" << nbWgs << ")\n";
+	  SI->real_size_gr = nbWgs * 3;
+	  for (unsigned w=0; w<nbWgs; w++)
+	    SI->real_granu_dscr[w*3+2] = 1.0 / nbWgs;
+	  std::cerr << "requested partition : ";
+	  for (int ii=0; ii<SI->req_size_gr; ii++)
+	    std::cerr << SI->req_granu_dscr[ii] << " ";
+	  std::cerr << "\n";
+	  std::cerr << "adapted partition : ";
+	  for (int ii=0; ii<SI->real_size_gr; ii++)
+	    std::cerr << SI->real_granu_dscr[ii] << " ";
+	  std::cerr << "\n";
+	}
+
 	canSplit =
 	  instantiateAnalysis(k, work_dim, global_work_offset, global_work_size,
 			      local_work_size, dimOrder[i], SI->real_granu_dscr,
