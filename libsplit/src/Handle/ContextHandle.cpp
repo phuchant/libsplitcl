@@ -25,10 +25,12 @@ namespace libsplit {
 
     if (optLockFreeQueue) {
       for (cl_uint i=0; i<nbDevices; ++i)
-	queues[i] = new DeviceLFQueue(getContext(i), getDevice(i), i);
+	queues[i] = new DeviceLFQueue(getContext(i), getDevice(i),
+				      optDeviceSelection[i*2+1]);
     } else {
       for (cl_uint i=0; i<nbDevices; ++i)
-	queues[i] = new DevicePthreadQueue(getContext(i), getDevice(i), i);
+	queues[i] = new DevicePthreadQueue(getContext(i), getDevice(i),
+					   optDeviceSelection[i*2+1]);
     }
   }
 
