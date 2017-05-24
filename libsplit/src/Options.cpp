@@ -215,20 +215,14 @@ namespace libsplit {
   }
 
   static void partitionOption(char *env) {
-    if (!env) {
-      unsigned nbDevices = optDeviceSelection.size() / 2;
-      optPartition.push_back(nbDevices);
-      for (unsigned i=0; i<nbDevices; ++i) {
-	optPartition.push_back(1);
-	optPartition.push_back(i);
-      }
-    } else {
-      std::string s(env);
-      std::istringstream is(s);
-      int n;
-      while (is >> n)
-	optPartition.push_back(n);
-    }
+    if (!env)
+      return;
+
+    std::string s(env);
+    std::istringstream is(s);
+    int n;
+    while (is >> n)
+      optPartition.push_back(n);
 
     unsigned sum = 0;
     for (unsigned i=1; i<optPartition.size(); i+=2)
