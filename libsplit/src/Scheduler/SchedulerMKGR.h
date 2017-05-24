@@ -1,11 +1,9 @@
 #ifndef SCHEDULERMKGR_H
 #define SCHEDULERMKGR_H
 
+#include <Scheduler/MultiKernelSolver.h>
 #include <Scheduler/MultiKernelScheduler.h>
 
-extern "C" {
-#include <mkgr.h>
-}
 
 namespace libsplit {
 
@@ -26,21 +24,25 @@ namespace libsplit {
 				  bool *needToInstantiateAnalysis);
 
   private:
-    double objective_time;
-    mkgr_t pl;
+    MultiKernelSolver *solver;
 
-    double *cycle_granu_dscr; // <kerId, devId, gr, devId, gr, ..., kerId, ...>
-    int cycle_granu_size;
+    double *req_cycle_granu_dscr; // cycleLength * nbDevices
+    double *real_cycle_granu_dscr; // cycleLength * nbDevices
+    double *cycle_kernel_perf; // cycleLength * nbDevices
 
     std::map<unsigned, SubKernelSchedInfo *> kerID2SchedInfoMap;
-    std::map<double, double> **commFunctionSampling;
-    double **commConstraint;
-    double **comm_perf_from_to;
+    std::map<double, double> **D2HFunctionSampling; // cycleLength * nbDevices
+    std::map<double, double> **H2DFunctionSampling; // cycleLength * nbDevices
+
+    double *D2HCoef; // cycleLength * nbDevices;
+    double *H2DCoef; // cycleLength * nbDevices;
 
     unsigned getCycleIter() const;
+    void getRealCycleGranuDscr();
+    void getCycleKernelPerf();
     void updateCommConstraints();
-    void setCycleCommPerformance();
     void setCycleKernelPerformance();
+    void setCycleKernelGranuDscr();
   };
 
 };

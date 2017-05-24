@@ -47,6 +47,7 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Queue/DeviceLFQueue.cpp \
 	src/Queue/DevicePthreadQueue.cpp \
 	src/Queue/LockFreeQueue.cpp \
+	src/Scheduler/MultiKernelSolver.cpp \
 	src/Scheduler/Scheduler.cpp \
 	src/Scheduler/SchedulerBadBroyden.cpp \
 	src/Scheduler/SchedulerBroyden.cpp \
