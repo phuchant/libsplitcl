@@ -1,11 +1,13 @@
 #include <Scheduler/MultiKernelSolver.h>
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 #define EPSILON 1.0e-10
+#define PARTITIONEPSILON 0.02
 
 namespace libsplit {
   MultiKernelSolver::MultiKernelSolver(int nbDevices, int nbKernels)
@@ -27,6 +29,8 @@ namespace libsplit {
 	H2DConstraints[i][j] = new double[2*nbDevices]();
       }
     }
+
+    lastPartition = NULL;
 
     createGlpProb();
   }
@@ -594,6 +598,9 @@ namespace libsplit {
     // Update problem
     updateGlpMatrix();
 
+    glp_scale_prob(lp, GLP_SF_AUTO);
+    glp_std_basis(lp);
+
     // Resolve
     glp_simplex(lp, NULL);
 
@@ -615,6 +622,31 @@ namespace libsplit {
 	memset(H2DConstraints[i][j], 0, 2*nbDevices*sizeof(double));
       }
     }
+
+    // Return a new partition only if the distance from the last
+    // partition is greater than PARTITIONEPSILON
+    if (lastPartition == NULL) {
+      lastPartition = new double[nbKernels * nbDevices];
+      memcpy(lastPartition, ret, nbKernels * nbDevices * sizeof(double));
+      return ret;
+    }
+
+    double partitionDiff[nbKernels * nbDevices];
+    for (int i=0; i< nbKernels * nbDevices; i++)
+      partitionDiff[i] = lastPartition[i] - ret[i];
+    for (int i=0; i< nbKernels * nbDevices; i++)
+      partitionDiff[i] *= partitionDiff[i];
+
+    double norm = 0.0;
+    for (int i=0; i< nbKernels * nbDevices; i++)
+      norm += partitionDiff[i];
+    norm = sqrt(norm);
+
+    if (norm < PARTITIONEPSILON) {
+      return NULL;
+    }
+
+    memcpy(lastPartition, ret, nbKernels * nbDevices * sizeof(double));
 
     return ret;
   }

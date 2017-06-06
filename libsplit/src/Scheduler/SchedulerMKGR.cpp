@@ -96,7 +96,10 @@ namespace libsplit {
       // Get next granularities.
       delete[] req_cycle_granu_dscr;
       req_cycle_granu_dscr = solver->getGranularities();
-
+      if (req_cycle_granu_dscr == NULL) {
+	*needToInstantiateAnalysis = false;
+	return;
+      }
 
       // Update SubKernelInfo granularities.
       for (unsigned k=0; k<cycleLength; k++) {

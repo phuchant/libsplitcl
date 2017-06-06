@@ -34,7 +34,10 @@ namespace libsplit {
 			  const double *cur_prefix_gr, int **constraint);
 
 
+    // Return the new partition for the cycle or NULL if the partition remains
+    // unchanged.
     double *getGranularities();
+
   private:
     int nbDevices;
     int nbKernels;
@@ -49,6 +52,8 @@ namespace libsplit {
     double *ar;
     int nbRows;
     int nbCols;
+
+    double *lastPartition;
 
     int get_keri_devj_rowIdx(int i, int j) const;
     int get_gr_keri_devj_rowIdx(int i, int j) const;
