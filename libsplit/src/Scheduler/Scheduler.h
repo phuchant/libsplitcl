@@ -45,6 +45,8 @@ namespace libsplit {
 			      std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
+			      std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
+			      std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
 			      unsigned *id);
 
     virtual void setH2DEvents(unsigned kerId,
@@ -103,7 +105,10 @@ namespace libsplit {
 			     int *size_gr,
 			     std::vector<SubKernelExecInfo *> &subkernels,
 			     std::vector<DeviceBufferRegion> &dataRequired,
-			     std::vector<DeviceBufferRegion> &dataWritten);
+			     std::vector<DeviceBufferRegion> &dataWritten,
+			     std::vector<DeviceBufferRegion> &dataWrittenOr,
+			     std::vector<DeviceBufferRegion>
+			     &dataWrittenAtomicSum);
 
 
     bool instantiateSingleDeviceAnalysis(KernelHandle *k,
@@ -182,6 +187,8 @@ namespace libsplit {
       // read and written regions
       std::vector<DeviceBufferRegion> dataRequired;
       std::vector<DeviceBufferRegion> dataWritten;
+      std::vector<DeviceBufferRegion> dataWrittenOr;
+      std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
 
       // scalar arguments values
       std::vector<int> argsValues;

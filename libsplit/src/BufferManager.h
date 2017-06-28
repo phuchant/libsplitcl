@@ -9,13 +9,15 @@
 
 namespace libsplit {
   struct DeviceBufferRegion {
-    DeviceBufferRegion(MemoryHandle *m, unsigned devId, ListInterval region)
-      : m(m), devId(devId), region(region) {}
+    DeviceBufferRegion(MemoryHandle *m, unsigned devId, ListInterval region,
+		       void *tmp = NULL)
+      : m(m), devId(devId), region(region), tmp(tmp) {}
     ~DeviceBufferRegion() {}
 
     MemoryHandle *m;
     unsigned devId;
     ListInterval region;
+    void *tmp;
   };
 
   class BufferManager {
@@ -34,8 +36,10 @@ namespace libsplit {
 	      size_t dst_offset, size_t size);
 
     void computeTransfers(std::vector<DeviceBufferRegion> &dataRequired,
+			  std::vector<DeviceBufferRegion> &dataWrittenOr,
 			  std::vector<DeviceBufferRegion> &D2HTransferList,
-			  std::vector<DeviceBufferRegion> &H2DTransferList);
+			  std::vector<DeviceBufferRegion> &H2DTransferList,
+			  std::vector<DeviceBufferRegion> &OrD2HTransferList);
 
     bool noMemcpy;
     bool delayedWrite;

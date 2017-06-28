@@ -200,9 +200,13 @@ namespace libsplit {
   BufferManager::computeTransfers(std::vector<DeviceBufferRegion> &
 				  dataRequired,
 				  std::vector<DeviceBufferRegion> &
+				  dataWrittenOr,
+				  std::vector<DeviceBufferRegion> &
 				  D2HTransferList,
 				  std::vector<DeviceBufferRegion> &
-				  H2DTransferList) {
+				  H2DTransferList,
+				  std::vector<DeviceBufferRegion> &
+				  OrD2HTransferList) {
     // For each memory handle and each device, compute missing region.
     for (unsigned i=0; i<dataRequired.size(); i++) {
       MemoryHandle *m = dataRequired[i].m;
@@ -264,8 +268,20 @@ namespace libsplit {
 	  break;
       }
 
-      assert(hostMissing->total() == 0);
+      // assert(hostMissing->total() == 0);
       delete hostMissing;
+    }
+
+    // Compute Transfers for data written_or
+    for (unsigned i=0; i<dataWrittenOr.size(); i++) {
+      MemoryHandle *m = dataWrittenOr[i].m;
+      unsigned d = dataWrittenOr[i].devId;
+
+      assert(!dataWrittenOr[i].region.isUndefined());
+
+      DeviceBufferRegion region(m, d, dataWrittenOr[i].region,
+				malloc(dataWrittenOr[i].region.total()));
+      OrD2HTransferList.push_back(region);
     }
   }
 };

@@ -63,9 +63,16 @@ namespace libsplit {
 			   const std::vector<DeviceBufferRegion> &transferList);
     void startH2DTransfers(unsigned kerId,
 			   const std::vector<DeviceBufferRegion> &transferList);
+    void startOrD2HTransfers(unsigned kerId,
+			     const std::vector<DeviceBufferRegion>
+			     &transferList);
+
     void enqueueSubKernels(KernelHandle *k,
 			   std::vector<SubKernelExecInfo *> &subkernels,
 			   const std::vector<DeviceBufferRegion> &dataWritten);
+
+    void performHostOrVariableReduction(const std::vector<DeviceBufferRegion> &
+					transferList);
   };
 
 };

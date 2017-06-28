@@ -384,7 +384,9 @@ namespace libsplit {
 			  &size_gr,
 			  SI->subkernels,
 			  SI->dataRequired,
-			  SI->dataWritten);
+			  SI->dataWritten,
+			  SI->dataWrittenOr,
+			  SI->dataWrittenAtomicSum);
     }
   }
 

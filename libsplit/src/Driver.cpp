@@ -12,6 +12,8 @@
 #include <Driver.h>
 #include <Options.h>
 
+#include <set>
+
 namespace libsplit {
 
   static void waitForEvents(cl_uint num_events_in_wait_list,
@@ -168,8 +170,11 @@ namespace libsplit {
     std::vector<SubKernelExecInfo *> subkernels;
     std::vector<DeviceBufferRegion> dataRequired;
     std::vector<DeviceBufferRegion> dataWritten;
+    std::vector<DeviceBufferRegion> dataWrittenOr;
+    std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
     std::vector<DeviceBufferRegion> D2HTranfers;
     std::vector<DeviceBufferRegion> H2DTranfers;
+    std::vector<DeviceBufferRegion> OrD2HTranfers;
     bool needOtherExecutionToComplete = false;
     unsigned kerId = 0;
 
@@ -177,12 +182,21 @@ namespace libsplit {
 			    global_work_size, local_work_size,
 			    &needOtherExecutionToComplete,
 			    subkernels,
-			    dataRequired, dataWritten, &kerId);
+			    dataRequired, dataWritten,
+			    dataWrittenOr, dataWrittenAtomicSum,
+			    &kerId);
+
+    // Atomic sum not implemented yet
+    assert(dataWrittenAtomicSum.empty());
+
     double t2 = get_time();
 
     DEBUG("regions", debugRegions(dataRequired, dataWritten));
 
-    bufferMgr->computeTransfers(dataRequired, D2HTranfers, H2DTranfers);
+    bufferMgr->computeTransfers(dataRequired, dataWrittenOr,
+				D2HTranfers, H2DTranfers, OrD2HTranfers);
+
+    std::cerr << "OrD2HTranfers.size()="<< OrD2HTranfers.size() << "\n";
 
     double t3 = get_time();
 
@@ -203,12 +217,17 @@ namespace libsplit {
 
     enqueueSubKernels(k, subkernels, dataWritten);
 
+    startOrD2HTransfers(kerId, OrD2HTranfers);
+
     double t5 = get_time();
 
     // Barrier
     for (unsigned i=0; i<context->getNbDevices(); i++) {
       context->getQueueNo(i)->finish();
     }
+
+    performHostOrVariableReduction(OrD2HTranfers);
+
     double t6 = get_time();
 
     // Case where we need another execution to complete the whole original
@@ -315,6 +334,54 @@ namespace libsplit {
   }
 
   void
+  Driver::startOrD2HTransfers(unsigned kerId,
+			      const std::vector<DeviceBufferRegion>
+			      &transferList) {
+    DEBUG("transfers", std::cerr << "start OR D2H\n");
+
+    // For each device
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      std::vector<Event> events;
+      MemoryHandle *m = transferList[i].m;
+      unsigned d = transferList[i].devId;
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+
+      // 1) enqueue transfers
+
+      size_t tmpOffset = 0;
+
+      for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
+	size_t offset = transferList[i].region.mList[j].lb;
+	size_t cb = transferList[i].region.mList[j].hb -
+	  transferList[i].region.mList[j].lb + 1;
+
+	Event event;
+	events.push_back(event);
+
+	DEBUG("transfers",
+	      std::cerr << "reading [" << offset << "," << offset+cb-1
+	      << "] from dev " << d << "\n");
+
+	queue->enqueueRead(m->mBuffers[d],
+			   CL_FALSE,
+			   offset, cb,
+			   (char *) transferList[i].tmp + tmpOffset,
+			    0, NULL,
+			    &events[events.size()-1]);
+	tmpOffset += cb;
+      }
+
+      // // 2) update valid data
+      // m->devicesValidData[d].myUnion(transferList[i].region);
+
+      // // 3) pass transfers events to the scheduler
+      // scheduler->setH2DEvents(kerId, d, events);
+    }
+
+    DEBUG("transfers", std::cerr << "end OR D2H\n");
+  }
+
+  void
   Driver::enqueueSubKernels(KernelHandle *k,
 			    std::vector<SubKernelExecInfo *> &subkernels,
 			    const std::vector<DeviceBufferRegion> &dataWritten)
@@ -351,5 +418,60 @@ namespace libsplit {
       }
     }
   }
+
+  void
+  Driver::performHostOrVariableReduction(const std::vector<DeviceBufferRegion> &
+					 transferList) {
+    if (transferList.empty())
+      return;
+
+    std::set<MemoryHandle *> memHandles;
+    std::map<MemoryHandle *, std::vector<DeviceBufferRegion> > mem2RegMap;
+
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      memHandles.insert(transferList[i].m);
+      mem2RegMap[transferList[i].m].push_back(transferList[i]);
+    }
+
+    for (MemoryHandle *m : memHandles) {
+      std::vector<DeviceBufferRegion> regVec = mem2RegMap[m];
+      assert(regVec.size() > 0);
+
+      // Perform OR reduction
+      for (unsigned o=0; o<regVec[0].region.total(); o++) {
+
+	// // DEBUG
+	// for (unsigned i=0; i<regVec.size(); ++i)
+	//   std::cerr << "avant or offset " << o << " = " << (int) ((char *) regVec[i].tmp)[o] << "\n";
+
+	for (unsigned i=1; i<regVec.size(); ++i)
+	  ((char *) regVec[0].tmp)[o] |= ((char *) regVec[i].tmp)[o];
+
+	// // DEBUG
+	// std::cerr << "apres or offset " << o << " = " << (int) ((char *) regVec[0].tmp)[o] << "\n";
+      }
+
+      // Update value in local buffer
+      unsigned tmpOffset = 0;
+      for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
+	size_t myoffset = regVec[0].region.mList[id].lb;
+	size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+	memcpy((char *) m->mLocalBuffer + myoffset,
+	       (char *) regVec[0].tmp + tmpOffset,
+	       mycb);
+	tmpOffset += mycb;
+      }
+
+      // Update valid data
+      for (unsigned d=0; d<m->mNbBuffers; d++)
+	m->devicesValidData[d].difference(regVec[0].region);
+      m->hostValidData.myUnion(regVec[0].region);
+
+      // Free tmp buffers
+      for (unsigned i=0; i<regVec.size(); ++i)
+	free(regVec[i].tmp);
+    }
+  }
+
 
 };

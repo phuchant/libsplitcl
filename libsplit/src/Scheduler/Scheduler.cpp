@@ -22,7 +22,9 @@ namespace libsplit {
 			  bool *needOtherExecutionToComplete, /* OUT */
 			  std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataWritten,
+			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
 			  unsigned *id) /* OUT */ {
     SubKernelSchedInfo *SI = NULL;
     bool needToInstantiateAnalysis = false;
@@ -101,6 +103,8 @@ namespace libsplit {
     if (needToInstantiateAnalysis) {
       SI->dataRequired.clear();
       SI->dataWritten.clear();
+      SI->dataWrittenOr.clear();
+      SI->dataWrittenAtomicSum.clear();
       for (unsigned i=0; i<SI->subkernels.size(); i++) {
 	delete SI->subkernels[i];
       }
@@ -143,7 +147,8 @@ namespace libsplit {
 	  instantiateAnalysis(k, work_dim, global_work_offset, global_work_size,
 			      local_work_size, dimOrder[i], SI->real_granu_dscr,
 			      &SI->real_size_gr, SI->subkernels,
-			      SI->dataRequired, SI->dataWritten);
+			      SI->dataRequired, SI->dataWritten,
+			      SI->dataWrittenOr, SI->dataWrittenAtomicSum);
 	if (canSplit)
 	  break;
       }
@@ -164,6 +169,8 @@ namespace libsplit {
       subkernels.push_back(SI->subkernels[i]);
     dataRequired = SI->dataRequired;
     dataWritten = SI->dataWritten;
+    dataWrittenOr = SI->dataWrittenOr;
+    dataWrittenAtomicSum = SI->dataWrittenAtomicSum;
   }
 
   void
@@ -324,8 +331,13 @@ namespace libsplit {
 				 int *size_gr,
 				 std::vector<SubKernelExecInfo *> &subkernels,
 				 std::vector<DeviceBufferRegion> &dataRequired,
-				 std::vector<DeviceBufferRegion> &dataWritten) {
+				 std::vector<DeviceBufferRegion> &dataWritten,
+				 std::vector<DeviceBufferRegion> &dataWrittenOr,
+				 std::vector<DeviceBufferRegion>
+				 &dataWrittenAtomicSum) {
     KernelAnalysis *analysis = k->getAnalysis();
+    // analysis->debug();
+    // TODO: remove this condition when atomic is implemented
     if (analysis->hasAtomicOrBarrier())
       return false;
 
@@ -401,7 +413,8 @@ namespace libsplit {
       assert(m);
 
       for (int i=0; i<nbSplits; i++) {
-	ListInterval readRegion, writtenRegion;
+	ListInterval readRegion, writtenRegion, writtenOrRegion,
+	  writtenAtomicSumRegion;
 	unsigned devId = granu_dscr[i*3];
 
 	// Compute read region
@@ -414,13 +427,33 @@ namespace libsplit {
 	}
 
 	// Compute written region
-	writtenRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
+	if (argAnalysis->isWrittenBySplitNo(i))
+	  writtenRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
+
+	// Compute written_or region
+	if (argAnalysis->isWrittenOrBySplitNo(i))
+	  writtenOrRegion.myUnion(argAnalysis->getWrittenOrSubkernelRegion(i));
+
+	// Compute written_atomic_sum region
+	if (argAnalysis->isWrittenAtomicSumBySplitNo(i))
+	  writtenAtomicSumRegion.
+	    myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
 
 	// The data written have to be send to the device.
 	readRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
+	readRegion.myUnion(argAnalysis->getWrittenOrSubkernelRegion(i));
+	readRegion.myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
 
-	dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));
-	dataWritten.push_back(DeviceBufferRegion(m, devId, writtenRegion));
+	if (readRegion.total() > 0 || readRegion.isUndefined())
+	  dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));
+	if (writtenRegion.total() > 0)
+	  dataWritten.push_back(DeviceBufferRegion(m, devId, writtenRegion));
+	if (writtenOrRegion.total() > 0)
+	  dataWrittenOr.
+	    push_back(DeviceBufferRegion(m, devId, writtenOrRegion));
+	if (writtenAtomicSumRegion.total() > 0)
+	  dataWrittenAtomicSum.
+	    push_back(DeviceBufferRegion(m, devId, writtenAtomicSumRegion));
       }
     }
 
@@ -446,6 +479,8 @@ namespace libsplit {
     (void) subkernels;
     (void) dataRequired;
     (void) dataWritten;
+
+    // TODO: add dataWrittenOr and dataWrittenAtomicSum to dataWritten
 
     std::cerr << "Error instantiateSingleDeviceAnalysis not implemented yet !"
 	      << "\n";
