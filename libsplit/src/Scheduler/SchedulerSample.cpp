@@ -258,7 +258,9 @@ namespace libsplit {
       SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
       std::vector<DeviceBufferRegion> D2HTranfers;
       std::vector<DeviceBufferRegion> H2DTranfers;
-      buffManager->computeTransfers(SI->dataRequired, D2HTranfers, H2DTranfers);
+      std::vector<DeviceBufferRegion> OrD2HTranfers;
+      buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
+				    D2HTranfers, H2DTranfers, OrD2HTranfers);
 
       // Validate data read from device onto host buffer
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
@@ -294,9 +296,10 @@ namespace libsplit {
     for (unsigned k=0; k<cycleLength; k++) {
       std::vector<DeviceBufferRegion> D2HTranfers;
       std::vector<DeviceBufferRegion> H2DTranfers;
+      std::vector<DeviceBufferRegion> OrD2HTranfers;
       SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
-      buffManager->computeTransfers(SI->dataRequired,
-				    D2HTranfers, H2DTranfers);
+      buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
+				    D2HTranfers, H2DTranfers, OrD2HTranfers);
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
 	unsigned d = D2HTranfers[i].devId;
 	size_t size = D2HTranfers[i].region.total();
