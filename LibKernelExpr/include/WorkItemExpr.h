@@ -6,6 +6,13 @@
 
 class WorkItemExpr {
 public:
+  enum TYPE {
+    LOAD,
+    STORE,
+    OR,
+    ATOMICSUM
+  };
+
   WorkItemExpr(const IndexExpr &wiExpr, const std::vector<GuardExpr *> &guards);
   WorkItemExpr(IndexExpr *wiExpr, std::vector<GuardExpr *> *guards);
   WorkItemExpr(const WorkItemExpr &expr);

@@ -65,6 +65,12 @@ KernelAnalysis::getArgSize(unsigned i) {
   return argsSizes[i];
 }
 
+ArgumentAnalysis::TYPE
+KernelAnalysis::getArgType(unsigned i) {
+  assert(i < numArgs);
+  return mArgsAnalysis[i]->getType();
+}
+
 unsigned
 KernelAnalysis::getGlobalArgPos(unsigned i) {
   assert(i < numGlobalArgs);

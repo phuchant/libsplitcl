@@ -24,6 +24,7 @@ class KernelAnalysis {
 
   bool argIsGlobal(unsigned i);
   size_t getArgSize(unsigned i);
+  ArgumentAnalysis::TYPE getArgType(unsigned i);
   unsigned getGlobalArgPos(unsigned i);
 
   bool hasAtomicOrBarrier() const;
