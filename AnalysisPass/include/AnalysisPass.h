@@ -52,6 +52,10 @@ namespace {
     arg2LoadExprs;
     std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
     arg2StoreExprs;
+    std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
+    arg2OrExprs;
+    std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
+    arg2AtomicSumExprs;
 
     void analyze(llvm::Function *F);
 
@@ -65,7 +69,7 @@ namespace {
     void computeWorkItemExpr(llvm::Instruction *inst,
 			     IndexExpr *expr,
 			     const llvm::Argument *arg,
-			     bool isWrite);
+			     WorkItemExpr::TYPE type);
   };
 }
 

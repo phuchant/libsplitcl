@@ -95,9 +95,35 @@ AnalysisPass::runOnFunction(Function &F) {
     PointerType *PT = cast<PointerType>(argTy);
     Type *elemTy = PT->getElementType();
     unsigned sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
+
+    // FIXME: we have to differentiate unsigned and signed integer type.
+    ArgumentAnalysis::TYPE enumType;
+    if (elemTy->isIntegerTy()) {
+      if (sizeInBytes == 1) {
+	enumType = ArgumentAnalysis::BOOL;
+      } else if (sizeInBytes == 2) {
+	enumType = ArgumentAnalysis::SHORT;
+      } else if (sizeInBytes == 4) {
+	enumType = ArgumentAnalysis::INT;
+      } else if (sizeInBytes == 8) {
+	enumType = ArgumentAnalysis::LONG;
+      } else {
+	errs() << "Error unable to determine type : " << *elemTy << "\n";
+	exit(EXIT_FAILURE);
+      }
+    } else if (elemTy->isFloatTy()) {
+      enumType = ArgumentAnalysis::FLOAT;
+    } else if (elemTy->isDoubleTy()) {
+      enumType = ArgumentAnalysis::DOUBLE;
+    } else {
+      errs() << "Error unable to determine type : " << *elemTy << "\n";
+      exit(EXIT_FAILURE);
+    }
+
     ArgumentAnalysis *argAnalysis =
-      new ArgumentAnalysis(arg->getArgNo(), sizeInBytes,
-			   arg2LoadExprs[arg], arg2StoreExprs[arg]);
+      new ArgumentAnalysis(arg->getArgNo(), enumType, sizeInBytes,
+			   arg2LoadExprs[arg], arg2StoreExprs[arg],
+			   arg2OrExprs[arg], arg2AtomicSumExprs[arg]);
     argsAnalysis.push_back(argAnalysis);
   }
 
@@ -142,17 +168,27 @@ void
 AnalysisPass::computeWorkItemExpr(llvm::Instruction *inst,
 				  IndexExpr *expr,
 				  const llvm::Argument *arg,
-				  bool isWrite) {
+				  WorkItemExpr::TYPE type) {
   if (!arg || !(isGlobalArgument(arg) || isConstantArgument(arg)))
     return;
 
   std::vector<GuardExpr *> *guards =
     conditionBuilder->buildBasicBlockGuards(inst->getParent());
 
-  if (isWrite)
+  switch (type) {
+  case WorkItemExpr::STORE:
     arg2StoreExprs[arg].push_back(new WorkItemExpr(expr, guards));
-  else
+    return;
+  case WorkItemExpr::LOAD:
     arg2LoadExprs[arg].push_back(new WorkItemExpr(expr, guards));
+    return;
+  case WorkItemExpr::OR:
+    arg2OrExprs[arg].push_back(new WorkItemExpr(expr, guards));
+    return;
+  case WorkItemExpr::ATOMICSUM:
+    arg2AtomicSumExprs[arg].push_back(new WorkItemExpr(expr, guards));
+    return;
+  }
 }
 
 
@@ -168,7 +204,7 @@ AnalysisPass::analyze(Function *F) {
       IndexExpr *indexExpr = NULL;
       const llvm::Argument *arg = NULL;
       indexExprBuilder->buildLoadExpr(LI, &indexExpr, &arg);
-      computeWorkItemExpr(inst, indexExpr, arg, false);
+      computeWorkItemExpr(inst, indexExpr, arg, WorkItemExpr::LOAD);
     }
 
     if (isa<StoreInst>(inst)) {
@@ -176,7 +212,19 @@ AnalysisPass::analyze(Function *F) {
       IndexExpr *indexExpr = NULL;
       const llvm::Argument *arg = NULL;
       indexExprBuilder->buildStoreExpr(SI, &indexExpr, &arg);
-      computeWorkItemExpr(inst, indexExpr, arg, true);
+
+      WorkItemExpr::TYPE exprType = WorkItemExpr::STORE;
+
+      // Hack to handle stop variable.
+      // This is necessary as long as no pragma is implemented.
+      if ( (F->getName().equals("vector_diff") &&
+	    arg->getName().equals("stop")) ||
+	   (F->getName().equals("color") && arg->getName().equals("stop")) ||
+	   (F->getName().equals("mis1") && arg->getName().equals("stop")) ||
+	   (F->getName().equals("bfs_kernel") && arg->getName().equals("cont")))
+	exprType = WorkItemExpr::OR;
+
+      computeWorkItemExpr(inst, indexExpr, arg, exprType);
     }
 
     if (isa<CallInst>(inst)) {
@@ -192,20 +240,21 @@ AnalysisPass::analyze(Function *F) {
 	const Argument *loadArg = NULL;
 	indexExprBuilder->buildMemcpyLoadExpr(CI, &loadExpr, &loadArg);
 	indexExprBuilder->buildMemcpyStoreExpr(CI, &storeExpr, &storeArg);
-	computeWorkItemExpr(inst, storeExpr, storeArg, true);
-	computeWorkItemExpr(inst, loadExpr, loadArg, false);
+	computeWorkItemExpr(inst, storeExpr, storeArg, WorkItemExpr::STORE);
+	computeWorkItemExpr(inst, loadExpr, loadArg, WorkItemExpr::LOAD);
       }
 
       if (funcName.find("llvm.memset") != StringRef::npos) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->buildMemsetExpr(CI, &expr, &arg);
-	computeWorkItemExpr(inst, expr, arg, true);
+	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::STORE);
       }
 
       if (funcName.find("atomic_") != StringRef::npos ||
 	  funcName.find("atom_") != StringRef::npos) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
+	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICSUM);
       }
     }
   }

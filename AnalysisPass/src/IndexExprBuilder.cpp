@@ -121,9 +121,19 @@ IndexExprBuilder::buildMemsetExpr(llvm::CallInst *CI, IndexExpr **expr,
 void
 IndexExprBuilder::build_atom_Expr(llvm::CallInst *CI, IndexExpr **expr,
 			   const llvm::Argument **arg) {
-  (void) CI;
-  (void) expr;
-  (void) arg;
+  // Hack to handle atomic_add_float from Pannotia
+  if (CI->getCalledFunction()->getName().equals("atomic_add_float")) {
+    const SCEV *scev = scalarEvolution->getSCEV(CI->getOperand(0));
+    parseSCEV(scev, expr, arg);
+    assert(*expr);
+    unsigned sizeInBytes =
+      dataLayout->getTypeAllocSize(CI->getOperand(0)->getType());
+    IndexExpr *elemSizeInterval =
+      new IndexExprInterval(new IndexExprConst(0),
+			    new IndexExprConst(sizeInBytes-1));
+    *expr = new IndexExprBinop(IndexExprBinop::Add, *expr, elemSizeInterval);
+    return;
+  }
 
   errs() << "atom_* not handled yet !\n";
   assert(false);
