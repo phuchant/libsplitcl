@@ -31,6 +31,11 @@ public:
     if (f->hasAttr<OpenCLKernelAttr>())
       return true;
 
+    // Hack: skip atomic_add_float function
+    std::string funcName = f->getNameInfo().getName().getAsString();
+    if (funcName.compare(std::string("atomic_add_float")) == 0)
+      return true;
+
     // Handle case where return type is a macro
     SourceLocation loc = f->getSourceRange().getBegin();
     if (loc.isMacroID()) {
