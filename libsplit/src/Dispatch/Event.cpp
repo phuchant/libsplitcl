@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <cassert>
+
 #include <CL/cl.h>
 
 /* Event Object APIs */
@@ -69,6 +71,14 @@ clGetEventProfilingInfo(cl_event            event,
 			void *              param_value,
 			size_t *            param_value_size_ret)
 {
-  return real_clGetEventProfilingInfo(event, param_name, param_value_size,
-				      param_value, param_value_size_ret);
+  (void) event;
+  (void) param_name;
+
+  assert(param_value);
+  assert(param_value_size == sizeof(cl_ulong));
+  if (param_value_size_ret)
+    *param_value_size_ret = sizeof(cl_ulong);
+  *((cl_ulong *) param_value) = 1;
+
+  return CL_SUCCESS;
 }
