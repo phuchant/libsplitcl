@@ -252,7 +252,8 @@ namespace libsplit {
 
     DEBUG("kernelhandle",
 	  std::cerr << "opt command: " << opt_command << "\n");
-    system(opt_command);
+    int err = system(opt_command);
+    assert(err == 0);
 
     // Get results from analysis using mmap
     int fd;

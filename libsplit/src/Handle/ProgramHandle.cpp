@@ -126,7 +126,8 @@ namespace libsplit {
 	      std::cerr << "inline command : " << command << "\n";
 	      );
 
-	system(command);
+	int err = system(command);
+	assert(err == 0);
       }
 
       // Generate spir
@@ -147,7 +148,8 @@ namespace libsplit {
 	      std::cerr << "spir command : " << command << "\n";
 	      );
 
-	system(command);
+	int err = system(command);
+	assert(err == 0);
       }
 
       // Opt passes
@@ -163,7 +165,8 @@ namespace libsplit {
 	      std::cerr << "opt command : " << command << "\n";
 	      );
 
-	system(command);
+	int err = system(command);
+	assert(err == 0);
       }
     }
 
@@ -232,7 +235,8 @@ namespace libsplit {
       DEBUG("programhandle",
 	    std::cerr << "cltranform command : " << command << "\n";
 	    );
-      system(command);
+      int err = system(command);
+      assert(err == 0);
     }
 
     // Load transformed source
