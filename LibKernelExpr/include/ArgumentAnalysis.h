@@ -15,6 +15,7 @@ public:
     INT, UINT,
     LONG, ULONG,
     FLOAT, DOUBLE,
+    UNKNOWN
   };
 
   ArgumentAnalysis(unsigned pos, TYPE type, unsigned sizeInBytes,

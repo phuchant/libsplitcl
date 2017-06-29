@@ -108,16 +108,14 @@ AnalysisPass::runOnFunction(Function &F) {
       } else if (sizeInBytes == 8) {
 	enumType = ArgumentAnalysis::LONG;
       } else {
-	errs() << "Error unable to determine type : " << *elemTy << "\n";
-	exit(EXIT_FAILURE);
+	enumType = ArgumentAnalysis::UNKNOWN;
       }
     } else if (elemTy->isFloatTy()) {
       enumType = ArgumentAnalysis::FLOAT;
     } else if (elemTy->isDoubleTy()) {
       enumType = ArgumentAnalysis::DOUBLE;
     } else {
-      errs() << "Error unable to determine type : " << *elemTy << "\n";
-      exit(EXIT_FAILURE);
+      enumType = ArgumentAnalysis::UNKNOWN;
     }
 
     ArgumentAnalysis *argAnalysis =

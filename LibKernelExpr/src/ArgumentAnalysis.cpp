@@ -108,37 +108,40 @@ ArgumentAnalysis::dump() {
   switch(type) {
   case BOOL:
     std::cerr << "bool\n";
-    break;;
+    break;
   case CHAR:
     std::cerr << "char\n";
-    break;;
+    break;
   case UCHAR:
     std::cerr << "uchar\n";
-    break;;
+    break;
   case SHORT:
     std::cerr << "short\n";
-    break;;
+    break;
   case USHORT:
     std::cerr << "ushort\n";
-    break;;
+    break;
   case INT:
     std::cerr << "int\n";
-    break;;
+    break;
   case UINT:
     std::cerr << "uint\n";
-    break;;
+    break;
   case LONG:
     std::cerr << "long\n";
-    break;;
+    break;
   case ULONG:
     std::cerr << "ulong\n";
-    break;;
+    break;
   case FLOAT:
     std::cerr << "float\n";
-    break;;
+    break;
   case DOUBLE:
     std::cerr << "double\n";
-    break;;
+    break;
+  case UNKNOWN:
+    std::cerr << "unknown\n";
+    break;
   };
 
   std::cerr << "size in bytes : " << sizeInBytes << "\n";
