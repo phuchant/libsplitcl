@@ -37,6 +37,9 @@ namespace libsplit {
   ContextHandle::~ContextHandle() {
     cl_int err = CL_SUCCESS;
 
+    for (unsigned i=0; i<nbDevices; i++)
+      delete queues[i];
+
     for (unsigned i=0; i<nbContexts; i++) {
       err |= real_clReleaseContext(contexts[i]);
       clCheck(err, __FILE__, __LINE__);
