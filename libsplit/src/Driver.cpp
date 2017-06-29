@@ -14,6 +14,8 @@
 
 #include <set>
 
+#include <cstring>
+
 namespace libsplit {
 
   static void waitForEvents(cl_uint num_events_in_wait_list,
