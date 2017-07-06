@@ -243,6 +243,23 @@ namespace libsplit {
     return globalArg2MemHandleMap[i];
   }
 
+  ArgumentAnalysis::TYPE
+  KernelHandle::getArgType(MemoryHandle *m) {
+    bool found = false;
+    unsigned i=0;
+    for (auto I : globalArg2MemHandleMap) {
+      if (I.second == m) {
+	i = I.first;
+	found = true;
+	break;
+      }
+    }
+
+    assert(found);
+
+    return getAnalysis()->getGlobalArgAnalysis(i)->getType();
+  }
+
   void
   KernelHandle::launchAnalysis() {
     // Launch KernelAnalysis Pass over the LLVM IR binary
@@ -278,6 +295,8 @@ namespace libsplit {
     ss << str;
 
     mAnalysis = KernelAnalysis::open(ss);
+
+    assert(!strcmp(mAnalysis->getName(), mName));
 
     // Fill argIsGlobalMap
     unsigned globalId = 0;

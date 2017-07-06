@@ -37,9 +37,12 @@ namespace libsplit {
 
     void computeTransfers(std::vector<DeviceBufferRegion> &dataRequired,
 			  std::vector<DeviceBufferRegion> &dataWrittenOr,
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
 			  std::vector<DeviceBufferRegion> &D2HTransferList,
 			  std::vector<DeviceBufferRegion> &H2DTransferList,
-			  std::vector<DeviceBufferRegion> &OrD2HTransferList);
+			  std::vector<DeviceBufferRegion> &OrD2HTransferList,
+			  std::vector<DeviceBufferRegion>
+			  &AtomicSumD2HTransferList);
 
     bool noMemcpy;
     bool delayedWrite;

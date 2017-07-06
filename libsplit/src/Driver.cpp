@@ -146,7 +146,7 @@ namespace libsplit {
   {
     std::cerr << "driver getPartition " << (t2-t1)*1.0e3 << "\n";
     std::cerr << "driver compute transfers " << (t3-t2)*1.0e3 << "\n";
-    std::cerr << "driver D2H tranfers " << (t4-t3)*1.0e3 << "\n";
+    std::cerr << "driver D2H transfers " << (t4-t3)*1.0e3 << "\n";
     std::cerr << "driver enqueue H2D + subkernels " << (t5-t4)*1.0e3 << "\n";
     std::cerr << "driver finish H2D + subkernels " << (t6-t5)*1.0e3 << "\n";
   }
@@ -174,9 +174,10 @@ namespace libsplit {
     std::vector<DeviceBufferRegion> dataWritten;
     std::vector<DeviceBufferRegion> dataWrittenOr;
     std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
-    std::vector<DeviceBufferRegion> D2HTranfers;
-    std::vector<DeviceBufferRegion> H2DTranfers;
-    std::vector<DeviceBufferRegion> OrD2HTranfers;
+    std::vector<DeviceBufferRegion> D2HTransfers;
+    std::vector<DeviceBufferRegion> H2DTransfers;
+    std::vector<DeviceBufferRegion> OrD2HTransfers;
+    std::vector<DeviceBufferRegion> AtomicSumD2HTransfers;
     bool needOtherExecutionToComplete = false;
     unsigned kerId = 0;
 
@@ -188,21 +189,22 @@ namespace libsplit {
 			    dataWrittenOr, dataWrittenAtomicSum,
 			    &kerId);
 
-    // Atomic sum not implemented yet
-    assert(dataWrittenAtomicSum.empty());
-
     double t2 = get_time();
 
     DEBUG("regions", debugRegions(dataRequired, dataWritten));
 
-    bufferMgr->computeTransfers(dataRequired, dataWrittenOr,
-				D2HTranfers, H2DTranfers, OrD2HTranfers);
+    bufferMgr->computeTransfers(dataRequired,
+				dataWrittenOr, dataWrittenAtomicSum,
+				D2HTransfers, H2DTransfers,
+				OrD2HTransfers, AtomicSumD2HTransfers);
 
-    std::cerr << "OrD2HTranfers.size()="<< OrD2HTranfers.size() << "\n";
+    DEBUG("transfers",
+	  std::cerr << "OrD2HTransfers.size()="<< OrD2HTransfers.size() << "\n";
+	  std::cerr << "AtomicD2HTransfers.size()="<< AtomicSumD2HTransfers.size() << "\n";);
 
     double t3 = get_time();
 
-    startD2HTransfers(kerId, D2HTranfers);
+    startD2HTransfers(kerId, D2HTransfers);
 
     // Barrier
     ContextHandle *context = k->getContext();
@@ -210,7 +212,7 @@ namespace libsplit {
       context->getQueueNo(i)->finish();
     }
 
-    startH2DTransfers(kerId, H2DTranfers);
+    startH2DTransfers(kerId, H2DTransfers);
 
     double t4 = get_time();
 
@@ -219,7 +221,8 @@ namespace libsplit {
 
     enqueueSubKernels(k, subkernels, dataWritten);
 
-    startOrD2HTransfers(kerId, OrD2HTranfers);
+    startOrD2HTransfers(kerId, OrD2HTransfers);
+    startAtomicSumD2HTransfers(kerId, AtomicSumD2HTransfers);
 
     double t5 = get_time();
 
@@ -228,7 +231,8 @@ namespace libsplit {
       context->getQueueNo(i)->finish();
     }
 
-    performHostOrVariableReduction(OrD2HTranfers);
+    performHostOrVariableReduction(OrD2HTransfers);
+    performHostAtomicSumReduction(k, AtomicSumD2HTransfers);
 
     double t6 = get_time();
 
@@ -251,7 +255,8 @@ namespace libsplit {
   Driver::startD2HTransfers(unsigned kerId,
 			    const std::vector<DeviceBufferRegion>
 			    &transferList) {
-    DEBUG("transfers", std::cerr << "start D2H\n");
+    DEBUG("transfers",
+	  std::cerr << "start D2H\n");
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
@@ -269,8 +274,8 @@ namespace libsplit {
 	Event event;
 	events.push_back(event);
 
-	DEBUG("tranfers",
-	      std::cerr << "reading [" << offset << "," << offset+cb-1
+	DEBUG("transfers",
+	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
 	queue->enqueueRead(m->mBuffers[d],
@@ -315,7 +320,7 @@ namespace libsplit {
 
 	DEBUG("transfers",
 	      std::cerr << "writing [" << offset << "," << offset+cb-1
-	      << "] to dev " << d << "\n");
+	      << "] to dev " << d << " on buffer " << m->id << "\n");
 
 	queue->enqueueWrite(m->mBuffers[d],
 			    CL_FALSE,
@@ -361,7 +366,7 @@ namespace libsplit {
 	events.push_back(event);
 
 	DEBUG("transfers",
-	      std::cerr << "reading [" << offset << "," << offset+cb-1
+	      std::cerr << "OrD2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
 	queue->enqueueRead(m->mBuffers[d],
@@ -372,15 +377,51 @@ namespace libsplit {
 			    &events[events.size()-1]);
 	tmpOffset += cb;
       }
-
-      // // 2) update valid data
-      // m->devicesValidData[d].myUnion(transferList[i].region);
-
-      // // 3) pass transfers events to the scheduler
-      // scheduler->setH2DEvents(kerId, d, events);
     }
 
     DEBUG("transfers", std::cerr << "end OR D2H\n");
+  }
+
+  void
+  Driver::startAtomicSumD2HTransfers(unsigned kerId,
+				     const std::vector<DeviceBufferRegion>
+				     &transferList) {
+    DEBUG("transfers", std::cerr << "start ATOMIC SUM D2H\n");
+
+    // For each device
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      std::vector<Event> events;
+      MemoryHandle *m = transferList[i].m;
+      unsigned d = transferList[i].devId;
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+
+      // 1) enqueue transfers
+
+      size_t tmpOffset = 0;
+
+      for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
+	size_t offset = transferList[i].region.mList[j].lb;
+	size_t cb = transferList[i].region.mList[j].hb -
+	  transferList[i].region.mList[j].lb + 1;
+
+	Event event;
+	events.push_back(event);
+
+	DEBUG("transfers",
+	      std::cerr << "AtomicSum D2H: reading [" << offset << "," << offset+cb-1
+	      << "] from dev " << d << "\n");
+
+	queue->enqueueRead(m->mBuffers[d],
+			   CL_FALSE,
+			   offset, cb,
+			   (char *) transferList[i].tmp + tmpOffset,
+			    0, NULL,
+			    &events[events.size()-1]);
+	tmpOffset += cb;
+      }
+    }
+
+    DEBUG("transfers", std::cerr << "end AtomicSum D2H\n");
   }
 
   void
@@ -475,5 +516,100 @@ namespace libsplit {
     }
   }
 
+  template<typename T>
+  void doReduction(MemoryHandle *m, std::vector<DeviceBufferRegion> &regVec) {
+    size_t total_size = regVec[0].region.total();
+    size_t elemSize = sizeof(T);
+    assert(total_size % elemSize == 0);
+
+    for (size_t o = 0; elemSize * o < total_size; o++) {
+      for (unsigned i=1; i<regVec.size(); i++) {
+	((T *) regVec[0].tmp)[0] += ((T *) regVec[i].tmp)[o];
+      }
+    }
+
+    unsigned tmpOffset = 0;
+    for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
+      size_t myoffset = regVec[0].region.mList[id].lb;
+      size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+      assert(mycb % elemSize == 0);
+      for (size_t o=0; elemSize * o < mycb; o++) {
+	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
+	*ptr = *((T *) ((char *) regVec[0].tmp + tmpOffset)) -
+	  *ptr * regVec.size();
+      }
+      tmpOffset += mycb;
+    }
+
+    return;
+  }
+
+  void
+  Driver::performHostAtomicSumReduction(KernelHandle *k,
+					const std::vector<DeviceBufferRegion> &
+					transferList) {
+    if (transferList.empty())
+      return;
+
+    std::set<MemoryHandle *> memHandles;
+    std::map<MemoryHandle *, std::vector<DeviceBufferRegion> > mem2RegMap;
+
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      memHandles.insert(transferList[i].m);
+      mem2RegMap[transferList[i].m].push_back(transferList[i]);
+    }
+
+    for (MemoryHandle *m : memHandles) {
+      std::vector<DeviceBufferRegion> regVec = mem2RegMap[m];
+      assert(regVec.size() > 0);
+
+      // Get argument type
+      ArgumentAnalysis::TYPE type = k->getArgType(m);
+
+      // Perform atomic sum reduction
+      switch(type) {
+      case ArgumentAnalysis::BOOL:
+      case ArgumentAnalysis::UNKNOWN:
+	assert(false);
+      case ArgumentAnalysis::CHAR:
+	break;
+      case ArgumentAnalysis::UCHAR:
+	break;
+      case ArgumentAnalysis::SHORT:
+	  doReduction<short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::USHORT:
+	  doReduction<unsigned short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::INT:
+	  doReduction<int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::UINT:
+	  doReduction<unsigned int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::LONG:
+	  doReduction<long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::ULONG:
+	  doReduction<unsigned long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::FLOAT:
+	  doReduction<float>(m, regVec);
+	  break;
+      case ArgumentAnalysis::DOUBLE:
+	  doReduction<double>(m, regVec);
+	  break;
+      };
+
+      // Update valid data
+      for (unsigned d=0; d<m->mNbBuffers; d++)
+	m->devicesValidData[d].difference(regVec[0].region);
+      m->hostValidData.myUnion(regVec[0].region);
+
+      // Free tmp buffers
+      for (unsigned i=0; i<regVec.size(); ++i)
+	free(regVec[i].tmp);
+    }
+  }
 
 };

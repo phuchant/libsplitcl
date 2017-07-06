@@ -64,6 +64,7 @@ namespace libsplit {
 
     std::vector<int> getArgsValuesAsInt();
     MemoryHandle *getGlobalArgHandle(unsigned i);
+    ArgumentAnalysis::TYPE getArgType(MemoryHandle *m);
 
     const char *getName() const;
 

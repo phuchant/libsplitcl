@@ -66,6 +66,9 @@ namespace libsplit {
     void startOrD2HTransfers(unsigned kerId,
 			     const std::vector<DeviceBufferRegion>
 			     &transferList);
+    void startAtomicSumD2HTransfers(unsigned kerId,
+				    const std::vector<DeviceBufferRegion>
+				    &transferList);
 
     void enqueueSubKernels(KernelHandle *k,
 			   std::vector<SubKernelExecInfo *> &subkernels,
@@ -73,6 +76,9 @@ namespace libsplit {
 
     void performHostOrVariableReduction(const std::vector<DeviceBufferRegion> &
 					transferList);
+    void performHostAtomicSumReduction(KernelHandle *k,
+				       const std::vector<DeviceBufferRegion> &
+				       transferList);
   };
 
 };

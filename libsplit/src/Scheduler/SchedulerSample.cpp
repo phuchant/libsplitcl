@@ -197,6 +197,8 @@ namespace libsplit {
 				  unsigned kerId,
 				  bool *needOtherExecToComplete,
 				  bool *needToInstantiateAnalysis) {
+    (void) SI;
+
     *needOtherExecToComplete = false;
     *needToInstantiateAnalysis = false;
 
@@ -259,8 +261,11 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> D2HTranfers;
       std::vector<DeviceBufferRegion> H2DTranfers;
       std::vector<DeviceBufferRegion> OrD2HTranfers;
+      std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
       buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
-				    D2HTranfers, H2DTranfers, OrD2HTranfers);
+				    SI->dataWrittenAtomicSum,
+				    D2HTranfers, H2DTranfers,
+				    OrD2HTranfers, AtomicSumD2HTranfers);
 
       // Validate data read from device onto host buffer
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
@@ -297,9 +302,12 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> D2HTranfers;
       std::vector<DeviceBufferRegion> H2DTranfers;
       std::vector<DeviceBufferRegion> OrD2HTranfers;
+      std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
       SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
       buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
-				    D2HTranfers, H2DTranfers, OrD2HTranfers);
+				    SI->dataWrittenAtomicSum,
+				    D2HTranfers, H2DTranfers,
+				    OrD2HTranfers, AtomicSumD2HTranfers);
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
 	unsigned d = D2HTranfers[i].devId;
 	size_t size = D2HTranfers[i].region.total();

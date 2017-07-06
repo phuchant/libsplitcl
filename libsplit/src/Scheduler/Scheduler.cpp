@@ -337,9 +337,6 @@ namespace libsplit {
 				 &dataWrittenAtomicSum) {
     KernelAnalysis *analysis = k->getAnalysis();
     // analysis->debug();
-    // TODO: remove this condition when atomic is implemented
-    if (analysis->hasAtomicOrBarrier())
-      return false;
 
     // Check if there if the number of workgroups is sufficient.
     int nbSplits = *size_gr / 3;

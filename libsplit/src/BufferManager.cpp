@@ -69,7 +69,7 @@ namespace libsplit {
 	  toReadDevice[d]->mList[id].hb - toReadDevice[d]->mList[id].lb + 1;
 
 	DEBUG("tranfers",
-	      std::cerr << "reading [" << myoffset << "," << myoffset+mycb-1
+	      std::cerr << "enqueueRead: reading [" << myoffset << "," << myoffset+mycb-1
 	      << "] from dev " << d << "\n");
 
 	queue->enqueueRead(m->mBuffers[d],
@@ -159,7 +159,7 @@ namespace libsplit {
 	    intersection->mList[id].hb - intersection->mList[id].lb + 1;
 
 	  DEBUG("tranfers",
-		std::cerr << "reading [" << myoffset << "," << myoffset+mycb-1
+		std::cerr << "enqueueCopy: reading [" << myoffset << "," << myoffset+mycb-1
 		<< "] from dev " << d << "\n");
 
 	  queue->enqueueRead(src->mBuffers[d],
@@ -202,12 +202,24 @@ namespace libsplit {
 				  std::vector<DeviceBufferRegion> &
 				  dataWrittenOr,
 				  std::vector<DeviceBufferRegion> &
+				  dataWrittenAtomicSum,
+				  std::vector<DeviceBufferRegion> &
 				  D2HTransferList,
 				  std::vector<DeviceBufferRegion> &
 				  H2DTransferList,
 				  std::vector<DeviceBufferRegion> &
-				  OrD2HTransferList) {
-    // For each memory handle and each device, compute missing region.
+				  OrD2HTransferList,
+				  std::vector<DeviceBufferRegion> &
+				  AtomicSumD2HTransferList) {
+
+    // Compute a map of the written atomic sum region for each memory handle.
+    std::map<MemoryHandle *, ListInterval> atomicSumHostRequiredData;
+    for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
+      MemoryHandle *m = dataWrittenAtomicSum[i].m;
+      atomicSumHostRequiredData[m].myUnion(dataWrittenAtomicSum[i].region);
+    }
+
+    // Compute D2H and H2D Transfers for data required by subkernels
     for (unsigned i=0; i<dataRequired.size(); i++) {
       MemoryHandle *m = dataRequired[i].m;
       unsigned d = dataRequired[i].devId;
@@ -231,6 +243,7 @@ namespace libsplit {
       // Compute the data missing on the device (H2D transfer).
       ListInterval *missing = ListInterval::difference(dataRequired[i].region,
 						       m->devicesValidData[d]);
+
       if (missing->total() == 0) {
 	delete missing;
 	continue;
@@ -242,6 +255,13 @@ namespace libsplit {
       ListInterval *hostMissing =
 	ListInterval::difference(*missing, m->hostValidData);
       delete missing;
+
+      ListInterval *atomicSumHostMissing =
+	ListInterval::difference(atomicSumHostRequiredData[m],
+				 m->hostValidData);
+
+      hostMissing->myUnion(*atomicSumHostMissing);
+      delete atomicSumHostMissing;
 
       if (hostMissing->total() == 0) {
 	delete hostMissing;
@@ -270,6 +290,18 @@ namespace libsplit {
 
       // assert(hostMissing->total() == 0);
       delete hostMissing;
+    }
+
+    // Compute Transfers to data written atomic sum
+    for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
+      MemoryHandle *m = dataWrittenAtomicSum[i].m;
+      unsigned d = dataWrittenAtomicSum[i].devId;
+
+      assert(!dataWrittenAtomicSum[i].region.isUndefined());
+
+      DeviceBufferRegion region(m, d, dataWrittenAtomicSum[i].region,
+				malloc(dataWrittenAtomicSum[i].region.total()));
+      AtomicSumD2HTransferList.push_back(region);
     }
 
     // Compute Transfers for data written_or
