@@ -353,17 +353,18 @@ namespace libsplit {
   MultiKernelSolver::createGlpProb() {
     // 1) Create GLPK Problem
 
-    ia = new int[1+1000]();
-    ja = new int[1+1000]();
-    ar = new double[1+1000]();
+    nbRows = nbKernels * (2*nbDevices+1) + nbKernels * (2*nbDevices);
+    nbCols = nbKernels*3 + nbKernels*2*nbDevices;
+
+    ia = new int[1+nbRows*nbCols]();
+    ja = new int[1+nbRows*nbCols]();
+    ar = new double[(nbRows+1)*(nbCols+1)]();
     lp = glp_create_prob();
     glp_term_out(GLP_OFF);
 
     glp_set_prob_name(lp, "kernel granularity");
     glp_set_obj_dir(lp, GLP_MIN);
 
-    nbRows = nbKernels * (2*nbDevices+1) + nbKernels * (2*nbDevices);
-    nbCols = nbKernels*3 + nbKernels*2*nbDevices;
     int rowIdx = 1;
     int colIdx = 1;
     char *name = NULL;
@@ -477,9 +478,9 @@ namespace libsplit {
   MultiKernelSolver::updateGlpMatrix()
   {
     // Reset matrix
-    memset(ia, 0, 1+1000 * sizeof(int));
-    memset(ja, 0, 1+1000 * sizeof(int));
-    memset(ar, 0, 1+1000 * sizeof(double));
+    memset(ia, 0, (1+nbRows*nbCols) * sizeof(int));
+    memset(ja, 0, (1+nbRows*nbCols) * sizeof(int));
+    memset(ar, 0, (1+nbRows*nbCols) * sizeof(double));
 
     // Fill matrix
 
@@ -584,6 +585,7 @@ namespace libsplit {
     }
 
     int nnz = idx-1;
+    assert(nnz <= 1 + nbRows*nbCols);
 
     for (int i=1; i<=nnz; i++) {
       assert(ia[i] <= nbRows);
