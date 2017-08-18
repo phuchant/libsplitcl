@@ -23,12 +23,20 @@ IndexExprMax::dump() const {
   std::cerr << "MAX(";
 
   for (unsigned i=0; i<mNumOperands; i++) {
-    std::cerr << "(";
-    if (mExprs[i])
+    if (mExprs[i]) {
+      if (mExprs[i]->getTag() == IndexExpr::BINOP)
+	std::cerr << "(";
+
       mExprs[i]->dump();
-    else
+
+      if (mExprs[i]->getTag() == IndexExpr::BINOP)
+	std::cerr << ")";
+    } else {
       std::cerr << "NULL";
-    std::cerr << ")";
+    }
+
+    if (i < mNumOperands-1)
+      std::cerr << ",";
   }
 
   std::cerr << ")";

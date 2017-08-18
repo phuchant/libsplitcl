@@ -18,12 +18,16 @@ IndexExprBinop::~IndexExprBinop() {
 
 void
 IndexExprBinop::dump() const {
-  std::cerr << "(";
-  if (expr1)
-   expr1->dump();
-  else
+  if (expr1) {
+    if (expr1->getTag() == IndexExpr::BINOP)
+      std::cerr << "(";
+    expr1->dump();
+    if (expr1->getTag() == IndexExpr::BINOP)
+      std::cerr << ")";
+  }
+  else {
     std::cerr << "NULL";
-  std::cerr << ")";
+  }
 
   switch(op) {
   case IndexExprBinop::Add:
@@ -61,12 +65,15 @@ IndexExprBinop::dump() const {
     break;
   };
 
-  std::cerr << "(";
-  if (expr2)
+  if (expr2) {
+    if (expr2->getTag() == IndexExpr::BINOP)
+      std::cerr << "(";
     expr2->dump();
-  else
+    if (expr2->getTag() == IndexExpr::BINOP)
+      std::cerr << ")";
+  } else {
     std::cerr << "NULL";
-  std::cerr << ")";
+  }
 }
 
 IndexExpr *

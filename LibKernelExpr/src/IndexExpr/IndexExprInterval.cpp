@@ -17,11 +17,25 @@ IndexExprInterval::~IndexExprInterval() {
 void
 IndexExprInterval::dump() const {
   std::cerr << "[";
-  if (lb)
+  if (lb) {
+    if (lb->getTag() == IndexExpr::BINOP)
+      std::cerr << "(";
+
     lb->dump();
+
+    if (lb->getTag() == IndexExpr::BINOP)
+      std::cerr << ")";
+  }
   std::cerr << ",";
-  if (hb)
+  if (hb) {
+    if (hb->getTag() == IndexExpr::BINOP)
+      std::cerr << "(";
+
     hb->dump();
+
+    if (hb->getTag() == IndexExpr::BINOP)
+      std::cerr << ")";
+  }
   std::cerr << "]";
 }
 

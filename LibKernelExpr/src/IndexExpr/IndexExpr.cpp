@@ -3,6 +3,8 @@
 #include "IndexExpr/IndexExprArg.h"
 #include "IndexExpr/IndexExprBinop.h"
 #include "IndexExpr/IndexExprConst.h"
+#include "IndexExpr/IndexExprLB.h"
+#include "IndexExpr/IndexExprHB.h"
 #include "IndexExpr/IndexExprInterval.h"
 #include "IndexExpr/IndexExprMax.h"
 #include "IndexExpr/IndexExprOCL.h"
@@ -113,6 +115,12 @@ IndexExpr::toDot(std::stringstream &stream) const {
     break;
   case IndexExpr::MAX:
     stream << "max";
+    break;
+  case IndexExpr::LB:
+    stream << "lb";
+    break;
+  case IndexExpr::HB:
+    stream << "hb";
     break;
   }
 }
@@ -431,6 +439,16 @@ IndexExpr::open(std::stringstream &s) {
 	exprs[i] = open(s);
       return new IndexExprMax(numOperands, exprs);
     }
+  case LB:
+    {
+      IndexExpr *expr = open(s);
+      return new IndexExprLB(expr);
+    }
+  case HB:
+    {
+      IndexExpr *expr = open(s);
+      return new IndexExprHB(expr);
+    }
   };
 
   return NULL;
@@ -496,6 +514,20 @@ IndexExpr::injectArgsValues(IndexExpr *expr, const std::vector<int> &values) {
 	IndexExpr *current = maxExpr->getExprN(i);
 	injectArgsValues(current, values);
       }
+      return;
+    }
+  case LB:
+    {
+      IndexExprLB *lbExpr = static_cast<IndexExprLB *>(expr);
+      IndexExpr *expr = lbExpr->getExpr();
+      injectArgsValues(expr, values);
+      return;
+    }
+  case HB:
+    {
+      IndexExprHB *hbExpr = static_cast<IndexExprHB *>(expr);
+      IndexExpr *expr = hbExpr->getExpr();
+      injectArgsValues(expr, values);
       return;
     }
 
@@ -678,7 +710,36 @@ IndexExpr::computeBounds(const IndexExpr *expr, long *lb, long *hb) {
       *lb = maxLb;
       *hb = maxHb;
       assert(*lb <= *hb);
+      return true;
+    }
+  case LB:
+    {
+      const IndexExprLB *lbExpr = static_cast<const IndexExprLB *>(expr);
+      long lbL, hbL;
 
+      if (!computeBounds(lbExpr->getExpr(), &lbL, &hbL))
+	  return false;
+      assert(lbL <= hbL);
+
+
+      *lb = lbL;
+      *hb = lbL;
+      assert(*lb <= *hb);
+      return true;
+    }
+  case HB:
+    {
+      const IndexExprHB *hbExpr = static_cast<const IndexExprHB *>(expr);
+      long lbH, hbH;
+
+      if (!computeBounds(hbExpr->getExpr(), &lbH, &hbH))
+	  return false;
+      assert(lbH <= hbH);
+
+
+      *lb = hbH;
+      *hb = hbH;
+      assert(*lb <= *hb);
       return true;
     }
 

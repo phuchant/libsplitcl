@@ -48,7 +48,9 @@ public:
     BINOP = 4,
     INTERVAL = 5,
     UNKNOWN = 6,
-    MAX = 7
+    MAX = 7,
+    LB = 8,
+    HB = 9,
   };
 
 protected:
