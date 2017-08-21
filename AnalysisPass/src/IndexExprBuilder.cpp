@@ -362,26 +362,24 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
     return NULL;
   }
 
-  start = new IndexExprLB(start);
-
-  // IndexExpr *start = buildExpr(phi->getIncomingValue(1));
   IndexExpr *step = buildExpr(op1);
   IndexExpr *hb = buildExpr(icmp->getOperand(1));
 
+  // for (i=start; i<higherbound; i += step)
   // nbiter = (higherbound - start + step - 1) / step
   // backedgecount = (higherbound - start + step - 1) / step - 1
   IndexExpr *hb_minus_start = new IndexExprBinop(IndexExprBinop::Sub,
 						 new IndexExprHB(hb),
-						 new IndexExprLB(start));
+						 start);
   IndexExpr *step_minus_one = new IndexExprBinop(IndexExprBinop::Sub,
-						 step,
+						 new IndexExprHB(step),
 						 new IndexExprConst(1));
   IndexExpr *add = new IndexExprBinop(IndexExprBinop::Add,
 				      hb_minus_start,
 				      step_minus_one);
   IndexExpr *div = new IndexExprBinop(IndexExprBinop::Div,
 				      add,
-				      step->clone());
+				      new IndexExprHB(step->clone()));
   IndexExpr *backedgeCount = new IndexExprBinop(IndexExprBinop::Sub,
 						div,
 						new IndexExprConst(1));
@@ -499,9 +497,9 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 
       IndexExpr *end
 	= new IndexExprBinop(IndexExprBinop::Add,
-			     new IndexExprLB(start->clone()),
+			     new IndexExprHB(start->clone()),
 			     new IndexExprBinop(IndexExprBinop::Mul,
-						step, backedgeCount));
+						new IndexExprHB(step), new IndexExprLB(backedgeCount)));
       *indexExpr = new IndexExprInterval(start, end);
 #define DEBUG_TYPE "loop"
       DEBUG(
