@@ -390,6 +390,7 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 void
 IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 			    const llvm::Argument **arg) {
+  static bool computingBackedge = false;
   unsigned type = scev->getSCEVType();
 
   switch(type) {
@@ -415,6 +416,22 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
       }
 
       *indexExpr =  buildExpr(scUnknown->getValue());
+
+      // When computing the number of loop backedge taken for an SCEV with
+      // OpenCL ID (e.g. get_global_id, get_group_id) we wants the higher bound
+      // of the ID interval.
+      //
+      // example :
+      // int y = get_group_id(1) * get_local_size(0) + get_local_id(1) + 1;
+      // int step = get_local_size(1);
+      // int end = (get_group_id(1) + 1) * get_local_size(0) + 1;
+      // for (int yy = y; yy < end; yy += step)
+      // array[yy] = ...
+
+      if (computingBackedge) {
+	*indexExpr = new IndexExprHB(*indexExpr);
+	computingBackedge = false;
+      }
       return;
     }
 
@@ -487,7 +504,9 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
       const SCEV *scevBackedgeCount = scalarEvolution->getBackedgeTakenCount(L);
 
       if (scevBackedgeCount->getSCEVType() != scCouldNotCompute) {
+	computingBackedge = true;
       	parseSCEV(scevBackedgeCount, &backedgeCount, arg);
+	computingBackedge = false;
       } else {
       	// Fallback, not sure if it works in all cases.
 	backedgeCount = tryComputeLoopBackedCount(const_cast<Loop *>(L));
