@@ -3,6 +3,7 @@
 #include <Utils/Debug.h>
 
 #include <cassert>
+#include <cstring>
 
 namespace libsplit {
 
@@ -25,6 +26,7 @@ namespace libsplit {
 			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
 			  unsigned *id) /* OUT */ {
     SubKernelSchedInfo *SI = NULL;
     bool needToInstantiateAnalysis = false;
@@ -105,6 +107,7 @@ namespace libsplit {
       SI->dataWritten.clear();
       SI->dataWrittenOr.clear();
       SI->dataWrittenAtomicSum.clear();
+      SI->dataWrittenAtomicMax.clear();
       for (unsigned i=0; i<SI->subkernels.size(); i++) {
 	delete SI->subkernels[i];
       }
@@ -112,6 +115,12 @@ namespace libsplit {
 
       unsigned dimOrder[work_dim];
       getSortedDim(work_dim, global_work_size, local_work_size, dimOrder);
+
+      // Hack to split the second dimension for clHeat
+      if (!strcmp(k->getName(), "getMaxDerivIntel")) {
+	dimOrder[0] = 1; dimOrder[1] = 0;
+      }
+
       bool canSplit = false;
 
 
@@ -148,7 +157,9 @@ namespace libsplit {
 			      local_work_size, dimOrder[i], SI->real_granu_dscr,
 			      &SI->real_size_gr, SI->subkernels,
 			      SI->dataRequired, SI->dataWritten,
-			      SI->dataWrittenOr, SI->dataWrittenAtomicSum);
+			      SI->dataWrittenOr,
+			      SI->dataWrittenAtomicSum,
+			      SI->dataWrittenAtomicMax);
 	if (canSplit)
 	  break;
       }
@@ -171,6 +182,7 @@ namespace libsplit {
     dataWritten = SI->dataWritten;
     dataWrittenOr = SI->dataWrittenOr;
     dataWrittenAtomicSum = SI->dataWrittenAtomicSum;
+    dataWrittenAtomicMax = SI->dataWrittenAtomicMax;
   }
 
   void
@@ -333,8 +345,8 @@ namespace libsplit {
 				 std::vector<DeviceBufferRegion> &dataRequired,
 				 std::vector<DeviceBufferRegion> &dataWritten,
 				 std::vector<DeviceBufferRegion> &dataWrittenOr,
-				 std::vector<DeviceBufferRegion>
-				 &dataWrittenAtomicSum) {
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
     KernelAnalysis *analysis = k->getAnalysis();
     // analysis->debug();
 
@@ -411,7 +423,7 @@ namespace libsplit {
 
       for (int i=0; i<nbSplits; i++) {
 	ListInterval readRegion, writtenRegion, writtenOrRegion,
-	  writtenAtomicSumRegion;
+	  writtenAtomicSumRegion, writtenAtomicMaxRegion;
 	unsigned devId = granu_dscr[i*3];
 
 	// Compute read region
@@ -436,10 +448,16 @@ namespace libsplit {
 	  writtenAtomicSumRegion.
 	    myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
 
+	// Compute written_atomic_max region
+	if (argAnalysis->isWrittenAtomicMaxBySplitNo(i))
+	  writtenAtomicMaxRegion.
+	    myUnion(argAnalysis->getWrittenAtomicMaxSubkernelRegion(i));
+
 	// The data written have to be send to the device.
 	readRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
 	readRegion.myUnion(argAnalysis->getWrittenOrSubkernelRegion(i));
 	readRegion.myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
+	readRegion.myUnion(argAnalysis->getWrittenAtomicMaxSubkernelRegion(i));
 
 	if (readRegion.total() > 0 || readRegion.isUndefined())
 	  dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));
@@ -451,6 +469,9 @@ namespace libsplit {
 	if (writtenAtomicSumRegion.total() > 0)
 	  dataWrittenAtomicSum.
 	    push_back(DeviceBufferRegion(m, devId, writtenAtomicSumRegion));
+	if (writtenAtomicMaxRegion.total() > 0)
+	  dataWrittenAtomicMax.
+	    push_back(DeviceBufferRegion(m, devId, writtenAtomicMaxRegion));
       }
     }
 
@@ -477,7 +498,8 @@ namespace libsplit {
     (void) dataRequired;
     (void) dataWritten;
 
-    // TODO: add dataWrittenOr and dataWrittenAtomicSum to dataWritten
+    // TODO: add dataWrittenOr, dataWrittenAtomicSum dataWrittenAtomicMax to
+    // dataWritten
 
     std::cerr << "Error instantiateSingleDeviceAnalysis not implemented yet !"
 	      << "\n";

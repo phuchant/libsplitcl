@@ -174,10 +174,12 @@ namespace libsplit {
     std::vector<DeviceBufferRegion> dataWritten;
     std::vector<DeviceBufferRegion> dataWrittenOr;
     std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
+    std::vector<DeviceBufferRegion> dataWrittenAtomicMax;
     std::vector<DeviceBufferRegion> D2HTransfers;
     std::vector<DeviceBufferRegion> H2DTransfers;
     std::vector<DeviceBufferRegion> OrD2HTransfers;
     std::vector<DeviceBufferRegion> AtomicSumD2HTransfers;
+    std::vector<DeviceBufferRegion> AtomicMaxD2HTransfers;
     bool needOtherExecutionToComplete = false;
     unsigned kerId = 0;
 
@@ -186,21 +188,31 @@ namespace libsplit {
 			    &needOtherExecutionToComplete,
 			    subkernels,
 			    dataRequired, dataWritten,
-			    dataWrittenOr, dataWrittenAtomicSum,
+			    dataWrittenOr,
+			    dataWrittenAtomicSum, dataWrittenAtomicMax,
 			    &kerId);
 
     double t2 = get_time();
 
     DEBUG("regions", debugRegions(dataRequired, dataWritten));
 
+    DEBUG("granu",
+    std::cerr << k->getName() << ": ";
+	  for (SubKernelExecInfo *ki : subkernels)
+	    std::cerr << "<" << ki->device << "," << ki->global_work_size[ki->splitdim] << "> ";
+	  std::cerr << "\n";);
+
     bufferMgr->computeTransfers(dataRequired,
-				dataWrittenOr, dataWrittenAtomicSum,
+				dataWrittenOr,
+				dataWrittenAtomicSum, dataWrittenAtomicMax,
 				D2HTransfers, H2DTransfers,
-				OrD2HTransfers, AtomicSumD2HTransfers);
+				OrD2HTransfers,
+				AtomicSumD2HTransfers, AtomicMaxD2HTransfers);
 
     DEBUG("transfers",
 	  std::cerr << "OrD2HTransfers.size()="<< OrD2HTransfers.size() << "\n";
-	  std::cerr << "AtomicD2HTransfers.size()="<< AtomicSumD2HTransfers.size() << "\n";);
+	  std::cerr << "AtomicSumD2HTransfers.size()="<< AtomicSumD2HTransfers.size() << "\n";
+	  std::cerr << "AtomicMaxD2HTransfers.size()="<< AtomicMaxD2HTransfers.size() << "\n";);
 
     double t3 = get_time();
 
@@ -223,6 +235,7 @@ namespace libsplit {
 
     startOrD2HTransfers(kerId, OrD2HTransfers);
     startAtomicSumD2HTransfers(kerId, AtomicSumD2HTransfers);
+    startAtomicMaxD2HTransfers(kerId, AtomicMaxD2HTransfers);
 
     double t5 = get_time();
 
@@ -233,6 +246,7 @@ namespace libsplit {
 
     performHostOrVariableReduction(OrD2HTransfers);
     performHostAtomicSumReduction(k, AtomicSumD2HTransfers);
+    performHostAtomicMaxReduction(k, AtomicMaxD2HTransfers);
 
     double t6 = get_time();
 
@@ -425,6 +439,48 @@ namespace libsplit {
   }
 
   void
+  Driver::startAtomicMaxD2HTransfers(unsigned kerId,
+				     const std::vector<DeviceBufferRegion>
+				     &transferList) {
+    DEBUG("transfers", std::cerr << "start ATOMIC MAX D2H\n");
+
+    // For each device
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      std::vector<Event> events;
+      MemoryHandle *m = transferList[i].m;
+      unsigned d = transferList[i].devId;
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+
+      // 1) enqueue transfers
+
+      size_t tmpOffset = 0;
+
+      for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
+	size_t offset = transferList[i].region.mList[j].lb;
+	size_t cb = transferList[i].region.mList[j].hb -
+	  transferList[i].region.mList[j].lb + 1;
+
+	Event event;
+	events.push_back(event);
+
+	DEBUG("transfers",
+	      std::cerr << "AtomicMax D2H: reading [" << offset << "," << offset+cb-1
+	      << "] from dev " << d << "\n");
+
+	queue->enqueueRead(m->mBuffers[d],
+			   CL_FALSE,
+			   offset, cb,
+			   (char *) transferList[i].tmp + tmpOffset,
+			    0, NULL,
+			    &events[events.size()-1]);
+	tmpOffset += cb;
+      }
+    }
+
+    DEBUG("transfers", std::cerr << "end AtomicMax D2H\n");
+  }
+
+  void
   Driver::enqueueSubKernels(KernelHandle *k,
 			    std::vector<SubKernelExecInfo *> &subkernels,
 			    const std::vector<DeviceBufferRegion> &dataWritten)
@@ -612,4 +668,103 @@ namespace libsplit {
     }
   }
 
+  template<typename T>
+  void doMaxReduction(MemoryHandle *m, std::vector<DeviceBufferRegion> &regVec) {
+    size_t total_size = regVec[0].region.total();
+    size_t elemSize = sizeof(T);
+    assert(total_size % elemSize == 0);
+
+    for (size_t o = 0; elemSize * o < total_size; o++) {
+      for (unsigned i=1; i<regVec.size(); i++) {
+	T a = ((T *) regVec[0].tmp)[0];
+	T b = ((T *) regVec[i].tmp)[o];
+	printf("reduce max %d %d\n", a, b);
+	((T *) regVec[0].tmp)[0] = b > a ? b : a;
+      }
+    }
+
+    unsigned tmpOffset = 0;
+    for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
+      size_t myoffset = regVec[0].region.mList[id].lb;
+      size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+      assert(mycb % elemSize == 0);
+      for (size_t o=0; elemSize * o < mycb; o++) {
+	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
+	*ptr = *((T *) ((char *) regVec[0].tmp + tmpOffset)) -
+	  *ptr * regVec.size();
+      }
+      tmpOffset += mycb;
+    }
+
+    return;
+  }
+
+
+  void
+  Driver::performHostAtomicMaxReduction(KernelHandle *k,
+					const std::vector<DeviceBufferRegion> &
+					transferList) {
+    if (transferList.empty())
+      return;
+
+    std::set<MemoryHandle *> memHandles;
+    std::map<MemoryHandle *, std::vector<DeviceBufferRegion> > mem2RegMap;
+
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      memHandles.insert(transferList[i].m);
+      mem2RegMap[transferList[i].m].push_back(transferList[i]);
+    }
+
+    for (MemoryHandle *m : memHandles) {
+      std::vector<DeviceBufferRegion> regVec = mem2RegMap[m];
+      assert(regVec.size() > 0);
+
+      // Get argument type
+      ArgumentAnalysis::TYPE type = k->getArgType(m);
+
+      // Perform atomic sum reduction
+      switch(type) {
+      case ArgumentAnalysis::BOOL:
+      case ArgumentAnalysis::UNKNOWN:
+	assert(false);
+      case ArgumentAnalysis::CHAR:
+	break;
+      case ArgumentAnalysis::UCHAR:
+	break;
+      case ArgumentAnalysis::SHORT:
+	  doMaxReduction<short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::USHORT:
+	  doMaxReduction<unsigned short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::INT:
+	  doMaxReduction<int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::UINT:
+	  doMaxReduction<unsigned int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::LONG:
+	  doMaxReduction<long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::ULONG:
+	  doMaxReduction<unsigned long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::FLOAT:
+	  doMaxReduction<float>(m, regVec);
+	  break;
+      case ArgumentAnalysis::DOUBLE:
+	  doMaxReduction<double>(m, regVec);
+	  break;
+      };
+
+      // Update valid data
+      for (unsigned d=0; d<m->mNbBuffers; d++)
+	m->devicesValidData[d].difference(regVec[0].region);
+      m->hostValidData.myUnion(regVec[0].region);
+
+      // Free tmp buffers
+      for (unsigned i=0; i<regVec.size(); ++i)
+	free(regVec[i].tmp);
+    }
+  }
 };

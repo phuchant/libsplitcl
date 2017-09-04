@@ -204,19 +204,30 @@ namespace libsplit {
 				  std::vector<DeviceBufferRegion> &
 				  dataWrittenAtomicSum,
 				  std::vector<DeviceBufferRegion> &
+				  dataWrittenAtomicMax,
+				  std::vector<DeviceBufferRegion> &
 				  D2HTransferList,
 				  std::vector<DeviceBufferRegion> &
 				  H2DTransferList,
 				  std::vector<DeviceBufferRegion> &
 				  OrD2HTransferList,
 				  std::vector<DeviceBufferRegion> &
-				  AtomicSumD2HTransferList) {
+				  AtomicSumD2HTransferList,
+				  std::vector<DeviceBufferRegion> &
+				  AtomicMaxD2HTransferList) {
 
     // Compute a map of the written atomic sum region for each memory handle.
     std::map<MemoryHandle *, ListInterval> atomicSumHostRequiredData;
     for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
       MemoryHandle *m = dataWrittenAtomicSum[i].m;
       atomicSumHostRequiredData[m].myUnion(dataWrittenAtomicSum[i].region);
+    }
+
+    // Compute a map of the written atomic max region for each memory handle.
+    std::map<MemoryHandle *, ListInterval> atomicMaxHostRequiredData;
+    for (unsigned i=0; i<dataWrittenAtomicMax.size(); i++) {
+      MemoryHandle *m = dataWrittenAtomicMax[i].m;
+      atomicMaxHostRequiredData[m].myUnion(dataWrittenAtomicMax[i].region);
     }
 
     // Compute D2H and H2D Transfers for data required by subkernels
@@ -263,6 +274,13 @@ namespace libsplit {
       hostMissing->myUnion(*atomicSumHostMissing);
       delete atomicSumHostMissing;
 
+      ListInterval *atomicMaxHostMissing =
+	ListInterval::difference(atomicMaxHostRequiredData[m],
+				 m->hostValidData);
+
+      hostMissing->myUnion(*atomicMaxHostMissing);
+      delete atomicMaxHostMissing;
+
       if (hostMissing->total() == 0) {
 	delete hostMissing;
 	continue;
@@ -302,6 +320,18 @@ namespace libsplit {
       DeviceBufferRegion region(m, d, dataWrittenAtomicSum[i].region,
 				malloc(dataWrittenAtomicSum[i].region.total()));
       AtomicSumD2HTransferList.push_back(region);
+    }
+
+    // Compute Transfers to data written atomic max
+    for (unsigned i=0; i<dataWrittenAtomicMax.size(); i++) {
+      MemoryHandle *m = dataWrittenAtomicMax[i].m;
+      unsigned d = dataWrittenAtomicMax[i].devId;
+
+      assert(!dataWrittenAtomicMax[i].region.isUndefined());
+
+      DeviceBufferRegion region(m, d, dataWrittenAtomicMax[i].region,
+				malloc(dataWrittenAtomicMax[i].region.total()));
+      AtomicMaxD2HTransferList.push_back(region);
     }
 
     // Compute Transfers for data written_or

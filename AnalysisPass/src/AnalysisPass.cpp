@@ -121,15 +121,16 @@ AnalysisPass::runOnFunction(Function &F) {
     ArgumentAnalysis *argAnalysis =
       new ArgumentAnalysis(arg->getArgNo(), enumType, sizeInBytes,
 			   arg2LoadExprs[arg], arg2StoreExprs[arg],
-			   arg2OrExprs[arg], arg2AtomicSumExprs[arg]);
+			   arg2OrExprs[arg],
+			   arg2AtomicSumExprs[arg], arg2AtomicMaxExprs[arg]);
     argsAnalysis.push_back(argAnalysis);
   }
 
-// #ifdef DEBUG
-//   for (unsigned i=0; i<argsAnalysis.size(); i++) {
-//     argsAnalysis[i]->dump();
-//   }
-// #endif
+#ifdef DEBUG
+  for (unsigned i=0; i<argsAnalysis.size(); i++) {
+    argsAnalysis[i]->dump();
+  }
+#endif
 
   std::vector<size_t> argsSizes;
   for (Argument &arg : F.getArgumentList()) {
@@ -185,6 +186,9 @@ AnalysisPass::computeWorkItemExpr(llvm::Instruction *inst,
     return;
   case WorkItemExpr::ATOMICSUM:
     arg2AtomicSumExprs[arg].push_back(new WorkItemExpr(expr, guards));
+    return;
+  case WorkItemExpr::ATOMICMAX:
+    arg2AtomicMaxExprs[arg].push_back(new WorkItemExpr(expr, guards));
     return;
   }
 }
@@ -242,17 +246,32 @@ AnalysisPass::analyze(Function *F) {
 	computeWorkItemExpr(inst, loadExpr, loadArg, WorkItemExpr::LOAD);
       }
 
-      if (funcName.find("llvm.memset") != StringRef::npos) {
+      else if (funcName.find("llvm.memset") != StringRef::npos) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->buildMemsetExpr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::STORE);
       }
 
-      if (funcName.find("atomic_") != StringRef::npos ||
-	  funcName.find("atom_") != StringRef::npos) {
+      else if (funcName.equals("_Z10atomic_maxPU7CLlocalVii")) {
+	// Do nothing
+      }
+
+      else if (funcName.equals("atomic_add_float") ||
+	       funcName.equals("_Z10atomic_incPU8CLglobalVj")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICSUM);
+      }
+
+      // Only int and long (signed or unsigned)
+      else if (funcName.equals("_Z10atomic_maxPU8CLglobalVii")) {
+	IndexExpr *expr = NULL; const Argument *arg = NULL;
+	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
+	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICMAX);
+      }
+
+      else {
+	errs() << "WARNING: unhandled call inst : " << *CI << "\n";
       }
     }
   }

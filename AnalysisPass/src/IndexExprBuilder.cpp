@@ -121,28 +121,18 @@ IndexExprBuilder::buildMemsetExpr(llvm::CallInst *CI, IndexExpr **expr,
 void
 IndexExprBuilder::build_atom_Expr(llvm::CallInst *CI, IndexExpr **expr,
 			   const llvm::Argument **arg) {
-  // Handle OpenCL atomic_inc and atomic_add_float from Pannotia
-  StringRef funcName = CI->getCalledFunction()->getName();
-  if (funcName.equals("atomic_add_float") ||
-      funcName.equals("_Z10atomic_incPU8CLglobalVj")) {
-    const SCEV *scev = scalarEvolution->getSCEV(CI->getOperand(0));
-    parseSCEV(scev, expr, arg);
-    assert(*expr);
-    Type *opTy = CI->getOperand(0)->getType();
-    assert(isa<PointerType>(opTy));
-    PointerType *PT = cast<PointerType>(opTy);
-    Type *elemTy = PT->getElementType();
-    unsigned sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
-    IndexExpr *elemSizeInterval =
-      new IndexExprInterval(new IndexExprConst(0),
+  const SCEV *scev = scalarEvolution->getSCEV(CI->getOperand(0));
+  parseSCEV(scev, expr, arg);
+  assert(*expr);
+  Type *opTy = CI->getOperand(0)->getType();
+  assert(isa<PointerType>(opTy));
+  PointerType *PT = cast<PointerType>(opTy);
+  Type *elemTy = PT->getElementType();
+  unsigned sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
+  IndexExpr *elemSizeInterval =
+    new IndexExprInterval(new IndexExprConst(0),
 			    new IndexExprConst(sizeInBytes-1));
-    *expr = new IndexExprBinop(IndexExprBinop::Add, *expr, elemSizeInterval);
-    return;
-  }
-
-  errs() << funcName << " not handled, only atomic_inc and atomic_add_float "
-	 << "are handled so far !\n";
-  assert(false);
+  *expr = new IndexExprBinop(IndexExprBinop::Add, *expr, elemSizeInterval);
 }
 
 IndexExpr *
