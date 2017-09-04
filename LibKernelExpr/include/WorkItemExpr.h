@@ -10,7 +10,8 @@ public:
     LOAD,
     STORE,
     OR,
-    ATOMICSUM
+    ATOMICSUM,
+    ATOMICMAX
   };
 
   WorkItemExpr(const IndexExpr &wiExpr, const std::vector<GuardExpr *> &guards);

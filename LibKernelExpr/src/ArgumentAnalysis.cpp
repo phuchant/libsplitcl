@@ -14,7 +14,9 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
 				   &storeExprs,
 				   const std::vector<WorkItemExpr *> &orExprs,
 				   const std::vector<WorkItemExpr *>
-				   &atomicSumExprs)
+				   &atomicSumExprs,
+				   const std::vector<WorkItemExpr *>
+				   &atomicMaxExprs)
   : nbSplit(0), pos(pos), type(type), sizeInBytes(sizeInBytes),
     mReadBoundsComputed(false), mWriteBoundsComputed(false),
     mOrBoundsComputed(false), mAtomicSumBoundsComputed(false),
@@ -24,6 +26,7 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
   storeWorkItemExprs = new std::vector<WorkItemExpr *>();
   orWorkItemExprs = new std::vector<WorkItemExpr *>();
   atomicSumWorkItemExprs = new std::vector<WorkItemExpr *>();
+  atomicMaxWorkItemExprs = new std::vector<WorkItemExpr *>();
 
   for (unsigned i=0; i<loadExprs.size(); i++)
     loadWorkItemExprs->push_back(loadExprs[i]->clone());
@@ -33,6 +36,8 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
     orWorkItemExprs->push_back(orExprs[i]->clone());
   for (unsigned i=0; i<atomicSumExprs.size(); i++)
     atomicSumWorkItemExprs->push_back(atomicSumExprs[i]->clone());
+  for (unsigned i=0; i<atomicMaxExprs.size(); i++)
+    atomicMaxWorkItemExprs->push_back(atomicMaxExprs[i]->clone());
 }
 
 ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
@@ -40,10 +45,12 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
 				   std::vector<WorkItemExpr *> *loadExprs,
 				   std::vector<WorkItemExpr *> *storeExprs,
 				   std::vector<WorkItemExpr *> *orExprs,
-				   std::vector<WorkItemExpr *> *atomicSumExprs)
+				   std::vector<WorkItemExpr *> *atomicSumExprs,
+				   std::vector<WorkItemExpr *> *atomicMaxExprs)
   : nbSplit(0), pos(pos), type(type), sizeInBytes(sizeInBytes),
     loadWorkItemExprs(loadExprs), storeWorkItemExprs(storeExprs),
     orWorkItemExprs(orExprs), atomicSumWorkItemExprs(atomicSumExprs),
+    atomicMaxWorkItemExprs(atomicMaxExprs),
     mReadBoundsComputed(false), mWriteBoundsComputed(false),
     mOrBoundsComputed(false), mAtomicSumBoundsComputed(false),
     areDisjoint(false), analysisHasBeenRun(false)
@@ -63,6 +70,9 @@ ArgumentAnalysis::~ArgumentAnalysis() {
   for (unsigned i=0; i<atomicSumWorkItemExprs->size(); ++i)
     delete (*atomicSumWorkItemExprs)[i];
   delete atomicSumWorkItemExprs;
+  for (unsigned i=0; i<atomicMaxWorkItemExprs->size(); ++i)
+    delete (*atomicMaxWorkItemExprs)[i];
+  delete atomicMaxWorkItemExprs;
 
   for (unsigned i=0; i<loadKernelExprs.size(); ++i)
     delete loadKernelExprs[i];
@@ -72,6 +82,8 @@ ArgumentAnalysis::~ArgumentAnalysis() {
     delete orKernelExprs[i];
   for (unsigned i=0; i<atomicSumKernelExprs.size(); ++i)
     delete atomicSumKernelExprs[i];
+  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i)
+    delete atomicMaxKernelExprs[i];
 
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
     for (unsigned j=0; j<loadSubKernelsExprs[i].size(); ++j) {
@@ -93,6 +105,11 @@ ArgumentAnalysis::~ArgumentAnalysis() {
       delete atomicSumSubKernelsExprs[i][j];
     }
   }
+  for (unsigned i=0; i<atomicMaxSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<atomicMaxSubKernelsExprs[i].size(); ++j) {
+      delete atomicMaxSubKernelsExprs[i][j];
+    }
+  }
 }
 
 void
@@ -102,6 +119,7 @@ ArgumentAnalysis::dump() {
 	    << " nb store: " << storeWorkItemExprs->size()
 	    << " nb or: " << orWorkItemExprs->size()
 	    << " nb atomic sum: " << atomicSumWorkItemExprs->size()
+	    << " nb atomic max: " << atomicMaxWorkItemExprs->size()
 	    << "\033[0m\n";
 
   std::cerr << "arg type : ";
@@ -166,6 +184,11 @@ ArgumentAnalysis::dump() {
       (*atomicSumWorkItemExprs)[i]->dump();
       std::cerr << "\n";
   }
+  for (unsigned i=0; i<atomicMaxWorkItemExprs->size(); ++i) {
+      std::cerr << "\033[1mAtomicMax work item expression : \033[0m\n";
+      (*atomicMaxWorkItemExprs)[i]->dump();
+      std::cerr << "\n";
+  }
 
   if (!analysisHasBeenRun)
     return;
@@ -226,6 +249,20 @@ ArgumentAnalysis::dump() {
     std::cerr << "\033[1mAtomicSum region not computed\033[0m\n";
   }
 
+  if (mAtomicMaxBoundsComputed) {
+    std::cerr << "\033[1mAtomicMax kernel region :\033[0m\n";
+    writtenAtomicMaxKernelRegions.debug();
+    std::cerr << "\n";
+
+    for (unsigned i=0; i<nbSplit; i++) {
+      std::cerr << "atomicMax subkernel " << i << " region : ";
+      writtenAtomicMaxSubkernelsRegions[i].debug();
+      std::cerr << "\n";
+    }
+  } else {
+    std::cerr << "\033[1mAtomicMax region not computed\033[0m\n";
+  }
+
   if (areDisjoint) {
     std::cerr << "\033[1mSubkernels kernels are disjoint !"
   	      << "\033[0m\n";
@@ -246,6 +283,7 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
 	    << " nb store: " << storeWorkItemExprs->size()
 	    << " nb or: " << orWorkItemExprs->size()
 	    << " nb atomic sum: " << atomicSumWorkItemExprs->size()
+	    << " nb atomic max: " << atomicMaxWorkItemExprs->size()
 	    << "\033[0m\n";
 
   for (unsigned i=0; i<splitNDRanges.size(); ++i) {
@@ -268,6 +306,9 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
   for (unsigned i=0; i<atomicSumKernelExprs.size(); ++i)
     delete atomicSumKernelExprs[i];
   atomicSumKernelExprs.resize(0);
+  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i)
+    delete atomicMaxKernelExprs[i];
+  atomicMaxKernelExprs.resize(0);
 
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
     for (unsigned j=0; j<loadSubKernelsExprs[i].size(); ++j) {
@@ -297,6 +338,13 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
 
     atomicSumSubKernelsExprs[i].resize(0);
   }
+  for (unsigned i=0; i<atomicMaxSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<atomicMaxSubKernelsExprs[i].size(); ++j) {
+      delete atomicMaxSubKernelsExprs[i][j];
+    }
+
+    atomicMaxSubKernelsExprs[i].resize(0);
+  }
 
   nbSplit = splitNDRanges.size();
 
@@ -307,12 +355,14 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
   storeSubKernelsExprs.resize(nbSplit);
   orSubKernelsExprs.resize(nbSplit);
   atomicSumSubKernelsExprs.resize(nbSplit);
+  atomicMaxSubKernelsExprs.resize(nbSplit);
 
   // Clear regions
   readKernelRegions.clear();
   writtenKernelRegions.clear();
   writtenOrKernelRegions.clear();
   writtenAtomicSumKernelRegions.clear();
+  writtenAtomicMaxKernelRegions.clear();
   readSubkernelsRegions.clear();
   readSubkernelsRegions.resize(nbSplit);
   writtenSubkernelsRegions.clear();
@@ -321,6 +371,8 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
   writtenOrSubkernelsRegions.resize(nbSplit);
   writtenAtomicSumSubkernelsRegions.clear();
   writtenAtomicSumSubkernelsRegions.resize(nbSplit);
+  writtenAtomicMaxSubkernelsRegions.clear();
+  writtenAtomicMaxSubkernelsRegions.resize(nbSplit);
 
   // Build load kernel and subkernel expressions
   for (unsigned idx=0; idx<loadWorkItemExprs->size(); idx++) {
@@ -419,10 +471,36 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
     }
   }
 
+  // Build atomicMax kernel and subkernel expressions
+  for (unsigned idx=0; idx<atomicMaxWorkItemExprs->size(); idx++) {
+
+    // Inject arguments values into expression
+    (*atomicMaxWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
+
+    // Build kernel expression (ndRange)
+    IndexExpr *kernelExpr =
+      (*atomicMaxWorkItemExprs)[idx]->getKernelExpr(ndRange);
+
+    // NULL if kernelexpr is out of guards
+    if (kernelExpr)
+      atomicMaxKernelExprs.push_back(kernelExpr);
+
+    // Build subkernel expressions
+    for (unsigned i=0; i<nbSplit; ++i) {
+      IndexExpr *splitExpr =
+	(*atomicMaxWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+
+      // NULL if kernelexpr is out of guards
+      if (splitExpr)
+	atomicMaxSubKernelsExprs[i].push_back(splitExpr);
+    }
+  }
+
   // Compute subkernels bounds
   computeRegions();
 
-  if (!mWriteBoundsComputed || !mOrBoundsComputed || !mAtomicSumBoundsComputed)
+  if (!mWriteBoundsComputed || !mOrBoundsComputed ||
+      !mAtomicSumBoundsComputed || !mAtomicMaxBoundsComputed)
     return;
 
   // Find out if subkernels region are disjoint
@@ -437,6 +515,7 @@ ArgumentAnalysis::canSplit() const {
   return
     ( !isWrittenOr() || mOrBoundsComputed) &&
     ( !isWrittenAtomicSum() || mAtomicSumBoundsComputed) &&
+    ( !isWrittenAtomicMax() || mAtomicMaxBoundsComputed) &&
     ( !isWritten() || (mWriteBoundsComputed && areDisjoint) );
 }
 
@@ -461,6 +540,11 @@ ArgumentAnalysis::isWrittenAtomicSum() const {
 }
 
 bool
+ArgumentAnalysis::isWrittenAtomicMax() const {
+  return atomicMaxWorkItemExprs->size() > 0;
+}
+
+bool
 ArgumentAnalysis::isReadBySplitNo(unsigned i) const {
   return loadSubKernelsExprs[i].size() > 0;
 }
@@ -478,6 +562,11 @@ ArgumentAnalysis::isWrittenOrBySplitNo(unsigned i) const {
 bool
 ArgumentAnalysis::isWrittenAtomicSumBySplitNo(unsigned i) const {
   return atomicSumSubKernelsExprs[i].size() > 0;
+}
+
+bool
+ArgumentAnalysis::isWrittenAtomicMaxBySplitNo(unsigned i) const {
+  return atomicMaxSubKernelsExprs[i].size() > 0;
 }
 
 unsigned
@@ -498,6 +587,11 @@ ArgumentAnalysis::getNumOr() const {
 unsigned
 ArgumentAnalysis::getNumAtomicSum() const {
   return atomicSumWorkItemExprs->size();
+}
+
+unsigned
+ArgumentAnalysis::getNumAtomicMax() const {
+  return atomicMaxWorkItemExprs->size();
 }
 
 void
@@ -521,6 +615,10 @@ ArgumentAnalysis::write(std::stringstream &s) const {
   s.write(reinterpret_cast<const char*>(&nbAtomicSum), sizeof(nbAtomicSum));
   for (unsigned i=0; i<nbAtomicSum; ++i)
     (*atomicSumWorkItemExprs)[i]->write(s);
+  unsigned nbAtomicMax = atomicMaxWorkItemExprs->size();
+  s.write(reinterpret_cast<const char*>(&nbAtomicMax), sizeof(nbAtomicMax));
+  for (unsigned i=0; i<nbAtomicMax; ++i)
+    (*atomicMaxWorkItemExprs)[i]->write(s);
 }
 
 void
@@ -569,8 +667,16 @@ ArgumentAnalysis::open(std::stringstream &s) {
   for (unsigned i=0; i<nbAtomicSum; ++i)
     atomicSumExprs->push_back(WorkItemExpr::open(s));
 
+  unsigned nbAtomicMax;
+  s.read(reinterpret_cast<char *>(&nbAtomicMax), sizeof(nbAtomicMax));
+  std::vector<WorkItemExpr *> *atomicMaxExprs =
+    new std::vector<WorkItemExpr *>();
+  for (unsigned i=0; i<nbAtomicMax; ++i)
+    atomicMaxExprs->push_back(WorkItemExpr::open(s));
+
   return new ArgumentAnalysis(pos, type, sizeInBytes,
-			      loadExprs, storeExprs, orExprs, atomicSumExprs);
+			      loadExprs, storeExprs, orExprs,
+			      atomicSumExprs, atomicMaxExprs);
 }
 
 ArgumentAnalysis *
@@ -608,6 +714,11 @@ ArgumentAnalysis::getWrittenAtomicSumKernelRegion() const {
 }
 
 const ListInterval &
+ArgumentAnalysis::getWrittenAtomicMaxKernelRegion() const {
+  return writtenAtomicMaxKernelRegions;
+}
+
+const ListInterval &
 ArgumentAnalysis::getReadSubkernelRegion(unsigned i) const {
   return readSubkernelsRegions[i];
 }
@@ -625,6 +736,11 @@ ArgumentAnalysis::getWrittenOrSubkernelRegion(unsigned i) const {
 const ListInterval &
 ArgumentAnalysis::getWrittenAtomicSumSubkernelRegion(unsigned i) const {
   return writtenAtomicSumSubkernelsRegions[i];
+}
+
+const ListInterval &
+ArgumentAnalysis::getWrittenAtomicMaxSubkernelRegion(unsigned i) const {
+  return writtenAtomicMaxSubkernelsRegions[i];
 }
 
 ArgumentAnalysis::TYPE
@@ -657,6 +773,11 @@ ArgumentAnalysis::getAtomicSumWorkItemExpr(unsigned n) const {
   return (*atomicSumWorkItemExprs)[n];
 }
 
+const WorkItemExpr *
+ArgumentAnalysis::getAtomicMaxWorkItemExpr(unsigned n) const {
+  return (*atomicMaxWorkItemExprs)[n];
+}
+
 const IndexExpr *
 ArgumentAnalysis::getLoadKernelExpr(unsigned n) const {
   return loadKernelExprs[n];
@@ -675,6 +796,11 @@ ArgumentAnalysis::getOrKernelExpr(unsigned n) const {
 const IndexExpr *
 ArgumentAnalysis::getAtomicSumKernelExpr(unsigned n) const {
   return atomicSumKernelExprs[n];
+}
+
+const IndexExpr *
+ArgumentAnalysis::getAtomicMaxKernelExpr(unsigned n) const {
+  return atomicMaxKernelExprs[n];
 }
 
 const IndexExpr *
@@ -697,12 +823,18 @@ ArgumentAnalysis::getAtomicSumSubkernelExpr(unsigned splitno, unsigned useno) co
   return atomicSumSubKernelsExprs[splitno][useno];
 }
 
+const IndexExpr *
+ArgumentAnalysis::getAtomicMaxSubkernelExpr(unsigned splitno, unsigned useno) const {
+  return atomicMaxSubKernelsExprs[splitno][useno];
+}
+
 void
 ArgumentAnalysis::computeRegions() {
   mReadBoundsComputed = true;
   mWriteBoundsComputed = true;
   mOrBoundsComputed = true;
   mAtomicSumBoundsComputed = true;
+  mAtomicMaxBoundsComputed = true;
 
 
   // Compute read kernel region
@@ -765,6 +897,21 @@ ArgumentAnalysis::computeRegions() {
     writtenAtomicSumKernelRegions.add(Interval(lb, hb));
   }
 
+  // Compute written atomic max kernel region
+  writtenAtomicMaxKernelRegions.clear();
+  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i) {
+    long lb, hb;
+    if (!IndexExpr::computeBounds(atomicMaxKernelExprs[i], &lb, &hb)) {
+      mAtomicMaxBoundsComputed = false;
+      break;
+    }
+
+    lb = lb < 0 ? 0 : lb;
+    assert(lb <= hb);
+
+    writtenAtomicMaxKernelRegions.add(Interval(lb, hb));
+  }
+
   // Compute read subkernels regions
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
     readSubkernelsRegions[i].clear();
@@ -819,7 +966,7 @@ ArgumentAnalysis::computeRegions() {
     }
   }
 
-  // Compute written subkernels regions
+  // Compute written atomic sum subkernels regions
   for (unsigned i=0; i<atomicSumSubKernelsExprs.size(); ++i) {
     writtenAtomicSumSubkernelsRegions[i].clear();
 
@@ -834,6 +981,24 @@ ArgumentAnalysis::computeRegions() {
       assert(lb <= hb);
 
       writtenAtomicSumSubkernelsRegions[i].add(Interval(lb, hb));
+    }
+  }
+
+  // Compute written atomic max subkernels regions
+  for (unsigned i=0; i<atomicMaxSubKernelsExprs.size(); ++i) {
+    writtenAtomicMaxSubkernelsRegions[i].clear();
+
+    for (unsigned j=0; j<atomicMaxSubKernelsExprs[i].size(); ++j) {
+      long lb, hb;
+      if (!IndexExpr::computeBounds(atomicMaxSubKernelsExprs[i][j], &lb, &hb)) {
+	mAtomicMaxBoundsComputed = false;
+	break;
+      }
+
+      lb = lb < 0 ? 0 : lb;
+      assert(lb <= hb);
+
+      writtenAtomicMaxSubkernelsRegions[i].add(Interval(lb, hb));
     }
   }
 }
@@ -885,4 +1050,9 @@ ArgumentAnalysis::orBoundsComputed() const {
 bool
 ArgumentAnalysis::atomicSumBoundsComputed() const {
   return mAtomicSumBoundsComputed;
+}
+
+bool
+ArgumentAnalysis::atomicMaxBoundsComputed() const {
+  return mAtomicMaxBoundsComputed;
 }
