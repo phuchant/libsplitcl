@@ -195,18 +195,38 @@ namespace libsplit {
 				     cl_program_info param_name,
 				     size_t param_value_size, void *param_value,
 				     size_t *param_value_size_ret) {
+    cl_int err;
+
     if (!hasBeenBuilt) {
       std::cerr << "Error: getProgramBuildInfo called but proram has not been built"
 		<< " yet!\n";
       exit(EXIT_FAILURE);
     }
 
-    cl_int err;
-    err =  real_clGetProgramBuildInfo(getProgramFromDevice(device),
-				      device,
-				      param_name,
-				      param_value_size, param_value,
-				      param_value_size_ret);
+
+    bool deviceFound = false;
+    for (auto I : dev2ProgramMap) {
+      if (I.first == device) {
+	deviceFound = true;
+	break;
+      }
+    }
+
+    if (!deviceFound) {
+      auto I  = dev2ProgramMap.begin();
+      err =  real_clGetProgramBuildInfo(I->second,
+					I->first,
+					param_name,
+					param_value_size, param_value,
+					param_value_size_ret);
+    } else {
+      err =  real_clGetProgramBuildInfo(getProgramFromDevice(device),
+					device,
+					param_name,
+					param_value_size, param_value,
+					param_value_size_ret);
+    }
+
     clCheck(err, __FILE__, __LINE__);
   }
 
