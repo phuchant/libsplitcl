@@ -71,28 +71,15 @@ IndexExprMax::getWorkgroupExpr(const NDRange &ndRange) const {
 }
 
 IndexExpr *
-IndexExprMax::getKernelExpr(const NDRange &ndRange) const {
+IndexExprMax::getKernelExpr(const NDRange &ndRange,
+			    const std::vector<GuardExpr *> & guards,
+			    const std::vector<IndirectionValue> &
+			    indirValues) const {
   IndexExpr *kl_exprs[mNumOperands];
 
   for (unsigned i=0; i<mNumOperands; i++) {
     if (mExprs[i])
-      kl_exprs[i] = mExprs[i]->getKernelExpr(ndRange);
-    else
-      kl_exprs[i] = new IndexExprUnknown("null");
-  }
-
-  return new IndexExprMax(mNumOperands, kl_exprs);
-}
-
-IndexExpr *
-IndexExprMax::getKernelExprWithGuards(const NDRange &ndRange,
-				      const std::vector<GuardExpr *> &guards)
-  const {
-  IndexExpr *kl_exprs[mNumOperands];
-
-  for (unsigned i=0; i<mNumOperands; i++) {
-    if (mExprs[i])
-      kl_exprs[i] = mExprs[i]->getKernelExprWithGuards(ndRange, guards);
+      kl_exprs[i] = mExprs[i]->getKernelExpr(ndRange, guards, indirValues);
     else
       kl_exprs[i] = new IndexExprUnknown("null");
   }

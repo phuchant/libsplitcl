@@ -45,11 +45,6 @@ bool
 AnalysisPass::runOnFunction(Function &F) {
   MD = F.getParent();
 
-  syclRangeType = MD->getTypeByName("class.cl::sycl::accessor_range");
-
-  if (syclRangeType)
-    errs() << "sycl range type = " << *syclRangeType << "\n";
-
   // Check if it is a kernel
   if (!isKernel(&F))
     return false;
@@ -68,11 +63,11 @@ AnalysisPass::runOnFunction(Function &F) {
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
   // Get Data Layout
-  dataLayout = &F.getParent()->getDataLayout(); //new DataLayout(dataLayoutStr);
+  dataLayout = &F.getParent()->getDataLayout();
 
 
   indexExprBuilder = new IndexExprBuilder(loopInfo, scalarEvolution,
-					  dataLayout, syclRangeType);
+					  dataLayout);
   conditionBuilder = new ConditionBuilder(*PDT, indexExprBuilder);
 
   analyze(&F);
@@ -126,11 +121,11 @@ AnalysisPass::runOnFunction(Function &F) {
     argsAnalysis.push_back(argAnalysis);
   }
 
-#ifdef DEBUG
-  for (unsigned i=0; i<argsAnalysis.size(); i++) {
-    argsAnalysis[i]->dump();
-  }
-#endif
+// #ifdef DEBUG
+//   for (unsigned i=0; i<argsAnalysis.size(); i++) {
+//     argsAnalysis[i]->dump();
+//   }
+// #endif
 
   std::vector<size_t> argsSizes;
   for (Argument &arg : F.getArgumentList()) {
@@ -146,12 +141,28 @@ AnalysisPass::runOnFunction(Function &F) {
     argsSizes.push_back(sizeInBytes);
   }
 
+  std::vector<ArgIndirectionRegionExpr *> indirectionExprs;
+  unsigned numIndirections = indexExprBuilder->getNumIndirections();
+  for (unsigned i=0; i<numIndirections; i++) {
+    const LoadIndirectionExpr *expr = indexExprBuilder->getIndirection(i);
+    const std::vector<GuardExpr *> *guards =
+      conditionBuilder->buildBasicBlockGuards(expr->inst->getParent());
+    unsigned id = expr->id;
+    unsigned pos = expr->arg->getArgNo();
+    unsigned numBytes = expr->numBytes;
+    WorkItemExpr *wi_expr = new WorkItemExpr(*(expr->expr), *guards);
+    indirectionExprs.push_back(new ArgIndirectionRegionExpr(id, pos, numBytes,
+							    wi_expr));
+  }
+
   KernelAnalysis *analysis =
     new KernelAnalysis(F.getName().data(),
 		       F.arg_size(),
 		       argsSizes,
 		       argsAnalysis,
-		       hasAtomic(F) || hasGlobalBarrier(F));
+		       indirectionExprs);
+
+  // analysis->debug();
 
   // Pass number of global arguments, ArgumentAnalysis objects,
   // number of constant arguments and their positions
@@ -269,6 +280,18 @@ AnalysisPass::analyze(Function *F) {
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICMAX);
       }
+
+      else if (funcName.equals("_Z12get_group_idj") ||
+	       funcName.equals("_Z12get_local_idj") ||
+	       funcName.equals("_Z7barrierj") ||
+	       funcName.equals("llvm.fmuladd.f32") ||
+	       funcName.equals("llvm.fmuladd.f64") ||
+	       funcName.equals("_Z3expf") ||
+	       funcName.equals("_Z3logf")) {
+	// Do nothing
+	continue;
+      }
+
 
       else {
 	errs() << "WARNING: unhandled call inst : " << *CI << "\n";

@@ -46,7 +46,6 @@ namespace {
     llvm::ScalarEvolution *scalarEvolution;
 
     const llvm::DataLayout *dataLayout;
-    llvm::Type *syclRangeType;
 
     std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
     arg2LoadExprs;

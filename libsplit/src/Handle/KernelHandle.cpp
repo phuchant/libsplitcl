@@ -257,7 +257,7 @@ namespace libsplit {
 
     assert(found);
 
-    return getAnalysis()->getGlobalArgAnalysis(i)->getType();
+    return getAnalysis()->getArgType(i);
   }
 
   void

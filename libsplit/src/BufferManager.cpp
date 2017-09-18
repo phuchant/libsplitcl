@@ -197,6 +197,51 @@ namespace libsplit {
   }
 
   void
+  BufferManager::computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
+					     std::vector<DeviceBufferRegion> &D2HTransferList) {
+    for (unsigned i=0; i<regions.size(); i++) {
+      MemoryHandle *m = regions[i].m;
+      size_t lb = regions[i].lb;
+      size_t hb = regions[i].hb;
+      size_t cb = regions[i].cb;
+
+      // Compute data required.
+      ListInterval required;
+      required.add(Interval(lb, lb+cb-1));
+      required.add(Interval(hb, hb+cb-1));
+
+      // Compute data missing on the host.
+      ListInterval *missing = ListInterval::difference(required, m->hostValidData);
+      if (missing->total() == 0) {
+	delete missing;
+	continue;
+      }
+
+      // Compute D2H tranfers required to get the data missing back to the host.
+      for (unsigned d=0; d<m->mNbBuffers; d++) {
+	ListInterval *intersection =
+	  ListInterval::intersection(m->devicesValidData[d], *missing);
+	if (intersection->total() == 0) {
+	  delete intersection;
+	  continue;
+	}
+
+	D2HTransferList.push_back(DeviceBufferRegion(m, d, *intersection));
+	missing->difference(*intersection);
+	delete intersection;
+	if (missing->total() == 0)
+	  break;
+      }
+
+      std::cerr << "missing > 0 for indirection " << regions[i].indirectionId
+		<< " subkernel " << regions[i].subkernelId << " lb=" << regions[i].lb
+		<< " hb=" << regions[i].hb << " cb=" << regions[i].cb << "\n";
+      assert(missing->total() == 0);
+    }
+  }
+
+
+  void
   BufferManager::computeTransfers(std::vector<DeviceBufferRegion> &
 				  dataRequired,
 				  std::vector<DeviceBufferRegion> &

@@ -1,12 +1,13 @@
-#ifndef INDEXEXPRHB_H
-#define INDEXEXPRHB_H
+#ifndef INDEXEXPRINDIRECTION_H
+#define INDEXEXPRINDIRECTION_H
 
-#include "IndexExpr.h"
+#include "IndexExprInterval.h"
 
-class IndexExprHB : public IndexExpr {
+class IndexExprIndirection : public IndexExprInterval {
 public:
-  IndexExprHB(IndexExpr *expr);
-  virtual ~IndexExprHB();
+  IndexExprIndirection(unsigned no);
+  IndexExprIndirection(unsigned no, IndexExpr *lb, IndexExpr *hb);
+  virtual ~IndexExprIndirection();
 
   virtual void dump() const;
   virtual IndexExpr *clone() const;
@@ -15,14 +16,13 @@ public:
 				   const std::vector<GuardExpr *> & guards,
 				   const std::vector<IndirectionValue> &
 				   indirValues) const;
-  virtual void toDot(std::stringstream &stream) const;
   virtual void write(std::stringstream &s) const;
 
-  const IndexExpr *getExpr() const;
-  IndexExpr *getExpr();
+  unsigned getNo() const;
 
 private:
-  IndexExpr *expr;
+  unsigned no;
 };
 
-#endif /* INDEXEXPRHB_H */
+#endif /* INDEXEXPRINDIRECTION_H */
+

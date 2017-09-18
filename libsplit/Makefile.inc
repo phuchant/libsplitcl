@@ -13,8 +13,9 @@ KERNELEXPR_LIB_PATH = $(PWD)/../LibKernelExpr/lib
 MKGR_INCLUDE_PATH=/home/phuchant/mytools/mkgr-1.2/include
 MKGR_LIB_PATH=/home/phuchant/mytools/mkgr-1.2/lib
 
+GLPK_INCLUDE_PATH=/home/counilh/install_soft/glpk-4.55_install/include
 GLPK_LIB_PATH=/home/counilh/install_soft/glpk-4.55_install/lib/
 
 
-USE_HWLOC=0
-CUDA=1
+USE_HWLOC=1
+CUDA=0

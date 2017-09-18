@@ -9,6 +9,7 @@
 #include <vector>
 
 class GuardExpr;
+class IndirectionValue;
 
 class IndexExpr {
 public:
@@ -18,11 +19,10 @@ public:
   virtual void dump() const = 0;
   virtual IndexExpr *clone() const = 0;
   virtual IndexExpr *getWorkgroupExpr(const NDRange &ndRange) const;
-  virtual IndexExpr *getKernelExpr(const NDRange &ndRange) const;
-  virtual IndexExpr *getKernelExprWithGuards(const NDRange &ndRange,
-					     const std::vector<GuardExpr *> &
-					     guards) const;
-
+  virtual IndexExpr *getKernelExpr(const NDRange &ndRange,
+				   const std::vector<GuardExpr *> & guards,
+				   const std::vector<IndirectionValue> &
+				   indirValues) const;
 
 
   virtual void write(std::stringstream &s) const;
@@ -37,6 +37,8 @@ public:
   static bool computeBounds(const IndexExpr *expr, long *lb, long *hb);
 
   static void injectArgsValues(IndexExpr *expr, const std::vector<int> &values);
+  static void injectIndirValues(IndexExpr *expr,
+				const std::vector<std::pair<int, int> >&values);
   static IndexExpr *open(std::stringstream &s);
   static IndexExpr *openFromFile(const std::string &name);
 
@@ -51,6 +53,7 @@ public:
     MAX = 7,
     LB = 8,
     HB = 9,
+    INDIR = 10,
   };
 
 protected:

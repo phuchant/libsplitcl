@@ -13,12 +13,14 @@ OBJ	= $(SRC_DIR)/ArgumentAnalysis.o \
 	$(SRC_DIR)/IndexExpr/IndexExprConst.o \
 	$(SRC_DIR)/IndexExpr/IndexExprHB.o \
 	$(SRC_DIR)/IndexExpr/IndexExprInterval.o \
+	$(SRC_DIR)/IndexExpr/IndexExprIndirection.o \
 	$(SRC_DIR)/IndexExpr/IndexExprLB.o \
 	$(SRC_DIR)/IndexExpr/IndexExprMax.o \
 	$(SRC_DIR)/IndexExpr/IndexExprOCL.o \
 	$(SRC_DIR)/IndexExpr/IndexExprUnknown.o \
 	$(SRC_DIR)/IndexExpr/IndexExprValue.o \
 	$(SRC_DIR)/Interval.o\
+	$(SRC_DIR)/Indirection.o\
 	$(SRC_DIR)/KernelAnalysis.o\
 	$(SRC_DIR)/ListInterval.o\
 	$(SRC_DIR)/NDRange.o \

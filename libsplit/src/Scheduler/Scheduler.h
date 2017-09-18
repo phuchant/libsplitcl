@@ -36,11 +36,21 @@ namespace libsplit {
     Scheduler(BufferManager *buffManager, unsigned nbDevices);
     virtual ~Scheduler();
 
+
+    virtual void
+    getIndirectionRegions(KernelHandle *k, /* IN */
+			  size_t work_dim, /* IN */
+			  const size_t *global_work_offset, /* IN */
+			  const size_t *global_work_size, /* IN */
+			  const size_t *local_work_size, /* IN */
+			  std::vector<BufferIndirectionRegion> &regions /* OUT */);
+
+    virtual bool
+    setIndirectionValues(KernelHandle *k, /* IN */
+			 const std::vector<BufferIndirectionRegion> &values /* IN */);
+
+
     virtual void getPartition(KernelHandle *k, /* IN */
-			      size_t work_dim, /* IN */
-			      const size_t *global_work_offset, /* IN */
-			      const size_t *global_work_size, /* IN */
-			      const size_t *local_work_size, /* IN */
 			      bool *needOtherExecutionToComplete, /* OUT */
 			      std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
@@ -94,16 +104,12 @@ namespace libsplit {
     void getSortedDim(cl_uint work_dim,
 		      const size_t *global_work_size,
 		      const size_t *local_work_size,
-		      unsigned *order);
+		      unsigned order[3]);
 
     bool instantiateAnalysis(KernelHandle *k,
-			     cl_uint work_dim,
-			     const size_t *global_work_offset,
-			     const size_t *global_work_size,
-			     const size_t *local_work_size,
-			     unsigned splitDim,
 			     double *granu_dscr,
 			     int *size_gr,
+			     unsigned splitDim,
 			     std::vector<SubKernelExecInfo *> &subkernels,
 			     std::vector<DeviceBufferRegion> &dataRequired,
 			     std::vector<DeviceBufferRegion> &dataWritten,
@@ -131,7 +137,11 @@ namespace libsplit {
 
 
     struct SubKernelSchedInfo {
-      SubKernelSchedInfo(unsigned nbDevices) {
+      SubKernelSchedInfo(unsigned nbDevices)
+      : hasInitPartition(false), hasPartition(false),
+	needOtherExecToComplete(false),
+	needToInstantiateAnalysis(true),
+	currentDim(0) {
 	req_size_gr = real_size_gr = size_perf_dscr = nbDevices*3;
 	req_granu_dscr = new double[req_size_gr];
 	real_granu_dscr = new double[real_size_gr];
@@ -156,6 +166,14 @@ namespace libsplit {
 	delete[] H2DEvents;
 	delete[] D2HEvents;
       }
+
+      bool hasInitPartition;
+      bool hasPartition;
+      bool needOtherExecToComplete;
+      bool needToInstantiateAnalysis;
+
+      unsigned currentDim;
+      unsigned dimOrder[3];
 
       // granularity descriptor
       int req_size_gr;

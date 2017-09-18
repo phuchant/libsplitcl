@@ -447,6 +447,9 @@ ConditionBuilder::pushGuardExprRight(std::vector<GuardExpr *> *guards,
 
 std::vector<GuardExpr *> *
 ConditionBuilder::buildBasicBlockGuards(llvm::BasicBlock *BB) {
+  indexExprBuilder->disableIndirections();
+
+
   // Get guards conditions and truths (i.e if the condition must be true or
   // false to execute expression).
   std::vector<const ICmpInst *> conds;
@@ -510,5 +513,6 @@ ConditionBuilder::buildBasicBlockGuards(llvm::BasicBlock *BB) {
     }
   }
 
+  indexExprBuilder->enableIndirections();
   return guards;
 }

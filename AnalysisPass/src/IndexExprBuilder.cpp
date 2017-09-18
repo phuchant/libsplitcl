@@ -10,14 +10,20 @@ using namespace std;
 
 IndexExprBuilder::IndexExprBuilder(llvm::LoopInfo *loopInfo,
 				   llvm::ScalarEvolution *scalarEvolution,
-				   const llvm::DataLayout *dataLayout,
-				   llvm::Type *syclRangeType)
+				   const llvm::DataLayout *dataLayout)
  : loopInfo(loopInfo),
    scalarEvolution(scalarEvolution),
    dataLayout(dataLayout),
-   syclRangeType(syclRangeType) {}
+   computingBackedge(false),
+   indirectionsDisabled(false),
+   buildingIndirection(false),
+   doubleIndirectionReached(false),
+   numIndirections(0) {}
 
-IndexExprBuilder::~IndexExprBuilder() {}
+IndexExprBuilder::~IndexExprBuilder() {
+  for (unsigned i=0; i<indirections.size(); i++)
+    delete indirections[i];
+}
 
 void
 IndexExprBuilder::buildLoadExpr(llvm::LoadInst *LI, IndexExpr **expr,
@@ -155,7 +161,8 @@ IndexExprBuilder::buildExpr(Value *value) {
     if (isa<ConstantInt>(user))
       return new IndexExprConst(cast<ConstantInt>(user)->getSExtValue());
 
-    errs() << "buildexpr unknown constant : " << *user << "\n";
+    if (isa<UndefValue>(user))
+      return new IndexExprUnknown("undef");
 
     /* Non integer */
     return new IndexExprUnknown("unknown constant");
@@ -178,21 +185,7 @@ IndexExprBuilder::buildExpr(Value *value) {
 
     case Instruction::PHI:
       {
-	// PHINode *phi = cast<PHINode>(inst);
-	// errs() << "phi = " << phi << "\n";
-	// errs() << "phi = " << *phi << "\n";
-
-	// // Try to compute phi with SCEV
-	// const SCEV *scev = scalarEvolution->getSCEV(phi);
-	// errs() << "scev : " << *scev << "\n";
-	// IndexExpr *ret = NULL;
-	// const Argument *arg = NULL;
-	// errs() << "avant parse\n";
-	// parseSCEV(scev, &ret, &arg);
-	// errs() << "apres parse\n";
-
-	// if (arg != NULL)
-	  return new IndexExprUnknown("PHI");
+	return new IndexExprUnknown("PHI");
       }
 
     case Instruction::Add:
@@ -256,40 +249,75 @@ IndexExprBuilder::buildExpr(Value *value) {
     case Instruction::ZExt:
       return buildExpr(user->getOperand(0));
 
+      /* Load instruction :
+       *
+       * Build workitem indirection expression if the argument loaded is
+       * global and if this is not a double indirection.
+       *
+       * e.g.
+       * __kernel void k(__global int *A,
+       *                 __global int *B
+       *                 __global int *C
+       *                  __local int *D) {
+       *  x = A[B[id]];    // OK
+       *  y = A[B[C[id]]]; // NOK
+       *  z = A[D[id]];    // NOK
+       * }
+       */
     case Instruction::Load:
       {
-	if (!syclRangeType)
+
+	if (indirectionsDisabled)
 	  return new IndexExprUnknown("load");
+
+	if (buildingIndirection) {
+	  doubleIndirectionReached = true;
+	  return new IndexExprUnknown("doubleindir");
+	}
 
 	LoadInst *load = cast<LoadInst>(user);
 
-	// If its a sycl range buildExpr, otherwise return unknown instr.
+	// Check if an index expression has alreaby been computed for this load.
+	if (load2IndirectionID.find(load) != load2IndirectionID.end()) {
+	  if (computingBackedge)
+	    return new IndexExprHB(new IndexExprIndirection(load2IndirectionID[load]));
+	  return new IndexExprIndirection(load2IndirectionID[load]);
+	}
 
-	if (load->getPointerAddressSpace() != 0) {
+	IndexExpr *e = NULL;
+	const Argument *arg = NULL;
+	buildingIndirection = true;
+	buildLoadExpr(load, &e, &arg);
+	buildingIndirection = false;
+
+	if (doubleIndirectionReached) {
+	  doubleIndirectionReached = false;
+	  return new IndexExprUnknown("doubleindir");
+	}
+
+	if (!arg) {
+	  delete e;
 	  return new IndexExprUnknown("load");
 	}
 
+	// This is a single indirection for a global argument.
+	// We save the indirection into a map and return an
+	// IndexExprIndirection.
+	unsigned numBytes = dataLayout->getTypeAllocSize(load->getType());
+	unsigned id = numIndirections++;
+	indirections.push_back(new LoadIndirectionExpr(id, arg, numBytes, e,
+						       load));
+	load2IndirectionID[load] = id;
 
-	BitCastInst *bitcast = dyn_cast<BitCastInst>(load->getPointerOperand());
+	if (computingBackedge)
+	  return new IndexExprHB(new IndexExprIndirection(id));
 
-	if (!bitcast)
-	  return new IndexExprUnknown("load");
-
-	PointerType *ptrTy = dyn_cast<PointerType>(bitcast->getSrcTy());
-
-	if (!ptrTy)
-	  return new IndexExprUnknown("load");
-
-
-	if (ptrTy->getElementType() != syclRangeType)
-	  return new IndexExprUnknown("load");
-
-
-	if (!isa<Argument>(bitcast->getOperand(0)))
-	  return new IndexExprUnknown("load");
-
-	return buildExpr(bitcast->getOperand(0));
+	return new IndexExprIndirection(id);
       }
+
+    case Instruction::Select:
+      return new IndexExprUnknown("select");
+
     default:
       errs() << "unknown instr : " << *inst << "\n";
       return new IndexExprUnknown("Unknown instr");
@@ -380,7 +408,6 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 void
 IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 			    const llvm::Argument **arg) {
-  static bool computingBackedge = false;
   unsigned type = scev->getSCEVType();
 
   switch(type) {
@@ -418,10 +445,9 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
       // for (int yy = y; yy < end; yy += step)
       // array[yy] = ...
 
-      if (computingBackedge) {
+      if (computingBackedge)
 	*indexExpr = new IndexExprHB(*indexExpr);
-	computingBackedge = false;
-      }
+
       return;
     }
 
@@ -523,4 +549,25 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
     *indexExpr = new IndexExprUnknown("unknown scev");
     return;
   };
+}
+
+unsigned
+IndexExprBuilder::getNumIndirections() {
+  return numIndirections;
+}
+
+const LoadIndirectionExpr *
+IndexExprBuilder::getIndirection(unsigned n) {
+  assert(n < indirections.size());
+  return indirections[n];
+}
+
+void
+IndexExprBuilder::disableIndirections() {
+  indirectionsDisabled = true;
+}
+
+void
+IndexExprBuilder::enableIndirections() {
+  indirectionsDisabled = false;
 }

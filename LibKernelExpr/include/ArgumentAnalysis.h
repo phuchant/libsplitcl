@@ -1,6 +1,7 @@
 #ifndef ARGUMENTANALYSIS_H
 #define ARGUMENTANALYSIS_H
 
+#include "Indirection.h"
 #include "ListInterval.h"
 #include "NDRange.h"
 #include "WorkItemExpr.h"
@@ -49,11 +50,6 @@ public:
   const WorkItemExpr *getOrWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getAtomicSumWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getAtomicMaxWorkItemExpr(unsigned n) const;
-  const IndexExpr *getLoadKernelExpr(unsigned n) const;
-  const IndexExpr *getStoreKernelExpr(unsigned n) const;
-  const IndexExpr *getOrKernelExpr(unsigned n) const;
-  const IndexExpr *getAtomicSumKernelExpr(unsigned n) const;
-  const IndexExpr *getAtomicMaxKernelExpr(unsigned n) const;
   const IndexExpr *getLoadSubkernelExpr(unsigned splitno, unsigned useno) const;
   const IndexExpr *getStoreSubkernelExpr(unsigned splitno,
 					 unsigned useno) const;
@@ -64,17 +60,12 @@ public:
   const IndexExpr *getAtomicMaxSubkernelExpr(unsigned splitno,
 					     unsigned useno) const;
 
-  bool isReadBySplitNo(unsigned i) const;
-  bool isWrittenBySplitNo(unsigned i) const;
-  bool isWrittenOrBySplitNo(unsigned i) const;
-  bool isWrittenAtomicSumBySplitNo(unsigned i) const;
-  bool isWrittenAtomicMaxBySplitNo(unsigned i) const;
+  bool isReadBySubkernel(unsigned i) const;
+  bool isWrittenBySubkernel(unsigned i) const;
+  bool isWrittenOrBySubkernel(unsigned i) const;
+  bool isWrittenAtomicSumBySubkernel(unsigned i) const;
+  bool isWrittenAtomicMaxBySubkernel(unsigned i) const;
 
-  const ListInterval & getReadKernelRegion() const;
-  const ListInterval & getWrittenKernelRegion() const;
-  const ListInterval & getWrittenOrKernelRegion() const;
-  const ListInterval & getWrittenAtomicSumKernelRegion() const;
-  const ListInterval & getWrittenAtomicMaxKernelRegion() const;
   const ListInterval & getReadSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenOrSubkernelRegion(unsigned i) const;
@@ -86,9 +77,12 @@ public:
   void write(std::stringstream &s) const;
   void writeToFile(const std::string &name) const;
 
-  void performAnalysis(const std::vector<int> &args,
-  		       const NDRange &ndRange,
-  		       const std::vector<NDRange> &splitNDRanges);
+  void setPartition(const NDRange *kernelNDRange,
+		    const std::vector<NDRange> *subNDRanges);
+  void injectArgValues(const std::vector<int> &argValues);
+
+  void performAnalysis(const std::vector< std::vector<IndirectionValue> > &
+		       subKernelIndirectionValues);
 
   unsigned getPos() const;
   TYPE getType() const;
@@ -112,6 +106,10 @@ private:
   TYPE type;
   unsigned sizeInBytes;
 
+  /* Partition */
+  const NDRange *kernelNDRange;
+  const std::vector<NDRange> *subNDRanges;
+
   /* Expressions */
 
   // Vector of workitem expressions.
@@ -121,14 +119,7 @@ private:
   std::vector<WorkItemExpr *> *atomicSumWorkItemExprs;
   std::vector<WorkItemExpr *> *atomicMaxWorkItemExprs;
 
-  // Vector of kernel expressions.
-  std::vector<IndexExpr *> loadKernelExprs;
-  std::vector<IndexExpr *> storeKernelExprs;
-  std::vector<IndexExpr *> orKernelExprs;
-  std::vector<IndexExpr *> atomicSumKernelExprs;
-  std::vector<IndexExpr *> atomicMaxKernelExprs;
-
-  // Vector of size nbsplit, each  element containinga vector of subkernel
+  // Vector of size nbsplit, each  element containing a vector of subkernel
   // expressions.
   // m_subKernelsExprs[nbsplit][].
   std::vector<std::vector<IndexExpr *> > loadSubKernelsExprs;
@@ -138,11 +129,6 @@ private:
   std::vector<std::vector<IndexExpr *> > atomicMaxSubKernelsExprs;
 
   /* Regions */
-  ListInterval readKernelRegions;
-  ListInterval writtenKernelRegions;
-  ListInterval writtenOrKernelRegions;
-  ListInterval writtenAtomicSumKernelRegions;
-  ListInterval writtenAtomicMaxKernelRegions;
   std::vector<ListInterval> readSubkernelsRegions;
   std::vector<ListInterval> writtenSubkernelsRegions;
   std::vector<ListInterval> writtenOrSubkernelsRegions;

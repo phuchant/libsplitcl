@@ -5,6 +5,7 @@
 #include "IndexExprBinop.h"
 #include "IndexExprConst.h"
 #include "IndexExprHB.h"
+#include "IndexExprIndirection.h"
 #include "IndexExprInterval.h"
 #include "IndexExprLB.h"
 #include "IndexExprMax.h"

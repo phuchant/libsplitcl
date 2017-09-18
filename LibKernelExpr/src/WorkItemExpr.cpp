@@ -29,19 +29,23 @@ WorkItemExpr::WorkItemExpr(const WorkItemExpr &expr) {
 
 void
 WorkItemExpr::injectArgsValues(const std::vector<int> &values,
-			       const NDRange &ndRange) {
+			       const NDRange &kernelNDRange) {
   IndexExpr::injectArgsValues(mWiExpr, values);
 
   for (unsigned i=0; i<mGuards->size(); ++i)
-    (*mGuards)[i]->injectArgsValues(values, ndRange);
+    (*mGuards)[i]->injectArgsValues(values, kernelNDRange);
 }
 
 IndexExpr *
-WorkItemExpr::getKernelExpr(const NDRange &ndRange) const {
-  if (isOutOfGuards(ndRange))
+WorkItemExpr::getKernelExpr(const NDRange &kernelNDRange,
+			    const std::vector<IndirectionValue> &indirValues)
+  const {
+  if (isOutOfGuards(kernelNDRange))
     return NULL;
 
-  return mWiExpr->getKernelExprWithGuards(ndRange, *mGuards);
+  // TODO: Handle guards with indirections.
+
+  return mWiExpr->getKernelExpr(kernelNDRange, *mGuards, indirValues);
 }
 
 WorkItemExpr *
@@ -104,7 +108,7 @@ WorkItemExpr::openFromFile(const std::string &name) {
 }
 
 bool
-WorkItemExpr::isOutOfGuards(const NDRange &ndRange) const {
+WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
     // Check if KernelExpr if out of guards
   // ex: guard: global_id(0) = 0
   // global_size(0) = 1024
@@ -113,7 +117,7 @@ WorkItemExpr::isOutOfGuards(const NDRange &ndRange) const {
 
   for (unsigned i=0; i<mGuards->size(); ++i) {
     unsigned guardDim = (*mGuards)[i]->getDim();
-    if (guardDim >= ndRange.get_work_dim())
+    if (guardDim >= kernelNDRange.get_work_dim())
       continue;
 
     long guardValue;
@@ -121,17 +125,17 @@ WorkItemExpr::isOutOfGuards(const NDRange &ndRange) const {
       continue;
 
     // global id bounds
-    long globalLb = ndRange.getOffset(guardDim);
-    long globalHb = ndRange.get_global_size(guardDim) - 1
-      + ndRange.getOffset(guardDim);
+    long globalLb = kernelNDRange.getOffset(guardDim);
+    long globalHb = kernelNDRange.get_global_size(guardDim) - 1
+      + kernelNDRange.getOffset(guardDim);
 
     // group id bounds
-    long groupLb = globalLb / ndRange.get_local_size(guardDim);
-    long groupHb = globalHb / ndRange.get_local_size(guardDim);
+    long groupLb = globalLb / kernelNDRange.get_local_size(guardDim);
+    long groupHb = globalHb / kernelNDRange.get_local_size(guardDim);
 
     // local id bounds
     long localLb = 0;
-    long localHb = ndRange.get_local_size(guardDim) - 1;
+    long localHb = kernelNDRange.get_local_size(guardDim) - 1;
 
     switch((*mGuards)[i]->getOclFunc()) {
     case GET_GLOBAL_ID:

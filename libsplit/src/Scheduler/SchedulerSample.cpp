@@ -13,6 +13,9 @@ namespace libsplit {
       std::cerr << "Error: nbDevices should be in [2,4] !\n";
       exit(EXIT_FAILURE);
     }
+
+    std::cerr << "SchedulerSample not implemented yet !";
+    exit(EXIT_FAILURE);
   }
 
   SchedulerSample::~SchedulerSample() {
@@ -376,38 +379,38 @@ namespace libsplit {
 
   void
   SchedulerSample::instantiateCycleAnalysis(double *cycleGranus) {
-    for (unsigned k=0; k<cycleLength; k++) {
-      SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
-      double granu_dscr[nbDevices*3];
-      int size_gr = nbDevices*3;
-      for (unsigned d=0; d<nbDevices; d++) {
-	granu_dscr[d*3+0] = d;
-	granu_dscr[d*3+1] = 1;
-	granu_dscr[d*3+2] = cycleGranus[k*nbDevices+d];
-      }
-      KernelHandle *handle = kerID2HandleMap[k];
-      unsigned splitDim = SI->subkernels[0]->splitdim;
-      SI->dataRequired.clear();
-      SI->dataWritten.clear();
-      for (unsigned ii=0; ii<SI->subkernels.size(); ii++)
-	delete SI->subkernels[ii];
-      SI->subkernels.clear();
-      instantiateAnalysis(handle,
-			  SI->last_work_dim,
-			  (const size_t *) SI->last_global_work_offset,
-			  (const size_t *) SI->last_global_work_size,
-			  (const size_t *) SI->last_local_work_size,
-			  splitDim,
-			  granu_dscr,
-			  &size_gr,
-			  SI->subkernels,
-			  SI->dataRequired,
-			  SI->dataWritten,
-			  SI->dataWrittenOr,
-			  SI->dataWrittenAtomicSum,
-			  SI->dataWrittenAtomicMax);
-    }
+    // TODO: Fix SchedulerSample.
+    //   for (unsigned k=0; k<cycleLength; k++) {
+    //     SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
+    //     double granu_dscr[nbDevices*3];
+    //     int size_gr = nbDevices*3;
+    //     for (unsigned d=0; d<nbDevices; d++) {
+    // 	granu_dscr[d*3+0] = d;
+    // 	granu_dscr[d*3+1] = 1;
+    // 	granu_dscr[d*3+2] = cycleGranus[k*nbDevices+d];
+    //     }
+    //     KernelHandle *handle = kerID2HandleMap[k];
+    //     unsigned splitDim = SI->subkernels[0]->splitdim;
+    //     SI->dataRequired.clear();
+    //     SI->dataWritten.clear();
+    //     for (unsigned ii=0; ii<SI->subkernels.size(); ii++)
+    // 	delete SI->subkernels[ii];
+    //     SI->subkernels.clear();
+    //     instantiateAnalysis(handle,
+    // 			  SI->last_work_dim,
+    // 			  (const size_t *) SI->last_global_work_offset,
+    // 			  (const size_t *) SI->last_global_work_size,
+    // 			  (const size_t *) SI->last_local_work_size,
+    // 			  splitDim,
+    // 			  granu_dscr,
+    // 			  &size_gr,
+    // 			  SI->subkernels,
+    // 			  SI->dataRequired,
+    // 			  SI->dataWritten,
+    // 			  SI->dataWrittenOr,
+    // 			  SI->dataWrittenAtomicSum,
+    // 			  SI->dataWrittenAtomicMax);
+    //   }
   }
-
 };
 

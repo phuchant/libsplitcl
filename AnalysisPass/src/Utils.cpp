@@ -291,4 +291,3 @@ hasAtomic(llvm::Function &F) {
 
   return false;
 }
-

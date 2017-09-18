@@ -11,10 +11,10 @@ public:
   virtual void dump() const;
   virtual IndexExpr *clone() const;
   virtual IndexExpr *getWorkgroupExpr(const NDRange &ndRange) const;
-  virtual IndexExpr *getKernelExpr(const NDRange &ndRange) const;
-  virtual IndexExpr *getKernelExprWithGuards(const NDRange &ndRange,
-					     const std::vector<GuardExpr *> &
-					     guards) const;
+  virtual IndexExpr *getKernelExpr(const NDRange &ndRange,
+				   const std::vector<GuardExpr *> & guards,
+				   const std::vector<IndirectionValue> &
+				   indirValues) const;
   virtual void toDot(std::stringstream &stream) const;
   virtual void write(std::stringstream &s) const;
 

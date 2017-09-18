@@ -1,5 +1,7 @@
 #include "GuardExpr.h"
 
+#include  "Indirection.h"
+
 #include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprOCL.h"
 
@@ -127,20 +129,17 @@ GuardExpr::clone() const {
 // Inject argument integer values in the Index Expression and try to compute the
 // integer value of the expression.
 void
-GuardExpr::injectArgsValues(const std::vector<int> &values, const NDRange &ndRange) {
+GuardExpr::injectArgsValues(const std::vector<int> &values,
+			    const NDRange &kernelNDRange) {
   IndexExpr::injectArgsValues(mExpr, values);
-  IndexExpr *kernelExpr = mExpr->getKernelExpr(ndRange);
+  std::vector<IndirectionValue> indirValues;
+  std::vector<GuardExpr *> guards;
+
+  IndexExpr *kernelExpr = mExpr->getKernelExpr(kernelNDRange, guards,
+					       indirValues);
   long lb, hb;
   if (!IndexExpr::computeBounds(kernelExpr, &lb, &hb) || lb != hb) {
     mValueComputed = false;
-
-    std::cerr << "GuardExpr : value not computed : ";
-    mExpr->dump();
-    std::cerr << "\n";
-    std::cerr << "values : ";
-    for (unsigned i=0; i<values.size(); ++i)
-      std::cerr << values[i] << " ";
-    std::cerr << "\n";
   } else {
     mValueComputed = true;
     mIntExpr = lb;

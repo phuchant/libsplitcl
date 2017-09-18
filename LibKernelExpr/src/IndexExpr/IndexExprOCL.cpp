@@ -96,86 +96,6 @@ IndexExprOCL::getWorkgroupExpr(const NDRange &ndRange) const {
   }
 }
 
-IndexExpr *
-IndexExprOCL::getKernelExpr(const NDRange &ndRange) const {
-  long dimindx;
-
-  if (IndexExprValue *valueExprArg = dynamic_cast<IndexExprValue *>(arg)) {
-    long value;
-    if (valueExprArg->getValue(&value))
-      dimindx = value;
-    else
-      return new IndexExprUnknown("ocl func");
-  } else {
-    return new IndexExprUnknown("ocl func");
-  }
-
-  switch (oclFunc) {
-  case GET_GLOBAL_ID:
-    {
-      if (dimindx >= ndRange.get_work_dim())
-	return new IndexExprConst(0);
-
-      long globalLb = ndRange.getOffset(dimindx);
-      long globalHb = ndRange.get_global_size(dimindx) - 1
-	+ ndRange.getOffset(dimindx);
-      return new IndexExprInterval(new IndexExprConst(globalLb),
-				   new IndexExprConst(globalHb));
-    }
-
-  case GET_GROUP_ID:
-    {
-      // global id bounds
-      long globalLb = ndRange.getOffset(dimindx);
-      long globalHb = ndRange.get_global_size(dimindx) - 1
-	+ ndRange.getOffset(dimindx);
-
-      // group id bounds
-      long groupLb = globalLb / ndRange.get_local_size(dimindx);
-      long groupHb = globalHb / ndRange.get_local_size(dimindx);
-
-      return new IndexExprInterval(new IndexExprConst(groupLb),
-				   new IndexExprConst(groupHb));
-    }
-
-  case GET_LOCAL_ID:
-    {
-      if (dimindx >= ndRange.get_work_dim())
-	return new IndexExprConst(0);
-
-      long localLb = 0;
-      long localHb = ndRange.get_local_size(dimindx) - 1;
-      return new IndexExprInterval(new IndexExprConst(localLb),
-				   new IndexExprConst(localHb));
-    }
-
-  case GET_GLOBAL_SIZE:
-    if (dimindx >= ndRange.get_work_dim())
-      return new IndexExprConst(1);
-
-    return new IndexExprConst(ndRange.get_orig_global_size(dimindx));
-
-  case GET_LOCAL_SIZE:
-    if (dimindx >= ndRange.get_work_dim())
-      return new IndexExprConst(1);
-
-    return new IndexExprConst(ndRange.get_local_size(dimindx));
-
-  case GET_NUM_GROUPS:
-    {
-      if (dimindx >= ndRange.get_work_dim())
-	return new IndexExprConst(1);
-
-      long nbGroups = ndRange.get_orig_global_size(dimindx) /
-	ndRange.get_local_size(dimindx);
-      return new IndexExprConst(nbGroups);
-    }
-
-  default:
-    return new IndexExprUnknown("ocl func");
-  }
-}
-
 static void applyGuard(GuardExpr *guard, long *lb, long *hb) {
   long guardValue;
   if (!guard->getIntExpr(&guardValue))
@@ -222,10 +142,13 @@ static void applyGuard(GuardExpr *guard, long *lb, long *hb) {
 }
 
 IndexExpr *
-IndexExprOCL::getKernelExprWithGuards(const NDRange &ndRange,
-				      const std::vector<GuardExpr *> &guards)
-  const {
-    long dimindx;
+IndexExprOCL::getKernelExpr(const NDRange &ndRange,
+			    const std::vector<GuardExpr *> & guards,
+			    const std::vector<IndirectionValue> &
+			    indirValues) const {
+  (void) indirValues;
+
+  long dimindx;
 
   if (IndexExprValue *valueExprArg = dynamic_cast<IndexExprValue *>(arg)) {
     long value;
@@ -365,48 +288,32 @@ IndexExprOCL::getKernelExprWithGuards(const NDRange &ndRange,
 				   new IndexExprConst(localHb));
     }
 
+  case GET_GLOBAL_SIZE:
+    if (dimindx >= ndRange.get_work_dim())
+      return new IndexExprConst(1);
+
+    return new IndexExprConst(ndRange.get_orig_global_size(dimindx));
+
+  case GET_LOCAL_SIZE:
+    if (dimindx >= ndRange.get_work_dim())
+      return new IndexExprConst(1);
+
+    return new IndexExprConst(ndRange.get_local_size(dimindx));
+
+  case GET_NUM_GROUPS:
+    {
+      if (dimindx >= ndRange.get_work_dim())
+	return new IndexExprConst(1);
+
+      long nbGroups = ndRange.get_orig_global_size(dimindx) /
+	ndRange.get_local_size(dimindx);
+      return new IndexExprConst(nbGroups);
+    }
+
   default:
-    return getKernelExpr(ndRange);
+    return new IndexExprUnknown("ocl func");
   }
 }
-
-// IndexExpr *
-// IndexExprOCL::getLowerBound() const {
-//   IndexExpr *argLowerBound = NULL;
-//   if (arg)
-//     argLowerBound = arg->getLowerBound();
-
-//   return new IndexExprOCL(oclFunc, argLowerBound);
-// }
-
-// IndexExpr *
-// IndexExprOCL::getHigherBound() const {
-//   IndexExpr *argHigherBound = NULL;
-//   if (arg)
-//     argHigherBound = arg->getHigherBound();
-
-//   return new IndexExprOCL(oclFunc, argHigherBound);
-// }
-
-// IndexExpr *
-// IndexExprOCL::computeExpr() const {
-//   IndexExpr *newArg = NULL;
-//   if (arg)
-//     newArg = arg->computeExpr();
-
-//   return new IndexExprOCL(oclFunc, newArg);
-// }
-
-// IndexExpr *
-// IndexExprOCL::removeNeutralElem(bool *changed) const {
-//   IndexExpr *newArg = NULL;
-//   bool argChanged = false;
-//   if (arg)
-//     newArg = arg->removeNeutralElem(&argChanged);
-
-//   *changed = argChanged;
-//   return new IndexExprOCL(oclFunc, newArg);
-// }
 
 void
 IndexExprOCL::toDot(std::stringstream &stream) const {

@@ -21,7 +21,7 @@ public:
   unsigned getPredicate() const;
   unsigned getDim() const;
   unsigned getOclFunc() const;
-  void injectArgsValues(const std::vector<int> &values, const NDRange &ndRange);
+  void injectArgsValues(const std::vector<int> &values, const NDRange &kernelNDRange);
 
   void write(std::stringstream &s) const;
   void writeToFile(const std::string &name) const;

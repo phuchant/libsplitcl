@@ -17,7 +17,7 @@ namespace libsplit {
   "-lcssa -loop-unswitch -scalar-evolution -loop-simplify -lcssa -indvars " \
   "-loop-idiom -loop-deletion -loop-unroll -memdep -memcpyopt -sccp "	\
   "-lazy-value-info -jump-threading -correlated-propagation -domtree -memdep " \
-  "-dse -adce -simplifycfg -strip-dead-prototypes -domtree -verify"
+  "-dse -adce -simplifycfg -strip-dead-prototypes -domtree -loop-reduce -verify"
 
 
 #define PASSARG "-klanalysis"

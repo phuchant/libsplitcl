@@ -18,6 +18,7 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
 				   const std::vector<WorkItemExpr *>
 				   &atomicMaxExprs)
   : nbSplit(0), pos(pos), type(type), sizeInBytes(sizeInBytes),
+    kernelNDRange(NULL), subNDRanges(NULL),
     mReadBoundsComputed(false), mWriteBoundsComputed(false),
     mOrBoundsComputed(false), mAtomicSumBoundsComputed(false),
     areDisjoint(false), analysisHasBeenRun(false)
@@ -73,17 +74,6 @@ ArgumentAnalysis::~ArgumentAnalysis() {
   for (unsigned i=0; i<atomicMaxWorkItemExprs->size(); ++i)
     delete (*atomicMaxWorkItemExprs)[i];
   delete atomicMaxWorkItemExprs;
-
-  for (unsigned i=0; i<loadKernelExprs.size(); ++i)
-    delete loadKernelExprs[i];
-  for (unsigned i=0; i<storeKernelExprs.size(); ++i)
-    delete storeKernelExprs[i];
-  for (unsigned i=0; i<orKernelExprs.size(); ++i)
-    delete orKernelExprs[i];
-  for (unsigned i=0; i<atomicSumKernelExprs.size(); ++i)
-    delete atomicSumKernelExprs[i];
-  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i)
-    delete atomicMaxKernelExprs[i];
 
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
     for (unsigned j=0; j<loadSubKernelsExprs[i].size(); ++j) {
@@ -194,12 +184,8 @@ ArgumentAnalysis::dump() {
     return;
 
   if (mReadBoundsComputed) {
-    std::cerr << "\033[1mRead kernel region :\033[0m\n";
-    readKernelRegions.debug();
-    std::cerr << "\n";
-
     for (unsigned i=0; i<nbSplit; i++) {
-      std::cerr << "read subkernel " << i << " region : ";
+      std::cerr << "\033[1mread subkernel " << i << " region : \033[0m";
       readSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
@@ -208,12 +194,8 @@ ArgumentAnalysis::dump() {
   }
 
   if (mWriteBoundsComputed) {
-    std::cerr << "\033[1mWritten kernel region :\033[0m\n";
-    writtenKernelRegions.debug();
-    std::cerr << "\n";
-
     for (unsigned i=0; i<nbSplit; i++) {
-      std::cerr << "written subkernel " << i << " region : ";
+      std::cerr << "\033[1mWritten subkernel " << i << " region : \033[0m";
       writtenSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
@@ -222,12 +204,8 @@ ArgumentAnalysis::dump() {
   }
 
   if (mOrBoundsComputed) {
-    std::cerr << "\033[1mOr kernel region :\033[0m\n";
-    writtenOrKernelRegions.debug();
-    std::cerr << "\n";
-
     for (unsigned i=0; i<nbSplit; i++) {
-      std::cerr << "or subkernel " << i << " region : ";
+      std::cerr << "\033[1mOr subkernel " << i << " region : \033[0m";
       writtenOrSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
@@ -236,12 +214,8 @@ ArgumentAnalysis::dump() {
   }
 
   if (mAtomicSumBoundsComputed) {
-    std::cerr << "\033[1mAtomicSum kernel region :\033[0m\n";
-    writtenAtomicSumKernelRegions.debug();
-    std::cerr << "\n";
-
     for (unsigned i=0; i<nbSplit; i++) {
-      std::cerr << "atomicSum subkernel " << i << " region : ";
+      std::cerr << "\033[1mAtomicSum subkernel " << i << " region : \033[0m";
       writtenAtomicSumSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
@@ -250,12 +224,8 @@ ArgumentAnalysis::dump() {
   }
 
   if (mAtomicMaxBoundsComputed) {
-    std::cerr << "\033[1mAtomicMax kernel region :\033[0m\n";
-    writtenAtomicMaxKernelRegions.debug();
-    std::cerr << "\n";
-
     for (unsigned i=0; i<nbSplit; i++) {
-      std::cerr << "atomicMax subkernel " << i << " region : ";
+      std::cerr << "\033[1mAtomicMax subkernel " << i << " region : \033[0m";
       writtenAtomicMaxSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
@@ -273,43 +243,13 @@ ArgumentAnalysis::dump() {
 }
 
 void
-ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
-				  const NDRange &ndRange,
-				  const std::vector<NDRange> &splitNDRanges) {
-  analysisHasBeenRun = true;
-#ifdef DEBUG
-  std::cerr << "\n\033[1;31m*** Arg no \"" << m_pos << "\" nb load: "
-  	    << loadWorkItemExprs->size()
-	    << " nb store: " << storeWorkItemExprs->size()
-	    << " nb or: " << orWorkItemExprs->size()
-	    << " nb atomic sum: " << atomicSumWorkItemExprs->size()
-	    << " nb atomic max: " << atomicMaxWorkItemExprs->size()
-	    << "\033[0m\n";
+ArgumentAnalysis:: setPartition(const NDRange *kernelNDRange,
+				const std::vector<NDRange> *subNDRanges) {
+  // Set partition
+  this->kernelNDRange = kernelNDRange;
+  this->subNDRanges = subNDRanges;
 
-  for (unsigned i=0; i<splitNDRanges.size(); ++i) {
-    std::cerr << "splitrange no " << i << "\n";
-    splitNDRanges[i].dump();
-    std::cerr << "\n";
-  }
-#endif
-
-  // Clear m_kernelExprs and m_subKernelsExprs.
-  for (unsigned i=0; i<loadKernelExprs.size(); ++i)
-    delete loadKernelExprs[i];
-  loadKernelExprs.resize(0);
-  for (unsigned i=0; i<storeKernelExprs.size(); ++i)
-    delete storeKernelExprs[i];
-  storeKernelExprs.resize(0);
-  for (unsigned i=0; i<orKernelExprs.size(); ++i)
-    delete orKernelExprs[i];
-  orKernelExprs.resize(0);
-  for (unsigned i=0; i<atomicSumKernelExprs.size(); ++i)
-    delete atomicSumKernelExprs[i];
-  atomicSumKernelExprs.resize(0);
-  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i)
-    delete atomicMaxKernelExprs[i];
-  atomicMaxKernelExprs.resize(0);
-
+  // Clear subKernelsExprs.
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
     for (unsigned j=0; j<loadSubKernelsExprs[i].size(); ++j) {
       delete loadSubKernelsExprs[i][j];
@@ -346,7 +286,7 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
     atomicMaxSubKernelsExprs[i].resize(0);
   }
 
-  nbSplit = splitNDRanges.size();
+  nbSplit = subNDRanges->size();
 
   // Vector of size nbsplit, each element containing of vector of
   // IndexExpr (one indexExpr per use)
@@ -358,11 +298,6 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
   atomicMaxSubKernelsExprs.resize(nbSplit);
 
   // Clear regions
-  readKernelRegions.clear();
-  writtenKernelRegions.clear();
-  writtenOrKernelRegions.clear();
-  writtenAtomicSumKernelRegions.clear();
-  writtenAtomicMaxKernelRegions.clear();
   readSubkernelsRegions.clear();
   readSubkernelsRegions.resize(nbSplit);
   writtenSubkernelsRegions.clear();
@@ -374,125 +309,108 @@ ArgumentAnalysis::performAnalysis(const std::vector<int> &args,
   writtenAtomicMaxSubkernelsRegions.clear();
   writtenAtomicMaxSubkernelsRegions.resize(nbSplit);
 
-  // Build load kernel and subkernel expressions
+  analysisHasBeenRun = false;
+}
+
+void
+ArgumentAnalysis::injectArgValues(const std::vector<int> &argValues) {
+  assert(kernelNDRange);
+
+  for (unsigned idx=0; idx<loadWorkItemExprs->size(); idx++)
+    (*loadWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
+  for (unsigned idx=0; idx<storeWorkItemExprs->size(); idx++)
+    (*storeWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
+  for (unsigned idx=0; idx<orWorkItemExprs->size(); idx++)
+    (*orWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
+  for (unsigned idx=0; idx<atomicSumWorkItemExprs->size(); idx++)
+    (*atomicSumWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
+  for (unsigned idx=0; idx<atomicMaxWorkItemExprs->size(); idx++)
+    (*atomicMaxWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
+}
+
+void
+ArgumentAnalysis::performAnalysis(const
+				  std::vector<std::vector<IndirectionValue> > &
+				  subKernelIndirectionValues) {
+  analysisHasBeenRun = true;
+#ifdef DEBUG
+  std::cerr << "\n\033[1;31m*** Arg no \"" << m_pos << "\" nb load: "
+  	    << loadWorkItemExprs->size()
+	    << " nb store: " << storeWorkItemExprs->size()
+	    << " nb or: " << orWorkItemExprs->size()
+	    << " nb atomic sum: " << atomicSumWorkItemExprs->size()
+	    << " nb atomic max: " << atomicMaxWorkItemExprs->size()
+	    << "\033[0m\n";
+
+  for (unsigned i=0; i<subNDRanges->size(); ++i) {
+    std::cerr << "subrange no " << i << "\n";
+    (*subNDRanges)[i].dump();
+    std::cerr << "\n";
+  }
+#endif
+
+  // Build load subkernel expressions
   for (unsigned idx=0; idx<loadWorkItemExprs->size(); idx++) {
-
-    // Inject arguments values into expression
-    (*loadWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
-
-    // Build kernel expression (ndRange)
-    IndexExpr *kernelExpr = (*loadWorkItemExprs)[idx]->getKernelExpr(ndRange);
-
-    // NULL if kernelexpr is out of guards
-    if (kernelExpr)
-      loadKernelExprs.push_back(kernelExpr);
-
-    // Build subkernel expressions
     for (unsigned i=0; i<nbSplit; ++i) {
-      IndexExpr *splitExpr =
-	(*loadWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+      IndexExpr *subExpr =
+	(*loadWorkItemExprs)[idx]->getKernelExpr((*subNDRanges)[i],
+						 subKernelIndirectionValues[i]);
 
       // NULL if kernelexpr is out of guards
-      if (splitExpr)
-	loadSubKernelsExprs[i].push_back(splitExpr);
+      if (subExpr)
+	loadSubKernelsExprs[i].push_back(subExpr);
     }
   }
 
-  // Build store kernel and subkernel expressions
+  // Build store subkernel expressions
   for (unsigned idx=0; idx<storeWorkItemExprs->size(); idx++) {
-
-    // Inject arguments values into expression
-    (*storeWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
-
-    // Build kernel expression (ndRange)
-    IndexExpr *kernelExpr = (*storeWorkItemExprs)[idx]->getKernelExpr(ndRange);
-
-    // NULL if kernelexpr is out of guards
-    if (kernelExpr)
-      storeKernelExprs.push_back(kernelExpr);
-
-    // Build subkernel expressions
     for (unsigned i=0; i<nbSplit; ++i) {
-      IndexExpr *splitExpr =
-	(*storeWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+      IndexExpr *subExpr =
+	(*storeWorkItemExprs)[idx]
+	->getKernelExpr((*subNDRanges)[i], subKernelIndirectionValues[i]);
 
       // NULL if kernelexpr is out of guards
-      if (splitExpr)
-	storeSubKernelsExprs[i].push_back(splitExpr);
+      if (subExpr)
+	storeSubKernelsExprs[i].push_back(subExpr);
     }
   }
 
-  // Build or kernel and subkernel expressions
+  // Build or subkernel expressions
   for (unsigned idx=0; idx<orWorkItemExprs->size(); idx++) {
-
-    // Inject arguments values into expression
-    (*orWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
-
-    // Build kernel expression (ndRange)
-    IndexExpr *kernelExpr = (*orWorkItemExprs)[idx]->getKernelExpr(ndRange);
-
-    // NULL if kernelexpr is out of guards
-    if (kernelExpr)
-      orKernelExprs.push_back(kernelExpr);
-
-    // Build subkernel expressions
     for (unsigned i=0; i<nbSplit; ++i) {
-      IndexExpr *splitExpr =
-	(*orWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+      IndexExpr *subExpr =
+	(*orWorkItemExprs)[idx]->getKernelExpr((*subNDRanges)[i],
+					       subKernelIndirectionValues[i]);
 
       // NULL if kernelexpr is out of guards
-      if (splitExpr)
-	orSubKernelsExprs[i].push_back(splitExpr);
+      if (subExpr)
+	orSubKernelsExprs[i].push_back(subExpr);
     }
   }
 
-  // Build atomicSum kernel and subkernel expressions
+  // Build atomicSum subkernel expressions
   for (unsigned idx=0; idx<atomicSumWorkItemExprs->size(); idx++) {
-
-    // Inject arguments values into expression
-    (*atomicSumWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
-
-    // Build kernel expression (ndRange)
-    IndexExpr *kernelExpr =
-      (*atomicSumWorkItemExprs)[idx]->getKernelExpr(ndRange);
-
-    // NULL if kernelexpr is out of guards
-    if (kernelExpr)
-      atomicSumKernelExprs.push_back(kernelExpr);
-
-    // Build subkernel expressions
     for (unsigned i=0; i<nbSplit; ++i) {
-      IndexExpr *splitExpr =
-	(*atomicSumWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+      IndexExpr *subExpr =
+	(*atomicSumWorkItemExprs)[idx]
+	->getKernelExpr((*subNDRanges)[i], subKernelIndirectionValues[i]);
 
       // NULL if kernelexpr is out of guards
-      if (splitExpr)
-	atomicSumSubKernelsExprs[i].push_back(splitExpr);
+      if (subExpr)
+	atomicSumSubKernelsExprs[i].push_back(subExpr);
     }
   }
 
-  // Build atomicMax kernel and subkernel expressions
+  // Build atomicMax subkernel expressions
   for (unsigned idx=0; idx<atomicMaxWorkItemExprs->size(); idx++) {
-
-    // Inject arguments values into expression
-    (*atomicMaxWorkItemExprs)[idx]->injectArgsValues(args, ndRange);
-
-    // Build kernel expression (ndRange)
-    IndexExpr *kernelExpr =
-      (*atomicMaxWorkItemExprs)[idx]->getKernelExpr(ndRange);
-
-    // NULL if kernelexpr is out of guards
-    if (kernelExpr)
-      atomicMaxKernelExprs.push_back(kernelExpr);
-
-    // Build subkernel expressions
     for (unsigned i=0; i<nbSplit; ++i) {
-      IndexExpr *splitExpr =
-	(*atomicMaxWorkItemExprs)[idx]->getKernelExpr(splitNDRanges[i]);
+      IndexExpr *subExpr =
+	(*atomicMaxWorkItemExprs)[idx]
+	->getKernelExpr((*subNDRanges)[i],subKernelIndirectionValues[i]);
 
       // NULL if kernelexpr is out of guards
-      if (splitExpr)
-	atomicMaxSubKernelsExprs[i].push_back(splitExpr);
+      if (subExpr)
+	atomicMaxSubKernelsExprs[i].push_back(subExpr);
     }
   }
 
@@ -511,7 +429,6 @@ bool
 ArgumentAnalysis::canSplit() const {
   // We can split if the argument is read-only or not used or
   // if each split kernel access disjoint regions of the argument
-
   return
     ( !isWrittenOr() || mOrBoundsComputed) &&
     ( !isWrittenAtomicSum() || mAtomicSumBoundsComputed) &&
@@ -545,27 +462,27 @@ ArgumentAnalysis::isWrittenAtomicMax() const {
 }
 
 bool
-ArgumentAnalysis::isReadBySplitNo(unsigned i) const {
+ArgumentAnalysis::isReadBySubkernel(unsigned i) const {
   return loadSubKernelsExprs[i].size() > 0;
 }
 
 bool
-ArgumentAnalysis::isWrittenBySplitNo(unsigned i) const {
+ArgumentAnalysis::isWrittenBySubkernel(unsigned i) const {
   return storeSubKernelsExprs[i].size() > 0;
 }
 
 bool
-ArgumentAnalysis::isWrittenOrBySplitNo(unsigned i) const {
+ArgumentAnalysis::isWrittenOrBySubkernel(unsigned i) const {
   return orSubKernelsExprs[i].size() > 0;
 }
 
 bool
-ArgumentAnalysis::isWrittenAtomicSumBySplitNo(unsigned i) const {
+ArgumentAnalysis::isWrittenAtomicSumBySubkernel(unsigned i) const {
   return atomicSumSubKernelsExprs[i].size() > 0;
 }
 
 bool
-ArgumentAnalysis::isWrittenAtomicMaxBySplitNo(unsigned i) const {
+ArgumentAnalysis::isWrittenAtomicMaxBySubkernel(unsigned i) const {
   return atomicMaxSubKernelsExprs[i].size() > 0;
 }
 
@@ -694,31 +611,6 @@ ArgumentAnalysis::getPos() const {
 }
 
 const ListInterval &
-ArgumentAnalysis::getReadKernelRegion() const {
-  return readKernelRegions;
-}
-
-const ListInterval &
-ArgumentAnalysis::getWrittenKernelRegion() const {
-  return writtenKernelRegions;
-}
-
-const ListInterval &
-ArgumentAnalysis::getWrittenOrKernelRegion() const {
-  return writtenOrKernelRegions;
-}
-
-const ListInterval &
-ArgumentAnalysis::getWrittenAtomicSumKernelRegion() const {
-  return writtenAtomicSumKernelRegions;
-}
-
-const ListInterval &
-ArgumentAnalysis::getWrittenAtomicMaxKernelRegion() const {
-  return writtenAtomicMaxKernelRegions;
-}
-
-const ListInterval &
 ArgumentAnalysis::getReadSubkernelRegion(unsigned i) const {
   return readSubkernelsRegions[i];
 }
@@ -779,31 +671,6 @@ ArgumentAnalysis::getAtomicMaxWorkItemExpr(unsigned n) const {
 }
 
 const IndexExpr *
-ArgumentAnalysis::getLoadKernelExpr(unsigned n) const {
-  return loadKernelExprs[n];
-}
-
-const IndexExpr *
-ArgumentAnalysis::getStoreKernelExpr(unsigned n) const {
-  return storeKernelExprs[n];
-}
-
-const IndexExpr *
-ArgumentAnalysis::getOrKernelExpr(unsigned n) const {
-  return orKernelExprs[n];
-}
-
-const IndexExpr *
-ArgumentAnalysis::getAtomicSumKernelExpr(unsigned n) const {
-  return atomicSumKernelExprs[n];
-}
-
-const IndexExpr *
-ArgumentAnalysis::getAtomicMaxKernelExpr(unsigned n) const {
-  return atomicMaxKernelExprs[n];
-}
-
-const IndexExpr *
 ArgumentAnalysis::getLoadSubkernelExpr(unsigned splitno, unsigned useno) const {
   return loadSubKernelsExprs[splitno][useno];
 }
@@ -835,82 +702,6 @@ ArgumentAnalysis::computeRegions() {
   mOrBoundsComputed = true;
   mAtomicSumBoundsComputed = true;
   mAtomicMaxBoundsComputed = true;
-
-
-  // Compute read kernel region
-  readKernelRegions.clear();
-  for (unsigned i=0; i<loadKernelExprs.size(); ++i) {
-    long lb, hb;
-    if (!IndexExpr::computeBounds(loadKernelExprs[i], &lb, &hb)) {
-      mReadBoundsComputed = false;
-      break;
-    }
-
-    lb = lb < 0 ? 0 : lb;
-    assert(lb <= hb);
-
-    readKernelRegions.add(Interval(lb, hb));
-  }
-
-  // Compute written kernel region
-  writtenKernelRegions.clear();
-  for (unsigned i=0; i<storeKernelExprs.size(); ++i) {
-    long lb, hb;
-    if (!IndexExpr::computeBounds(storeKernelExprs[i], &lb, &hb)) {
-      mWriteBoundsComputed = false;
-      break;
-    }
-
-    lb = lb < 0 ? 0 : lb;
-    assert(lb <= hb);
-
-    writtenKernelRegions.add(Interval(lb, hb));
-  }
-
-  // Compute written or kernel region
-  writtenOrKernelRegions.clear();
-  for (unsigned i=0; i<orKernelExprs.size(); ++i) {
-    long lb, hb;
-    if (!IndexExpr::computeBounds(orKernelExprs[i], &lb, &hb)) {
-      mOrBoundsComputed = false;
-      break;
-    }
-
-    lb = lb < 0 ? 0 : lb;
-    assert(lb <= hb);
-
-    writtenOrKernelRegions.add(Interval(lb, hb));
-  }
-
-  // Compute written atomic sum kernel region
-  writtenAtomicSumKernelRegions.clear();
-  for (unsigned i=0; i<atomicSumKernelExprs.size(); ++i) {
-    long lb, hb;
-    if (!IndexExpr::computeBounds(atomicSumKernelExprs[i], &lb, &hb)) {
-      mAtomicSumBoundsComputed = false;
-      break;
-    }
-
-    lb = lb < 0 ? 0 : lb;
-    assert(lb <= hb);
-
-    writtenAtomicSumKernelRegions.add(Interval(lb, hb));
-  }
-
-  // Compute written atomic max kernel region
-  writtenAtomicMaxKernelRegions.clear();
-  for (unsigned i=0; i<atomicMaxKernelExprs.size(); ++i) {
-    long lb, hb;
-    if (!IndexExpr::computeBounds(atomicMaxKernelExprs[i], &lb, &hb)) {
-      mAtomicMaxBoundsComputed = false;
-      break;
-    }
-
-    lb = lb < 0 ? 0 : lb;
-    assert(lb <= hb);
-
-    writtenAtomicMaxKernelRegions.add(Interval(lb, hb));
-  }
 
   // Compute read subkernels regions
   for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
@@ -1011,11 +802,11 @@ void ArgumentAnalysis::performDisjointTest() {
     return;
 
   for (unsigned i=0; i<nbSplit -1; ++i) {
-    if (!isWrittenBySplitNo(i))
+    if (!isWrittenBySubkernel(i))
       continue;
 
     for (unsigned j=i+1; j<nbSplit ; ++j) {
-      if (!isWrittenBySplitNo(j))
+      if (!isWrittenBySubkernel(j))
 	continue;
 
       ListInterval *inter =

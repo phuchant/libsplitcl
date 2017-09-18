@@ -5,6 +5,7 @@
 #include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprLB.h"
 #include "IndexExpr/IndexExprHB.h"
+#include "IndexExpr/IndexExprIndirection.h"
 #include "IndexExpr/IndexExprInterval.h"
 #include "IndexExpr/IndexExprMax.h"
 #include "IndexExpr/IndexExprOCL.h"
@@ -29,24 +30,6 @@ IndexExpr::getTag() const {
   return tag;
 }
 
-// IndexExpr *
-// IndexExpr::getIntervalExpr() const {
-//   return new IndexExprInterval(getLowerBound(), getHigherBound());
-// }
-
-// IndexExpr *
-// IndexExpr::getReduceExpr() const {
-//   IndexExpr *ret = computeExpr();
-//   bool changed;
-//   do {
-//     IndexExpr *tmp = ret;
-//     ret = tmp->removeNeutralElem(&changed);
-//     delete tmp;
-//   } while (changed);
-
-//   return ret;
-// }
-
 IndexExpr *
 IndexExpr::getWorkgroupExpr(const NDRange &ndRange) const {
   (void) ndRange;
@@ -55,21 +38,16 @@ IndexExpr::getWorkgroupExpr(const NDRange &ndRange) const {
 }
 
 IndexExpr *
-IndexExpr::getKernelExpr(const NDRange &ndRange) const {
-  (void) ndRange;
-
-  return clone();
-}
-
-IndexExpr *
-IndexExpr::getKernelExprWithGuards(const NDRange &ndRange,
-				   const std::vector<GuardExpr *> &guards) const
-{
+IndexExpr::getKernelExpr(const NDRange &ndRange,
+			 const std::vector<GuardExpr *> & guards,
+			 const std::vector<IndirectionValue> &
+			 indirValues) const {
   (void) ndRange;
   (void) guards;
+  (void) indirValues;
+
   return clone();
 }
-
 
 unsigned
 IndexExpr::getID() const {
@@ -110,6 +88,9 @@ IndexExpr::toDot(std::stringstream &stream) const {
   case IndexExpr::INTERVAL:
     stream << "interval";
     break;
+  case IndexExpr::INDIR:
+    stream << "interval";
+    break;
   case IndexExpr::UNKNOWN:
     stream << "unknown";
     break;
@@ -124,248 +105,6 @@ IndexExpr::toDot(std::stringstream &stream) const {
     break;
   }
 }
-
-// int
-// IndexExpr::compareTo(const IndexExpr *e) const {
-//   /* -1 <
-//    *  0 =
-//    *  1 >
-//    * -2 ?
-//    */
-
-//   if (!e)
-//     return -2;
-
-//   if (tag != e->getTag())
-//     return -2;
-
-//   if (tag == IndexExpr::CONST) {
-//     const IndexExprConst *e1 = static_cast<const IndexExprConst *>(this);
-//     const IndexExprConst *e2 = static_cast<const IndexExprConst *>(e);
-
-//     if (e1->getValue() == e2->getValue())
-//       return 0;
-
-//     if (e1->getValue() < e2->getValue())
-//       return -1;
-
-//     return 1;
-//   }
-
-//   if (tag == IndexExpr::ARG) {
-//     const IndexExprArg *e1 = static_cast<const IndexExprArg *>(this);
-//     const IndexExprArg *e2 = static_cast<const IndexExprArg *>(e);
-
-//     if (e1->getName().compare(e2->getName()) == 0)
-//       return 0;
-
-//     return -2;
-//   }
-
-//   if (tag == IndexExpr::OCL) {
-//     const IndexExprOCL *e1 = static_cast<const IndexExprOCL *>(this);
-//     const IndexExprOCL *e2 = static_cast<const IndexExprOCL *>(e);
-
-//     if (e1->getOCLFunc() != e2->getOCLFunc())
-//       return -2;
-
-//     if (e1->getArg() && e2->getArg() &&
-// 	e1->getArg()->getTag() == IndexExpr::CONST &&
-// 	e2->getArg()->getTag() == IndexExpr::CONST) {
-//       int v1 = static_cast<const IndexExprConst *>(e1->getArg())->getValue();
-//       int v2 = static_cast<const IndexExprConst *>(e2->getArg())->getValue();
-
-//       if (v1 == v2)
-// 	return 0;
-//     }
-
-//     return -2;
-//   }
-
-//   if (tag == IndexExpr::BINOP) {
-//     const IndexExprBinop *e1 = static_cast<const IndexExprBinop *>(this);
-//     const IndexExprBinop *e2 = static_cast<const IndexExprBinop *>(e);
-
-//     if (e1->getOp() != e2->getOp())
-//       return -2;
-
-//     if (e1->getExpr1() == NULL ||
-// 	e1->getExpr2() == NULL ||
-// 	e2->getExpr1() == NULL ||
-// 	e2->getExpr2() == NULL)
-//       return -2;
-
-//     int ret1 = e1->getExpr1()->compareTo(e2->getExpr1());
-//     int ret2 = e1->getExpr2()->compareTo(e2->getExpr2());
-
-//     if (ret1 == ret2)
-//       return ret1;
-
-//     if (ret1 == 0)
-//       return ret2;
-
-//     if (ret2 == 0)
-//       return ret1;
-
-//     return -2;
-//   }
-
-//   if (tag == IndexExpr::INTERVAL) {
-//     const IndexExprInterval *e1 = static_cast<const IndexExprInterval *>(this);
-//     const IndexExprInterval *e2 = static_cast<const IndexExprInterval *>(e);
-
-//     if (e1->getLowerBound() == NULL ||
-// 	e1->getHigherBound() == NULL ||
-// 	e2->getLowerBound() == NULL ||
-// 	e2->getHigherBound() == NULL)
-//       return -2;
-
-//     return e1->getHigherBound()->compareTo(e2->getLowerBound());
-//   }
-
-//   return -2;
-// }
-
-// int
-// IndexExpr::areDisjoint(const IndexExpr &e1, const IndexExpr &e2) {
-//   /*
-//    *  1 disjoint
-//    *  0 not disjoint
-//    * -1 ?
-//    */
-
-//   IndexExpr *e1LowerBound = NULL;
-//   IndexExpr *e1HigherBound = NULL;
-//   IndexExpr *e2LowerBound = NULL;
-//   IndexExpr *e2HigherBound = NULL;
-
-//   int ret = -1;
-//   int cmp;
-
-//   e1LowerBound = e1.getLowerBound();
-//   e1HigherBound = e1.getHigherBound();
-//   e2LowerBound = e2.getLowerBound();
-//   e2HigherBound = e2.getHigherBound();
-
-//   if (!e1LowerBound ||
-//       !e1HigherBound ||
-//       !e2LowerBound ||
-//       !e2HigherBound)
-//     goto delete_and_ret;
-
-//   // Expressions are disjoint if either e1LowerBound > e2HigherBound
-//   //                                 or e2LowerBound > e1HigherBound
-
-//   cmp = e1LowerBound->compareTo(e2HigherBound);
-//   if (cmp == 1) { // e1LowerBound > e2HigherBound
-//     ret = 1;
-//     goto delete_and_ret;
-//   }
-
-//   cmp = e2LowerBound->compareTo(e1HigherBound);
-//   switch (cmp) {
-//   case 1: // e2LowerBound > e1HigherBound
-//     ret = 1;
-//     break;
-//   case 0: // e2LowerBound = e1HigherBound
-//   case -1:
-//     ret = 0;
-//     break;
-//   default: // comparison impossible
-//     ret = -1;
-//   };
-
-//  delete_and_ret:
-//   if (e1LowerBound)
-//     delete e1LowerBound;
-//   if (e1HigherBound)
-//     delete e1HigherBound;
-//   if (e2LowerBound)
-//     delete e2LowerBound;
-//   if (e2HigherBound)
-//     delete e2HigherBound;
-
-//   return ret;
-// }
-
-// int
-// IndexExpr::areDisjoint(const std::vector<IndexExpr *> &exprs) {
-//   /*
-//    *  1 disjoint
-//    *  0 not disjoint
-//    * -1 ?
-//    */
-
-//   for (unsigned i=0; i<exprs.size()-1; ++i) {
-//     for (unsigned j=i+1; j<exprs.size(); ++j) {
-//       if (!exprs[i] || !exprs[j])
-// 	return -1;
-
-//       int cmp = areDisjoint(*exprs[i], *exprs[j]);
-//       switch(cmp) {
-//       case 1:
-// 	continue;
-//       case 0:
-// 	return 0;
-//       default:
-// 	return -1;
-//       };
-//     }
-//   }
-
-//   return 1;
-// }
-
-// IndexExpr *
-// IndexExpr::mergeExprs(const std::vector<IndexExpr *> &exprs) {
-//   unsigned size = exprs.size();
-//   if (size == 0)
-//     return NULL;
-
-//   if (size == 1)
-//     return exprs[0]->clone();
-
-//   IndexExpr *lb = exprs[0]->getLowerBound();
-//   IndexExpr *hb = exprs[0]->getHigherBound();
-
-//   for (unsigned i=1; i<size; i++) {
-//     IndexExpr *currentLowerBound = exprs[i]->getLowerBound();
-//     IndexExpr *currentHigherBound = exprs[i]->getHigherBound();
-//     int cmpLb = lb->compareTo(currentLowerBound);
-//     int cmpHb = hb->compareTo(currentHigherBound);
-
-//     if (cmpLb == 1) { // currentLowerBound < lb
-//       delete lb;
-//       delete currentHigherBound;
-//       lb = currentLowerBound;
-//       continue;
-//     } else if (cmpLb == -2) { // comparison impossible
-//       delete lb;
-//       delete hb;
-//       delete currentLowerBound;
-//       delete currentHigherBound;
-//       return NULL;
-//     }
-
-//     if (cmpHb == -1) { // currentHigherBound > hb
-//       delete hb;
-//       delete currentLowerBound;
-//       hb = currentHigherBound;
-//       continue;
-//     } else if (cmpHb == -2) { // comparison impossible
-//       delete lb;
-//       delete hb;
-//       delete currentLowerBound;
-//       delete currentHigherBound;
-//       return NULL;
-//     }
-
-//     delete currentLowerBound;
-//     delete currentHigherBound;
-//   }
-
-//   return new IndexExprInterval(lb, hb);
-// }
 
 void
 IndexExpr::write(std::stringstream &s) const {
@@ -427,6 +166,14 @@ IndexExpr::open(std::stringstream &s) {
       IndexExpr *lb = open(s);
       IndexExpr *hb = open(s);
       return new IndexExprInterval(lb, hb);
+    }
+  case INDIR:
+    {
+      unsigned no;
+      s.read(reinterpret_cast<char *>(&no), sizeof(no));
+      IndexExpr *lb = open(s);
+      IndexExpr *hb = open(s);
+      return new IndexExprIndirection(no, lb, hb);
     }
   case UNKNOWN:
     return new IndexExprUnknown("unknown");
@@ -506,6 +253,16 @@ IndexExpr::injectArgsValues(IndexExpr *expr, const std::vector<int> &values) {
       injectArgsValues(hb, values);
       return;
     }
+  case INDIR:
+    {
+      IndexExprIndirection *indirExpr
+	= static_cast<IndexExprIndirection *>(expr);
+      IndexExpr *lb = indirExpr->getLb();
+      injectArgsValues(lb, values);
+      IndexExpr *hb = indirExpr->getHb();
+      injectArgsValues(hb, values);
+      return;
+    }
   case MAX:
     {
       IndexExprMax *maxExpr = static_cast<IndexExprMax *>(expr);
@@ -530,10 +287,83 @@ IndexExpr::injectArgsValues(IndexExpr *expr, const std::vector<int> &values) {
       injectArgsValues(expr, values);
       return;
     }
+  };
+}
 
-  default:
+void
+IndexExpr::injectIndirValues(IndexExpr *expr,
+			     const std::vector<std::pair<int, int> >&values) {
 
+  if (!expr)
     return;
+
+  switch (expr->getTag()) {
+  case ARG:
+    return;
+
+  case OCL:
+    {
+      IndexExprOCL *oclExpr = static_cast<IndexExprOCL *>(expr);
+      IndexExpr *arg = oclExpr->getArg();
+      injectIndirValues(arg, values);
+      return;
+    }
+
+  case BINOP:
+    {
+      IndexExprBinop *binExpr = static_cast<IndexExprBinop *>(expr);
+      IndexExpr *expr1 = binExpr->getExpr1();
+      injectIndirValues(expr1, values);
+      IndexExpr *expr2 = binExpr->getExpr2();
+      injectIndirValues(expr2, values);
+      return;
+    }
+
+  case INTERVAL:
+    {
+      IndexExprInterval *intervalExpr = static_cast<IndexExprInterval *>(expr);
+      IndexExpr *lb = intervalExpr->getLb();
+      injectIndirValues(lb, values);
+      IndexExpr *hb = intervalExpr->getHb();
+      injectIndirValues(hb, values);
+      return;
+    }
+  case INDIR:
+    {
+      IndexExprIndirection *indirExpr
+	= static_cast<IndexExprIndirection *>(expr);
+      unsigned no = indirExpr->getNo();
+      assert(no < values.size());
+      delete indirExpr->lb;
+      delete indirExpr->hb;
+      indirExpr->lb = new IndexExprConst(values[no].first);
+      indirExpr->hb = new IndexExprConst(values[no].second);
+      return;
+    }
+  case MAX:
+    {
+      IndexExprMax *maxExpr = static_cast<IndexExprMax *>(expr);
+      unsigned numOperands = maxExpr->getNumOperands();
+      for (unsigned i=0; i<numOperands; i++) {
+	IndexExpr *current = maxExpr->getExprN(i);
+	injectIndirValues(current, values);
+      }
+      return;
+    }
+  case LB:
+    {
+      IndexExprLB *lbExpr = static_cast<IndexExprLB *>(expr);
+      IndexExpr *expr = lbExpr->getExpr();
+      injectIndirValues(expr, values);
+      return;
+    }
+  case HB:
+    {
+      IndexExprHB *hbExpr = static_cast<IndexExprHB *>(expr);
+      IndexExpr *expr = hbExpr->getExpr();
+      injectIndirValues(expr, values);
+      return;
+    }
   };
 }
 
@@ -672,6 +502,27 @@ IndexExpr::computeBounds(const IndexExpr *expr, long *lb, long *hb) {
 	= static_cast<const IndexExprInterval *>(expr);
       const IndexExpr *expr1 = intervalExpr->getLb();
       const IndexExpr *expr2 = intervalExpr->getHb();
+
+      long lb1, hb1, lb2, hb2;
+      if (!computeBounds(expr1, &lb1, &hb1) ||
+	  !computeBounds(expr2, &lb2, &hb2))
+	return false;
+
+      assert(lb1 <= hb1);
+      assert(lb2 <= hb2);
+
+      *lb = MIN(lb1, lb2);
+      *hb = MAX(hb1, hb2);
+      assert(*lb <= *hb);
+      return true;
+    }
+
+  case INDIR:
+    {
+      const IndexExprIndirection *indirExpr
+	= static_cast<const IndexExprIndirection *>(expr);
+      const IndexExpr *expr1 = indirExpr->getLb();
+      const IndexExpr *expr2 = indirExpr->getHb();
 
       long lb1, hb1, lb2, hb2;
       if (!computeBounds(expr1, &lb1, &hb1) ||

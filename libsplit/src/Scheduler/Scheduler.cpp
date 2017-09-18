@@ -1,4 +1,5 @@
 #include <Handle/KernelHandle.h>
+#include <Options.h>
 #include <Scheduler/Scheduler.h>
 #include <Utils/Debug.h>
 
@@ -13,30 +14,21 @@ namespace libsplit {
 
   Scheduler::~Scheduler() {}
 
-
   void
-  Scheduler::getPartition(KernelHandle *k, /* IN */
-			  size_t work_dim, /* IN */
-			  const size_t *global_work_offset, /* IN */
-			  const size_t *global_work_size, /* IN */
-			  const size_t *local_work_size, /* IN */
-			  bool *needOtherExecutionToComplete, /* OUT */
-			  std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
-			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
-			  unsigned *id) /* OUT */ {
+  Scheduler::getIndirectionRegions(KernelHandle *k,
+				   size_t work_dim,
+				   const size_t *global_work_offset,
+				   const size_t *global_work_size,
+				   const size_t *local_work_size,
+				   std::vector<BufferIndirectionRegion> &
+				   regions) {
     SubKernelSchedInfo *SI = NULL;
-    bool needToInstantiateAnalysis = false;
 
     // Get kernel id
-    *id = getKernelID(k);
+    unsigned id = getKernelID(k);
 
-    // First execution
-    if (kerID2InfoMap.find(*id) == kerID2InfoMap.end()) {
-      // Create schedinfo
+    // Create schedinfo if it doesn't exists yet.
+    if (kerID2InfoMap.find(id) == kerID2InfoMap.end()) {
       SI = new SubKernelSchedInfo(nbDevices);
       SI->last_work_dim = work_dim;
       for (cl_uint i=0; i<work_dim; i++) {
@@ -45,135 +37,222 @@ namespace libsplit {
 	SI->last_global_work_size[i] = global_work_size[i];
 	SI->last_local_work_size[i] = local_work_size[i];
       }
-      kerID2InfoMap[*id] = SI;
-
-      // Get first partition
-      getInitialPartition(SI, *id, needOtherExecutionToComplete);
-
-      // Analysis needs to be instantiated
-      needToInstantiateAnalysis = true;
+      kerID2InfoMap[id] = SI;
     } else {
-      SI = kerID2InfoMap[*id];
-
-      // Update timers.
-      updateTimers(SI);
-
-      // Update perf descriptor.
-      updatePerfDescr(SI);
-
-      // Increment iteration counter.
-      SI->iterno++;
-
-      // Get next partition.
-      getNextPartition(SI, *id, needOtherExecutionToComplete,
-		       &needToInstantiateAnalysis);
+      SI = kerID2InfoMap[id];
     }
 
-    // Check if scalar parameters have changed.
-    std::vector<int> currentArgsValues = k->getArgsValuesAsInt();
-    for (unsigned i=0; i<SI->argsValues.size(); ++i) {
-      if (SI->argsValues[i] != currentArgsValues[i]) {
-	needToInstantiateAnalysis = true;
-	break;
+    // Get partition if needed (first call to getIndirectionRegions for the
+    // current iteration.
+    if (!SI->hasPartition) {
+      SI->hasPartition = true;
+
+      if (!SI->hasInitPartition) {
+	getInitialPartition(SI, id, &SI->needOtherExecToComplete);
+	SI->hasInitPartition = true;
+	// Analysis needs to be instantiated
+	SI->needToInstantiateAnalysis = true;
+      } else {
+	// Update timers.
+	updateTimers(SI);
+
+	// Update perf descriptor.
+	updatePerfDescr(SI);
+
+	// Increment iteration counter.
+	SI->iterno++;
+
+	// Get next partition.
+	getNextPartition(SI, id, &SI->needOtherExecToComplete,
+			 &SI->needToInstantiateAnalysis);
       }
-    }
-    SI->argsValues = k->getArgsValuesAsInt();
 
-    // Check if original NDRange has changed.
-    if (SI->last_work_dim != work_dim) {
-      needToInstantiateAnalysis = true;
-    } else {
-      for (cl_uint i=0; i<work_dim; i++) {
-	if (SI->last_global_work_offset[i] !=
-	    (global_work_offset ? global_work_offset[i] : 0) ||
-	    SI->last_global_work_size[i] != global_work_size[i] ||
-	    SI->last_local_work_size[i] != local_work_size[i]) {
-	  needToInstantiateAnalysis = true;
+      // Check if scalar parameters have changed.
+      std::vector<int> currentArgsValues = k->getArgsValuesAsInt();
+      for (unsigned i=0; i<SI->argsValues.size(); ++i) {
+	if (SI->argsValues[i] != currentArgsValues[i]) {
+	  SI->needToInstantiateAnalysis = true;
 	  break;
 	}
       }
-    }
-    SI->last_work_dim = work_dim;
-    for (cl_uint i=0; i<work_dim; i++) {
-      SI->last_global_work_offset[i] =
-	(global_work_offset ? global_work_offset[i] : 0);
-      SI->last_global_work_size[i] = global_work_size[i];
-      SI->last_local_work_size[i] = local_work_size[i];
-    }
+      SI->argsValues = k->getArgsValuesAsInt();
 
-    // Instantiate analysis if needed.
-    if (needToInstantiateAnalysis) {
-      SI->dataRequired.clear();
-      SI->dataWritten.clear();
-      SI->dataWrittenOr.clear();
-      SI->dataWrittenAtomicSum.clear();
-      SI->dataWrittenAtomicMax.clear();
-      for (unsigned i=0; i<SI->subkernels.size(); i++) {
-	delete SI->subkernels[i];
+      // Check if original NDRange has changed.
+      if (SI->last_work_dim != work_dim) {
+	SI->needToInstantiateAnalysis = true;
+      } else {
+	for (cl_uint i=0; i<work_dim; i++) {
+	  if (SI->last_global_work_offset[i] !=
+	      (global_work_offset ? global_work_offset[i] : 0) ||
+	      SI->last_global_work_size[i] != global_work_size[i] ||
+	      SI->last_local_work_size[i] != local_work_size[i]) {
+	    SI->needToInstantiateAnalysis = true;
+	    break;
+	  }
+	}
       }
-      SI->subkernels.clear();
+      SI->last_work_dim = work_dim;
+      for (cl_uint i=0; i<work_dim; i++) {
+	SI->last_global_work_offset[i] =
+	  (global_work_offset ? global_work_offset[i] : 0);
+	SI->last_global_work_size[i] = global_work_size[i];
+	SI->last_local_work_size[i] = local_work_size[i];
+      }
 
-      unsigned dimOrder[work_dim];
-      getSortedDim(work_dim, global_work_size, local_work_size, dimOrder);
+      // Sort the NDRange dimensions if analysis needs to be instantiated.
+      getSortedDim(work_dim, global_work_size, local_work_size,
+		   SI->dimOrder);
 
       // Hack to split the second dimension for clHeat
       if (!strcmp(k->getName(), "getMaxDerivIntel")) {
-	dimOrder[0] = 1; dimOrder[1] = 0;
+	SI->dimOrder[0] = 1; SI->dimOrder[1] = 0;
       }
-
-      bool canSplit = false;
-
+      SI->currentDim = 0;
 
       // Copy requested granularity to real granularity.
       std::copy(SI->req_granu_dscr, SI->req_granu_dscr+SI->req_size_gr,
 		SI->real_granu_dscr);
       SI->real_size_gr = SI->req_size_gr;
+    }
 
-      for (unsigned i=0; i<work_dim; i++) {
+    // Analysis needs to be instantiated every time if the kernel has indirections.
+    if (k->getAnalysis()->hasIndirection()) {
+      SI->needToInstantiateAnalysis = true;
+    }
 
-	// Check if there is enough workgroups for the requested partition.
-	unsigned nbSplits = SI->real_size_gr / 3;
-	unsigned nbWgs = global_work_size[dimOrder[i]] /
-	  local_work_size[dimOrder[i]];
-	if (nbWgs < nbSplits) {
-	  std::cerr << "kernel " << k->getName()
-		    << ": insufficient number of workgroups !"
-		    << " (" << nbWgs << ")\n";
-	  SI->real_size_gr = nbWgs * 3;
-	  for (unsigned w=0; w<nbWgs; w++)
-	    SI->real_granu_dscr[w*3+2] = 1.0 / nbWgs;
-	  std::cerr << "requested partition : ";
-	  for (int ii=0; ii<SI->req_size_gr; ii++)
-	    std::cerr << SI->req_granu_dscr[ii] << " ";
-	  std::cerr << "\n";
-	  std::cerr << "adapted partition : ";
-	  for (int ii=0; ii<SI->real_size_gr; ii++)
-	    std::cerr << SI->real_granu_dscr[ii] << " ";
-	  std::cerr << "\n";
+    if (!SI->needToInstantiateAnalysis)
+      return;
+
+    if (SI->currentDim >= work_dim) {
+      std::cerr << "Error: cannot split kernel " << k->getName() << "\n";
+      exit(EXIT_FAILURE);
+    }
+
+    // Adapt partition.
+    unsigned nbSplits = SI->real_size_gr / 3;
+    unsigned currentDim = SI->currentDim;
+    unsigned nbWgs = global_work_size[SI->dimOrder[currentDim]] /
+      local_work_size[SI->dimOrder[currentDim]];
+    if (nbWgs < nbSplits) {
+      SI->real_size_gr = nbWgs * 3;
+      for (unsigned w=0; w<nbWgs; w++)
+	SI->real_granu_dscr[w*3+2] = 1.0 / nbWgs;
+
+      DEBUG("granu",
+	    std::cerr << "kernel " << k->getName()
+	    << ": insufficient number of workgroups !"
+	    << " (" << nbWgs << ")\n";
+	    std::cerr << "requested partition : ";
+	    for (int ii=0; ii<SI->req_size_gr; ii++)
+	      std::cerr << SI->req_granu_dscr[ii] << " ";
+	    std::cerr << "\n";
+	    std::cerr << "adapted partition : ";
+	    for (int ii=0; ii<SI->real_size_gr; ii++)
+	      std::cerr << SI->real_granu_dscr[ii] << " ";
+	    std::cerr << "\n";);
+    }
+    adaptGranudscr(SI->real_granu_dscr, &SI->real_size_gr,
+		   global_work_size[SI->dimOrder[currentDim]],
+		   local_work_size[SI->dimOrder[currentDim]]);
+    nbSplits = SI->real_size_gr / 3;
+
+    // Create original and sub NDRanges.
+    NDRange origNDRange = NDRange(work_dim, global_work_size,
+				  global_work_offset, local_work_size);
+    std::vector<NDRange> subNDRanges;
+    origNDRange.splitDim(SI->dimOrder[currentDim],
+			 SI->real_size_gr, SI->real_granu_dscr,
+			 &subNDRanges);
+
+    // Set partition to analysis
+    std::vector<int> argsValues = k->getArgsValuesAsInt();
+    k->getAnalysis()->setPartition(origNDRange, subNDRanges, argsValues);
+
+    // Get indirection regions.
+    if (optDisableIndirections)
+      return;
+    for (unsigned s=0; s<nbSplits; s++) {
+      const std::vector<ArgIndirectionRegion *> argRegions =
+    	k->getAnalysis()->getSubkernelIndirectionsRegions(s);
+      for (unsigned i=0; i<argRegions.size(); i++) {
+    	unsigned argGlobalId =
+    	  k->getAnalysis()->getGlobalArgId(argRegions[i]->pos);
+    	MemoryHandle *m = k->getGlobalArgHandle(argGlobalId);
+    	regions.push_back(BufferIndirectionRegion(s,
+    						  argRegions[i]->id,
+    						  m,
+    						  argRegions[i]->cb,
+    						  argRegions[i]->lb,
+    						  argRegions[i]->hb));
+      }
+    }
+  }
+
+  bool
+  Scheduler::setIndirectionValues(KernelHandle *k,
+				  const std::vector<BufferIndirectionRegion> &
+				  regions) {
+    // Get kernel id
+    unsigned id = getKernelID(k);
+
+    // Get schedinfo
+    SubKernelSchedInfo *SI = kerID2InfoMap[id];
+
+    // Instantiate analysis if needed.
+    if (SI->needToInstantiateAnalysis) {
+
+      // Set indirections values to analysis.
+      unsigned nbSplit = SI->real_size_gr / 3;
+      if (regions.size() > 0) {
+	std::vector<IndirectionValue> regionValues[nbSplit];
+	for (unsigned i=0; i<regions.size(); i++) {
+	  unsigned subkernelId = regions[i].subkernelId;
+	  unsigned indirectionId = regions[i].indirectionId;
+	  int lbValue = regions[i].lbValue;
+	  int hbValue = regions[i].hbValue;
+	  regionValues[subkernelId].push_back(IndirectionValue(indirectionId,
+							       lbValue, hbValue));
 	}
-
-	canSplit =
-	  instantiateAnalysis(k, work_dim, global_work_offset, global_work_size,
-			      local_work_size, dimOrder[i], SI->real_granu_dscr,
-			      &SI->real_size_gr, SI->subkernels,
-			      SI->dataRequired, SI->dataWritten,
-			      SI->dataWrittenOr,
-			      SI->dataWrittenAtomicSum,
-			      SI->dataWrittenAtomicMax);
-	if (canSplit)
-	  break;
+	for (unsigned i=0; i<nbSplit; i++) {
+	  k->getAnalysis()->setSubkernelIndirectionsValues(i, regionValues[i]);
+	}
       }
 
-      if (!canSplit) {
-	std::cerr << "Error: cannot split kernel " << k->getName() << " !\n";
-	exit(EXIT_FAILURE);
+
+      if (!instantiateAnalysis(k,
+			       SI->real_granu_dscr, &SI->real_size_gr,
+			       SI->dimOrder[SI->currentDim], SI->subkernels,
+			       SI->dataRequired, SI->dataWritten,
+			       SI->dataWrittenOr,
+			       SI->dataWrittenAtomicSum,
+			       SI->dataWrittenAtomicMax)) {
+	SI->currentDim++;
+	SI->needToInstantiateAnalysis = true;
+	return false;
       }
     }
 
-    DEBUG("granu", printPartition(SI));
+    return true;
+  }
 
-    // Increment call count.
-    count++;
+  void
+  Scheduler::getPartition(KernelHandle *k, /* IN */
+			  bool *needOtherExecutionToComplete, /* OUT */
+			  std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
+			  unsigned *id) /* OUT */ {
+    // Get kernel id
+    *id = getKernelID(k);
+
+    // Get schedinfo
+    SubKernelSchedInfo *SI = kerID2InfoMap[*id];
+    SI->hasPartition = false;
+
+    DEBUG("granu", printPartition(SI));
 
     // Set output.
     for (unsigned i=0; i<SI->subkernels.size(); i++)
@@ -183,6 +262,10 @@ namespace libsplit {
     dataWrittenOr = SI->dataWrittenOr;
     dataWrittenAtomicSum = SI->dataWrittenAtomicSum;
     dataWrittenAtomicMax = SI->dataWrittenAtomicMax;
+    *needOtherExecutionToComplete = SI->needOtherExecToComplete;
+
+    // Increment call count.
+    count++;
   }
 
   void
@@ -304,7 +387,7 @@ namespace libsplit {
   Scheduler::getSortedDim(cl_uint work_dim,
 			  const size_t *global_work_size,
 			  const size_t *local_work_size,
-			  unsigned *order) {
+			  unsigned order[3]) {
     unsigned dimSplitMax[work_dim];
     for (unsigned i=0; i<work_dim; i++) {
       dimSplitMax[i] = global_work_size[i] / local_work_size[i];
@@ -334,58 +417,35 @@ namespace libsplit {
 
   bool
   Scheduler::instantiateAnalysis(KernelHandle *k,
-				 cl_uint work_dim,
-				 const size_t *global_work_offset,
-				 const size_t *global_work_size,
-				 const size_t *local_work_size,
-				 unsigned splitDim,
 				 double *granu_dscr,
 				 int *size_gr,
+				 unsigned splitDim,
 				 std::vector<SubKernelExecInfo *> &subkernels,
 				 std::vector<DeviceBufferRegion> &dataRequired,
 				 std::vector<DeviceBufferRegion> &dataWritten,
 				 std::vector<DeviceBufferRegion> &dataWrittenOr,
 				 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
 				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
+    dataRequired.clear();
+    dataWritten.clear();
+    dataWrittenOr.clear();
+    dataWrittenAtomicSum.clear();
+    dataWrittenAtomicMax.clear();
+    for (unsigned i=0; i<subkernels.size(); i++)
+      delete subkernels[i];
+    subkernels.clear();
+
+
     KernelAnalysis *analysis = k->getAnalysis();
-    // analysis->debug();
+    if (!analysis->performAnalysis())
+      return false;
 
-    // Check if there if the number of workgroups is sufficient.
+    const NDRange &origNDRange = analysis->getKernelNDRange();
+    const std::vector<NDRange> &subNDRanges = analysis->getSubNDRanges();
     int nbSplits = *size_gr / 3;
-    if (global_work_size[splitDim] / local_work_size[splitDim] <
-	(size_t) nbSplits)
-      return false;
-
-    // Adapat granu descriptor depending on the minimum granularity
-    // (global/local).
-    adaptGranudscr(granu_dscr, size_gr, global_work_size[splitDim],
-		   local_work_size[splitDim]);
-
-    nbSplits = *size_gr / 3;
-
-    // Create original NDRange.
-    NDRange origNDRange = NDRange(work_dim, global_work_size,
-				  global_work_offset, local_work_size);
-    // Create the sub-NDRanges.
-    std::vector<NDRange> subNDRanges;
-    origNDRange.splitDim(splitDim, *size_gr, granu_dscr, &subNDRanges);
-
-    // for (unsigned i=0; i<subNDRanges.size(); i++)
-    //   subNDRanges[i].dump();
-
-    // Instantiate analysis for each global argument.
-    bool canSplit = true;
-    std::vector<int> argsValues = k->getArgsValuesAsInt();
-    unsigned nbGlobals = analysis->getNbGlobalArguments();
-    for (unsigned i=0; i<nbGlobals; i++) {
-      ArgumentAnalysis *argAnalysis = analysis->getGlobalArgAnalysis(i);
-      argAnalysis->performAnalysis(argsValues, origNDRange, subNDRanges);
-      //      argAnalysis->dump();
-      canSplit = canSplit && argAnalysis->canSplit();
-    }
-
-    if (!canSplit)
-      return false;
+    unsigned work_dim = origNDRange.get_work_dim();
+    unsigned num_groups = origNDRange.get_global_size(splitDim) /
+      origNDRange.get_local_size(splitDim);
 
     // Fill subkernels vector
     for (int i=0; i<nbSplits; i++) {
@@ -396,10 +456,9 @@ namespace libsplit {
       for (unsigned dim=0; dim < work_dim; dim++) {
 	subkernel->global_work_offset[dim] = subNDRanges[i].getOffset(dim);
 	subkernel->global_work_size[dim] = subNDRanges[i].get_global_size(dim);
-	subkernel->local_work_size[dim] = local_work_size[dim];
+	subkernel->local_work_size[dim] = subNDRanges[i].get_local_size(dim);
       }
-      subkernel->numgroups = global_work_size[splitDim] /
-	local_work_size[splitDim];
+      subkernel->numgroups = num_groups;
       subkernel->splitdim = splitDim;
       subkernels.push_back(subkernel);
     }
@@ -411,13 +470,12 @@ namespace libsplit {
       totalGsize += subkernels[i]->global_work_size[splitDim];
     }
     totalGsize -= origNDRange.getOffset(splitDim);
-    assert(totalGsize == global_work_size[splitDim]);
     // END CHECK CODE
 
 
     // Fill dataRequired and dataWritten vectors
+    unsigned nbGlobals = analysis->getNbGlobalArguments();
     for (unsigned a=0; a<nbGlobals; a++) {
-      ArgumentAnalysis *argAnalysis = analysis->getGlobalArgAnalysis(a);
       MemoryHandle *m = k->getGlobalArgHandle(a);
       assert(m);
 
@@ -427,37 +485,40 @@ namespace libsplit {
 	unsigned devId = granu_dscr[i*3];
 
 	// Compute read region
-	if (!argAnalysis->readBoundsComputed()) {
+	if (!analysis->argReadBoundsComputed(a)) {
 	  readRegion.setUndefined();
 	}
 
-	if (argAnalysis->isReadBySplitNo(i)) {
-	  readRegion.myUnion(argAnalysis->getReadSubkernelRegion(i));
+	if (analysis->argIsReadBySubkernel(a, i)) {
+	  readRegion.myUnion(analysis->getArgReadSubkernelRegion(a, i));
 	}
 
 	// Compute written region
-	if (argAnalysis->isWrittenBySplitNo(i))
-	  writtenRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
+	if (analysis->argIsWrittenBySubkernel(a, i))
+	  writtenRegion.myUnion(analysis->getArgWrittenSubkernelRegion(a, i));
 
 	// Compute written_or region
-	if (argAnalysis->isWrittenOrBySplitNo(i))
-	  writtenOrRegion.myUnion(argAnalysis->getWrittenOrSubkernelRegion(i));
+	if (analysis->argIsWrittenOrBySubkernel(a, i))
+	  writtenOrRegion.myUnion(analysis->
+				  getArgWrittenOrSubkernelRegion(a, i));
 
 	// Compute written_atomic_sum region
-	if (argAnalysis->isWrittenAtomicSumBySplitNo(i))
+	if (analysis->argIsWrittenAtomicSumBySubkernel(a, i))
 	  writtenAtomicSumRegion.
-	    myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
+	    myUnion(analysis->getArgWrittenAtomicSumSubkernelRegion(a, i));
 
 	// Compute written_atomic_max region
-	if (argAnalysis->isWrittenAtomicMaxBySplitNo(i))
+	if (analysis->argIsWrittenAtomicMaxBySubkernel(a, i))
 	  writtenAtomicMaxRegion.
-	    myUnion(argAnalysis->getWrittenAtomicMaxSubkernelRegion(i));
+	    myUnion(analysis->getArgWrittenAtomicMaxSubkernelRegion(a, i));
 
 	// The data written have to be send to the device.
-	readRegion.myUnion(argAnalysis->getWrittenSubkernelRegion(i));
-	readRegion.myUnion(argAnalysis->getWrittenOrSubkernelRegion(i));
-	readRegion.myUnion(argAnalysis->getWrittenAtomicSumSubkernelRegion(i));
-	readRegion.myUnion(argAnalysis->getWrittenAtomicMaxSubkernelRegion(i));
+	readRegion.myUnion(analysis->getArgWrittenSubkernelRegion(a, i));
+	readRegion.myUnion(analysis->getArgWrittenOrSubkernelRegion(a, i));
+	readRegion.myUnion(analysis->
+			   getArgWrittenAtomicSumSubkernelRegion(a, i));
+	readRegion.myUnion(analysis->
+			   getArgWrittenAtomicMaxSubkernelRegion(a, i));
 
 	if (readRegion.total() > 0 || readRegion.isUndefined())
 	  dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));

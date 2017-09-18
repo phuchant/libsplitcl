@@ -7,12 +7,29 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/DataLayout.h"
 
+struct LoadIndirectionExpr {
+  LoadIndirectionExpr(unsigned id,
+		      const llvm::Argument *arg,
+		      unsigned numBytes,
+		      IndexExpr *expr,
+		      llvm::Instruction *inst)
+    : id(id), arg(arg), numBytes(numBytes), expr(expr), inst(inst) {}
+  ~LoadIndirectionExpr() {
+    delete expr;
+  }
+
+  unsigned id;
+  const llvm::Argument *arg;
+  unsigned numBytes;
+  IndexExpr *expr;
+  llvm::Instruction *inst;
+};
+
 class IndexExprBuilder {
 public:
   IndexExprBuilder(llvm::LoopInfo *loopInfo,
 		   llvm::ScalarEvolution *scalarEvolution,
-		   const llvm::DataLayout *dataLayout,
-		   llvm::Type *syclRangeType);
+		   const llvm::DataLayout *dataLayout);
   ~IndexExprBuilder();
 
   void buildLoadExpr(llvm::LoadInst *LI, IndexExpr **expr,
@@ -31,6 +48,9 @@ public:
   void build_atom_Expr(llvm::CallInst *CI, IndexExpr **expr,
 		       const llvm::Argument **arg);
 
+  void disableIndirections();
+  void enableIndirections();
+
   // This function compute an IndexExpr for a value
   // Example:
   //
@@ -42,17 +62,28 @@ public:
   // -> (get_global_id(0) + 1) * arg0
   IndexExpr *buildExpr(llvm::Value *value);
 
+  unsigned getNumIndirections();
+  const LoadIndirectionExpr *getIndirection(unsigned n);
+
 private:
   llvm::LoopInfo *loopInfo;
   llvm::ScalarEvolution *scalarEvolution;
 
   const llvm::DataLayout *dataLayout;
-  llvm::Type *syclRangeType;
 
   void parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 		 const llvm::Argument **arg);
 
   IndexExpr *tryComputeLoopBackedCount(llvm::Loop *L);
+  bool computingBackedge;
+
+  /* Indirections */
+  bool indirectionsDisabled;
+  bool buildingIndirection;
+  bool doubleIndirectionReached;
+  unsigned numIndirections;
+  std::map<llvm::LoadInst *, unsigned> load2IndirectionID;
+  std::vector<LoadIndirectionExpr *> indirections;
 };
 
 #endif /* INDEXEXPRBUILDER_H */

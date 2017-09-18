@@ -46,25 +46,14 @@ IndexExprHB::getWorkgroupExpr(const NDRange &ndRange) const {
 }
 
 IndexExpr *
-IndexExprHB::getKernelExpr(const NDRange &ndRange) const {
+IndexExprHB::getKernelExpr(const NDRange &ndRange,
+			   const std::vector<GuardExpr *> & guards,
+			   const std::vector<IndirectionValue> &
+			   indirValues) const {
   IndexExpr *kl_expr;
 
   if (expr)
-    kl_expr = expr->getKernelExpr(ndRange);
-  else
-    kl_expr = new IndexExprUnknown("null");
-
-  return new IndexExprHB(kl_expr);
-}
-
-IndexExpr *
-IndexExprHB::getKernelExprWithGuards(const NDRange &ndRange,
-					const std::vector<GuardExpr *> &guards)
-  const {
-  IndexExpr *kl_expr;
-
-  if (expr)
-    kl_expr = expr->getKernelExprWithGuards(ndRange, guards);
+    kl_expr = expr->getKernelExpr(ndRange, guards, indirValues);
   else
     kl_expr = new IndexExprUnknown("null");
 

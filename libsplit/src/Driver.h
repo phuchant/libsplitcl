@@ -61,6 +61,7 @@ namespace libsplit {
 
     void startD2HTransfers(unsigned kerId,
 			   const std::vector<DeviceBufferRegion> &transferList);
+    void startD2HTransfers(const std::vector<DeviceBufferRegion> &transferList);
     void startH2DTransfers(unsigned kerId,
 			   const std::vector<DeviceBufferRegion> &transferList);
     void startOrD2HTransfers(unsigned kerId,

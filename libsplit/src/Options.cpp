@@ -33,6 +33,7 @@ namespace libsplit {
   std::vector<double> optDComm;
   bool optLockFreeQueue = false;
   int optSampleSteps = 0;
+  bool optDisableIndirections = false;
 
   struct option {
     const char *name;
@@ -64,6 +65,7 @@ namespace libsplit {
   static void dcommOption(char *env);
   static void lockfreequeueOption(char *env);
   static void samplestepsOption(char *env);
+  static void disableindirOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -111,7 +113,10 @@ namespace libsplit {
      lockfreequeueOption},
     {"SAMPLESTEPS", "Number of granularity steps sampled for each subkernels.",
      false,
-     samplestepsOption}
+     samplestepsOption},
+    {"DISABLEINDIR", "Disable indirections.", false,
+     disableindirOption},
+
   };
 
   static void helpOption(char *env)
@@ -328,6 +333,13 @@ namespace libsplit {
       return;
 
     optSampleSteps = atoi(env);
+  }
+
+  static void disableindirOption(char *env) {
+    if (!env)
+      return;
+
+    optDisableIndirections = atoi(env);
   }
 
   void parseEnvOptions()

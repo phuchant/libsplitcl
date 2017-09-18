@@ -58,63 +58,13 @@ IndexExprInterval::getWorkgroupExpr(const NDRange &ndRange) const {
 }
 
 IndexExpr *
-IndexExprInterval::getKernelExpr(const NDRange &ndRange) const {
-  return new IndexExprInterval(lb->getKernelExpr(ndRange),
-			       hb->getKernelExpr(ndRange));
+IndexExprInterval::getKernelExpr(const NDRange &ndRange,
+				 const std::vector<GuardExpr *> & guards,
+				 const std::vector<IndirectionValue> &
+				 indirValues) const {
+  return new IndexExprInterval(lb->getKernelExpr(ndRange, guards, indirValues),
+			       hb->getKernelExpr(ndRange, guards, indirValues));
 }
-
-IndexExpr *
-IndexExprInterval::getKernelExprWithGuards(const NDRange &ndRange,
-					   const std::vector<GuardExpr *> &
-					   guards) const {
-  return new IndexExprInterval(lb->getKernelExprWithGuards(ndRange, guards),
-			       hb->getKernelExprWithGuards(ndRange, guards));
-}
-
-// IndexExpr *
-// IndexExprInterval::computeExpr() const {
-//   IndexExpr *computedLb = NULL;
-//   if (lb)
-//     computedLb = lb->computeExpr();
-
-//   IndexExpr *computedHb = NULL;
-//   if (hb)
-//     computedHb = hb->computeExpr();
-
-//   return new IndexExprInterval(computedLb, computedHb);
-// }
-
-// IndexExpr *
-// IndexExprInterval::removeNeutralElem(bool *changed) const {
-//   bool lbChanged = false;
-//   IndexExpr *newLb = NULL;
-//   if (lb)
-//     newLb = lb->removeNeutralElem(&lbChanged);
-
-//   bool hbChanged = false;
-//   IndexExpr *newHb = NULL;
-//   if (hb)
-//     newHb = hb->removeNeutralElem(&hbChanged);
-
-//   *changed = lbChanged || hbChanged;
-//   return new IndexExprInterval(newLb, newHb);
-// }
-
-// IndexExpr *
-// IndexExprInterval::getLowerBound() const {
-//   IndexExpr *ret = NULL;
-//   if (lb)
-//     ret = lb->getLowerBound();
-//   return ret;
-// }
-
-// IndexExpr *
-// IndexExprInterval::getHigherBound() const{
-//   IndexExpr *ret = NULL;
-//   if (hb)
-//     ret = hb->getHigherBound();
-//   return ret;
-// }
 
 void
 IndexExprInterval::toDot(std::stringstream &stream) const {

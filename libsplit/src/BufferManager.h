@@ -20,6 +20,27 @@ namespace libsplit {
     void *tmp;
   };
 
+  struct BufferIndirectionRegion {
+    BufferIndirectionRegion(unsigned subkernelId,
+			    unsigned indirectionId,
+			    MemoryHandle *m,
+			    size_t cb,
+			    size_t lb,
+			    size_t hb)
+      : subkernelId(subkernelId), indirectionId(indirectionId), m(m),
+	cb(cb), lb(lb), hb(hb) {}
+    ~BufferIndirectionRegion() {}
+
+    unsigned subkernelId;
+    unsigned indirectionId;
+    MemoryHandle *m;
+    size_t cb;
+    size_t lb;
+    size_t hb;
+    int lbValue;
+    int hbValue;
+  };
+
   class BufferManager {
   public:
 
@@ -34,6 +55,9 @@ namespace libsplit {
 
     void copy(MemoryHandle *src, MemoryHandle *dst, size_t src_offset,
 	      size_t dst_offset, size_t size);
+
+    void computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
+				     std::vector<DeviceBufferRegion> &D2HTransferList);
 
     void computeTransfers(std::vector<DeviceBufferRegion> &dataRequired,
 			  std::vector<DeviceBufferRegion> &dataWrittenOr,

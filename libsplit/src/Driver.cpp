@@ -183,8 +183,73 @@ namespace libsplit {
     bool needOtherExecutionToComplete = false;
     unsigned kerId = 0;
 
-    scheduler->getPartition(k, work_dim, global_work_offset,
-			    global_work_size, local_work_size,
+    // Read required data for indirections while scheduler is not done.
+    bool done = false;
+    do {
+      std::vector<BufferIndirectionRegion> indirectionRegions;
+      std::vector<DeviceBufferRegion> D2HTransfers;
+
+      scheduler->getIndirectionRegions(k,
+				       work_dim,
+				       global_work_offset,
+				       global_work_size,
+				       local_work_size,
+				       indirectionRegions);
+
+      bufferMgr->computeIndirectionTransfers(indirectionRegions, D2HTransfers);
+      startD2HTransfers(D2HTransfers);
+
+      // Barrier
+      ContextHandle *context = k->getContext();
+      for (unsigned i=0; i<context->getNbDevices(); i++) {
+	context->getQueueNo(i)->finish();
+      }
+
+      // Fill indirection values.
+      for (unsigned i=0; i<indirectionRegions.size(); i++) {
+	size_t cb = indirectionRegions[i].cb;
+	size_t lb = indirectionRegions[i].lb;
+	size_t hb = indirectionRegions[i].hb;
+	MemoryHandle *m = indirectionRegions[i].m;
+	char *lbAddress = ((char *)m->mLocalBuffer) + lb;
+	char *hbAddress = ((char *)m->mLocalBuffer) + hb;
+	switch(cb) {
+	case 8:
+	  indirectionRegions[i].lbValue = (int) *((long *) lbAddress);
+	  indirectionRegions[i].hbValue = (int) *((long *) hbAddress);
+	  break;
+	case 4:
+	  indirectionRegions[i].lbValue = *((int *) lbAddress);
+	  indirectionRegions[i].hbValue = *((int *) hbAddress);
+	  break;
+	case 2:
+	  indirectionRegions[i].lbValue = (int) *((short *) lbAddress);
+	  indirectionRegions[i].hbValue = (int) *((short *) hbAddress);
+	  break;
+	case 1:
+	  indirectionRegions[i].lbValue = (int) *((char *) lbAddress);
+	  indirectionRegions[i].hbValue = (int) *((char *) hbAddress);
+	  break;
+	default:
+	  std::cerr << "Error: Unhandled integer size : " << cb << "\n";
+	  exit(EXIT_FAILURE);
+	};
+
+	DEBUG("indirection",
+	      std::cerr << "kerId= " << indirectionRegions[i].subkernelId
+	      << " lbAddr= " << indirectionRegions[i].lb
+	      << " hbAddr= " << indirectionRegions[i].hb
+	      << " indirId=" << indirectionRegions[i].indirectionId
+	      << " lb=" << indirectionRegions[i].lbValue << " hb=" <<indirectionRegions[i].hbValue << "\n";
+	      );
+      }
+
+      done = scheduler->setIndirectionValues(k, indirectionRegions);
+
+    } while(!done);
+
+    // Get partition from scheduler along with data required and data written.
+    scheduler->getPartition(k,
 			    &needOtherExecutionToComplete,
 			    subkernels,
 			    dataRequired, dataWritten,
@@ -305,6 +370,47 @@ namespace libsplit {
 
       // 3) pass transfers events to the scheduler
       scheduler->setD2HEvents(kerId, d, events);
+    }
+
+    DEBUG("transfers", std::cerr << "end D2H\n");
+  }
+
+  void
+  Driver::startD2HTransfers(const std::vector<DeviceBufferRegion>
+			    &transferList) {
+    DEBUG("transfers",
+	  std::cerr << "start D2H\n");
+
+    // For each device
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      std::vector<Event> events;
+      MemoryHandle *m = transferList[i].m;
+      unsigned d = transferList[i].devId;
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+
+      // 1) enqueue transfers
+      for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
+	size_t offset = transferList[i].region.mList[j].lb;
+	size_t cb = transferList[i].region.mList[j].hb -
+	  transferList[i].region.mList[j].lb + 1;
+
+	Event event;
+	events.push_back(event);
+
+	DEBUG("transfers",
+	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
+	      << "] from dev " << d << "\n");
+
+	queue->enqueueRead(m->mBuffers[d],
+			   CL_FALSE,
+			   offset, cb,
+			   (char *) m->mLocalBuffer + offset,
+			   0, NULL,
+			   &events[events.size()-1]);
+      }
+
+      // 2) update valid data
+      m->hostValidData.myUnion(transferList[i].region);
     }
 
     DEBUG("transfers", std::cerr << "end D2H\n");
@@ -678,7 +784,8 @@ namespace libsplit {
       for (unsigned i=1; i<regVec.size(); i++) {
 	T a = ((T *) regVec[0].tmp)[0];
 	T b = ((T *) regVec[i].tmp)[o];
-	printf("reduce max %d %d\n", a, b);
+	DEBUG("reduction",
+	      std::cerr << "reduce max " << a << "," << b << "\n";);
 	((T *) regVec[0].tmp)[0] = b > a ? b : a;
       }
     }

@@ -4,6 +4,8 @@
 #include "GuardExpr.h"
 #include "IndexExpr/IndexExpr.h"
 
+class IndirectionValue;
+
 class WorkItemExpr {
 public:
   enum TYPE {
@@ -19,8 +21,12 @@ public:
   WorkItemExpr(const WorkItemExpr &expr);
   ~WorkItemExpr();
 
-  void injectArgsValues(const std::vector<int> &values, const NDRange &ndRange);
-  IndexExpr *getKernelExpr(const NDRange &ndRange) const;
+  void injectArgsValues(const std::vector<int> &values,
+			const NDRange &kernelNDRange);
+  IndexExpr *getKernelExpr(const NDRange &kernelNDRange,
+			   const std::vector<IndirectionValue> &
+			   indirValues) const;
+
   WorkItemExpr *clone() const;
   void dump() const;
 
@@ -31,7 +37,7 @@ public:
   static WorkItemExpr *openFromFile(const std::string &name);
 
 private:
-  bool isOutOfGuards(const NDRange &ndRange) const;
+  bool isOutOfGuards(const NDRange &kernelNDRange) const;
   IndexExpr *mWiExpr;
   std::vector<GuardExpr *> *mGuards;
 };
