@@ -224,6 +224,19 @@ ConditionBuilder::computeExprNumOclCalls(IndexExpr *expr) {
 	n += computeExprNumOclCalls(exprMax->getExprN(i));
       return n;
     }
+
+  case IndexExpr::LB:
+    {
+      IndexExprLB *exprLB = static_cast<IndexExprLB *>(expr);
+      return computeExprNumOclCalls(exprLB->getExpr());
+    }
+
+  case IndexExpr::HB:
+    {
+      IndexExprHB *exprHB = static_cast<IndexExprHB *>(expr);
+      return computeExprNumOclCalls(exprHB->getExpr());
+    }
+
   default:
     return 0;
   };
