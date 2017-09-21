@@ -75,6 +75,8 @@ private:
 		 const llvm::Argument **arg);
 
   IndexExpr *tryComputeLoopBackedCount(llvm::Loop *L);
+  IndexExpr *tryComputeLoopStart(llvm::Loop *L);
+  IndexExpr *tryComputeLoopStep(llvm::Loop *L);
   bool computingBackedge;
 
   /* Indirections */

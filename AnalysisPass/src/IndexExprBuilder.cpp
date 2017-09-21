@@ -189,7 +189,38 @@ IndexExprBuilder::buildExpr(Value *value) {
 
     case Instruction::PHI:
       {
-	return new IndexExprUnknown("PHI");
+	// TODO: check this code.
+	Loop *L = loopInfo->getLoopFor(inst->getParent());
+	if (!L)
+	  return new IndexExprUnknown(inst->getName());
+
+	IndexExpr *start, *step, *backedgeCount;
+
+	computingBackedge = true;
+	backedgeCount = tryComputeLoopBackedCount(L);
+	computingBackedge = false;
+	if (!backedgeCount)
+	  return new IndexExprUnknown("phi");
+
+	start = tryComputeLoopStart(L);
+	if (!start) {
+	  delete backedgeCount;
+	  return new IndexExprUnknown("phi");
+	}
+
+	step = tryComputeLoopStep(L);
+	if (!step) {
+	  delete backedgeCount;
+	  delete start;
+	  return new IndexExprUnknown("phi");
+	}
+
+	IndexExpr *end
+	  = new IndexExprBinop(IndexExprBinop::Add,
+			       new IndexExprHB(start->clone()),
+			       new IndexExprBinop(IndexExprBinop::Mul,
+						  new IndexExprHB(step), new IndexExprLB(backedgeCount)));
+	return new IndexExprInterval(start, end);
       }
 
     case Instruction::Add:
@@ -320,7 +351,12 @@ IndexExprBuilder::buildExpr(Value *value) {
       }
 
     case Instruction::Select:
-      return new IndexExprUnknown("select");
+      {
+	// TODO:
+	// Use getCondition(), getTrueValue(), getFalseValue() to create 2
+	// WorkItemExprs with different guards.
+	return new IndexExprUnknown("select");
+      }
 
     default:
       errs() << "unknown instr : " << *inst << "\n";
@@ -360,7 +396,19 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
     return NULL;
 
   Value *v = icmp->getOperand(0);
+  Value *truncV = NULL;
+  if (isa<TruncInst>(v)) {
+    TruncInst *trInst = cast<TruncInst>(v);
+    truncV = trInst->getOperand(0);
+  }
+
   BinaryOperator *bo = dyn_cast<BinaryOperator>(v);
+
+  if (truncV)
+    bo = dyn_cast<BinaryOperator>(truncV);
+  else
+    bo = dyn_cast<BinaryOperator>(v);
+
   if (!bo)
     return NULL;
 
@@ -369,22 +417,39 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 
   Value *op0 = bo->getOperand(0);
   Value *op1 = bo->getOperand(1);
+  if (isa<SExtInst>(op0)) {
+    SExtInst *sextInst = cast<SExtInst>(op0);
+    op0 = sextInst->getOperand(0);
+  }
+  if (isa<SExtInst>(op1)) {
+    SExtInst *sextInst = cast<SExtInst>(op1);
+    op1 = sextInst->getOperand(0);
+  }
 
-  PHINode *phi = dyn_cast<PHINode>(op0);
-  if (!phi)
+  PHINode *phi = NULL;
+  Value *stepValue = NULL;
+
+  if (isa<PHINode>(op0)) {
+    phi = cast<PHINode>(op0);
+    stepValue = op1;
+  } else if (isa<PHINode>(op1)) {
+    phi = cast<PHINode>(op1);
+    stepValue = op0;
+  } else {
     return NULL;
+  }
 
   IndexExpr *start = NULL;
 
-  if (phi->getIncomingValue(0) == bo) {
+  if (phi->getIncomingValue(0) == v) {
     start = buildExpr(phi->getIncomingValue(1));
-  } else if (phi->getIncomingValue(1) == bo) {
+  } else if (phi->getIncomingValue(1) == v) {
     start = buildExpr(phi->getIncomingValue(0));
   } else {
     return NULL;
   }
 
-  IndexExpr *step = buildExpr(op1);
+  IndexExpr *step = buildExpr(stepValue);
   IndexExpr *hb = buildExpr(icmp->getOperand(1));
 
   // for (i=start; i<higherbound; i += step)
@@ -407,6 +472,170 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 						new IndexExprConst(1));
 
   return backedgeCount;
+}
+
+IndexExpr *
+IndexExprBuilder::tryComputeLoopStep(Loop *L) {
+  BasicBlock *exitingBlock = L->getExitingBlock();
+  if (!exitingBlock)
+    return NULL;
+
+  TerminatorInst *TI = exitingBlock->getTerminator();
+  BranchInst *BI = dyn_cast<BranchInst>(TI);
+  if (!BI)
+    return NULL;
+
+  if (BI->isUnconditional())
+    return NULL;
+
+  if (BI->getNumSuccessors() != 2 ||
+      L->contains(BI->getSuccessor(1)) ||
+      !L->contains(BI->getSuccessor(0)))
+    return NULL;
+
+  Value *condition = BI->getCondition();
+
+  ICmpInst *icmp = dyn_cast<ICmpInst>(condition);
+  if (!icmp)
+    return NULL;
+
+  if (icmp->getSignedPredicate() != CmpInst::ICMP_SLT)
+    return NULL;
+
+  Value *v = icmp->getOperand(0);
+  Value *truncV = NULL;
+  if (isa<TruncInst>(v)) {
+    TruncInst *trInst = cast<TruncInst>(v);
+    truncV = trInst->getOperand(0);
+  }
+
+  BinaryOperator *bo = dyn_cast<BinaryOperator>(v);
+
+  if (truncV)
+    bo = dyn_cast<BinaryOperator>(truncV);
+  else
+    bo = dyn_cast<BinaryOperator>(v);
+
+  if (!bo)
+    return NULL;
+
+  if (bo->getOpcode() != Instruction::Add)
+    return NULL;
+
+  Value *op0 = bo->getOperand(0);
+  Value *op1 = bo->getOperand(1);
+  if (isa<SExtInst>(op0)) {
+    SExtInst *sextInst = cast<SExtInst>(op0);
+    op0 = sextInst->getOperand(0);
+  }
+  if (isa<SExtInst>(op1)) {
+    SExtInst *sextInst = cast<SExtInst>(op1);
+    op1 = sextInst->getOperand(0);
+  }
+
+  PHINode *phi = NULL;
+  Value *stepValue = NULL;
+
+  if (isa<PHINode>(op0)) {
+    phi = cast<PHINode>(op0);
+    stepValue = op1;
+  } else if (isa<PHINode>(op1)) {
+    phi = cast<PHINode>(op1);
+    stepValue = op0;
+  } else {
+    return NULL;
+  }
+
+  if (phi->getIncomingValue(0) == v) {
+  } else if (phi->getIncomingValue(1) == v) {
+  } else {
+    return NULL;
+  }
+
+  IndexExpr *step = buildExpr(stepValue);
+  return step;
+}
+
+IndexExpr *
+IndexExprBuilder::tryComputeLoopStart(Loop *L) {
+  BasicBlock *exitingBlock = L->getExitingBlock();
+  if (!exitingBlock)
+    return NULL;
+
+  TerminatorInst *TI = exitingBlock->getTerminator();
+  BranchInst *BI = dyn_cast<BranchInst>(TI);
+  if (!BI)
+    return NULL;
+
+  if (BI->isUnconditional())
+    return NULL;
+
+  if (BI->getNumSuccessors() != 2 ||
+      L->contains(BI->getSuccessor(1)) ||
+      !L->contains(BI->getSuccessor(0)))
+    return NULL;
+
+  Value *condition = BI->getCondition();
+
+  ICmpInst *icmp = dyn_cast<ICmpInst>(condition);
+  if (!icmp)
+    return NULL;
+
+  if (icmp->getSignedPredicate() != CmpInst::ICMP_SLT)
+    return NULL;
+
+  Value *v = icmp->getOperand(0);
+  Value *truncV = NULL;
+  if (isa<TruncInst>(v)) {
+    TruncInst *trInst = cast<TruncInst>(v);
+    truncV = trInst->getOperand(0);
+  }
+
+  BinaryOperator *bo = dyn_cast<BinaryOperator>(v);
+
+  if (truncV)
+    bo = dyn_cast<BinaryOperator>(truncV);
+  else
+    bo = dyn_cast<BinaryOperator>(v);
+
+  if (!bo)
+    return NULL;
+
+  if (bo->getOpcode() != Instruction::Add)
+    return NULL;
+
+  Value *op0 = bo->getOperand(0);
+  Value *op1 = bo->getOperand(1);
+  if (isa<SExtInst>(op0)) {
+    SExtInst *sextInst = cast<SExtInst>(op0);
+    op0 = sextInst->getOperand(0);
+  }
+  if (isa<SExtInst>(op1)) {
+    SExtInst *sextInst = cast<SExtInst>(op1);
+    op1 = sextInst->getOperand(0);
+  }
+
+  PHINode *phi = NULL;
+
+  if (isa<PHINode>(op0)) {
+    phi = cast<PHINode>(op0);
+  } else if (isa<PHINode>(op1)) {
+    phi = cast<PHINode>(op1);
+  } else {
+    return NULL;
+  }
+
+  IndexExpr *start = NULL;
+
+  if (phi->getIncomingValue(0) == v) {
+    start = buildExpr(phi->getIncomingValue(1));
+  } else if (phi->getIncomingValue(1) == v) {
+    start = buildExpr(phi->getIncomingValue(0));
+  } else {
+    return NULL;
+  }
+
+  return start;
 }
 
 void
