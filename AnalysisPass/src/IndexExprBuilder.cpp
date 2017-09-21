@@ -176,8 +176,12 @@ IndexExprBuilder::buildExpr(Value *value) {
     case Instruction::Call:
       {
 	unsigned oclFunc = isOpenCLCall(inst);
-	if (oclFunc != UNKNOWN)
-	  return new IndexExprOCL(oclFunc, buildExpr(user->getOperand(0)));
+	if (oclFunc != UNKNOWN) {
+	  IndexExpr *ret = new IndexExprOCL(oclFunc, buildExpr(user->getOperand(0)));
+	  if (computingBackedge)
+	    ret = new IndexExprHB(ret);
+	  return ret;
+	}
 
 	errs() << "buildexpr unknown function : " << *inst << "\n";
 	return new IndexExprUnknown("unknown function");
