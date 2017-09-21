@@ -281,13 +281,24 @@ AnalysisPass::analyze(Function *F) {
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICMAX);
       }
 
-      else if (funcName.equals("_Z12get_group_idj") ||
+      else if (funcName.equals("_Z13get_global_idj") ||
+	       funcName.equals("_Z12get_group_idj") ||
 	       funcName.equals("_Z12get_local_idj") ||
+	       funcName.equals("_Z15get_global_sizej") ||
+	       funcName.equals("_Z14get_local_sizej") ||
 	       funcName.equals("_Z7barrierj") ||
 	       funcName.equals("llvm.fmuladd.f32") ||
 	       funcName.equals("llvm.fmuladd.f64") ||
 	       funcName.equals("_Z3expf") ||
-	       funcName.equals("_Z3logf")) {
+	       funcName.equals("_Z3expd") ||
+	       funcName.equals("_Z3sqrtf") ||
+	       funcName.equals("_Z4sqrtd") ||
+	       funcName.equals("_Z3logf") ||
+	       funcName.equals("_Z3logd") ||
+	       funcName.equals("_Z3powff") ||
+	       funcName.equals("_Z3powdd") ||
+	       funcName.equals("_Z4fmodff") ||
+	       funcName.equals("_Z5log10f")) {
 	// Do nothing
 	continue;
       }
