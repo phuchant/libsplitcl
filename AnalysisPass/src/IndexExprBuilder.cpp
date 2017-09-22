@@ -727,8 +727,13 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
   case scUMaxExpr:
   case scSMaxExpr:
     {
-      // Not handled yet !
-      *indexExpr = new IndexExprUnknown("MAX");
+      const SCEVNAryExpr *scNExpr = cast<SCEVNAryExpr>(scev);
+      size_t numOperands = scNExpr->getNumOperands();
+      IndexExpr **opExprs = new IndexExpr *[numOperands];
+      for (size_t i=0; i<numOperands; i++)
+	parseSCEV(scNExpr->getOperand(i), &opExprs[i], arg);
+      *indexExpr =  new IndexExprMax(numOperands, opExprs);
+      delete[] opExprs;
       return;
     }
   case scUDivExpr:
