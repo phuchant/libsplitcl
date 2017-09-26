@@ -169,7 +169,7 @@ namespace libsplit {
     k->getAnalysis()->setPartition(origNDRange, subNDRanges, argsValues);
 
     // Get indirection regions.
-    if (optDisableIndirections)
+    if (!optEnableIndirections)
       return;
     for (unsigned s=0; s<nbSplits; s++) {
       const std::vector<ArgIndirectionRegion *> argRegions =
