@@ -9,7 +9,7 @@
 
 namespace libsplit {
   struct DeviceBufferRegion {
-    DeviceBufferRegion(MemoryHandle *m, unsigned devId, ListInterval region,
+    DeviceBufferRegion(MemoryHandle *m, unsigned devId, ListInterval &region,
 		       void *tmp = NULL)
       : m(m), devId(devId), region(region), tmp(tmp) {}
     ~DeviceBufferRegion() {}

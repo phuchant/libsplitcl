@@ -13,7 +13,7 @@ namespace libsplit {
 
     virtual bool Enqueue(Command* element);
     bool Dequeue(Command** element);
-    unsigned long Size();
+    unsigned long Size() const;
 
   protected:
     unsigned long size_;

@@ -31,7 +31,7 @@ namespace libsplit {
     return true;
   }
 
-  unsigned long LockFreeQueue::Size() {
+  unsigned long LockFreeQueue::Size() const {
     if (idx_w_ >= idx_r_) return idx_w_ - idx_r_;
     return size_ - idx_r_ + idx_w_;
   }
