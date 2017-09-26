@@ -299,13 +299,12 @@ namespace libsplit {
     assert(!strcmp(mAnalysis->getName(), mName));
 
     // Fill argIsGlobalMap
-    unsigned globalId = 0;
     for (unsigned i=0; i<mNumArgs; i++) {
       argIsGlobalMap[i] = mAnalysis->argIsGlobal(i);
       if (!argIsGlobalMap[i])
 	continue;
 
-      argPos2GlobalPosMap[i] = globalId++;
+      argPos2GlobalPosMap[i] = mAnalysis->getGlobalArgId(i);
     }
 
     // Fill globalArg2PosMap position
