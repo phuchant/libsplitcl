@@ -21,6 +21,7 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
     kernelNDRange(NULL), subNDRanges(NULL),
     mReadBoundsComputed(false), mWriteBoundsComputed(false),
     mOrBoundsComputed(false), mAtomicSumBoundsComputed(false),
+    mAtomicMaxBoundsComputed(false),
     areDisjoint(false), analysisHasBeenRun(false)
 {
   loadWorkItemExprs = new std::vector<WorkItemExpr *>();
@@ -49,11 +50,13 @@ ArgumentAnalysis::ArgumentAnalysis(unsigned pos, TYPE type,
 				   std::vector<WorkItemExpr *> *atomicSumExprs,
 				   std::vector<WorkItemExpr *> *atomicMaxExprs)
   : nbSplit(0), pos(pos), type(type), sizeInBytes(sizeInBytes),
+    kernelNDRange(NULL), subNDRanges(NULL),
     loadWorkItemExprs(loadExprs), storeWorkItemExprs(storeExprs),
     orWorkItemExprs(orExprs), atomicSumWorkItemExprs(atomicSumExprs),
     atomicMaxWorkItemExprs(atomicMaxExprs),
     mReadBoundsComputed(false), mWriteBoundsComputed(false),
     mOrBoundsComputed(false), mAtomicSumBoundsComputed(false),
+    mAtomicMaxBoundsComputed(false),
     areDisjoint(false), analysisHasBeenRun(false)
 {
 }

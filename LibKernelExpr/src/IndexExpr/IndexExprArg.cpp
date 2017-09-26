@@ -2,8 +2,9 @@
 
 #include <iostream>
 
-IndexExprArg::IndexExprArg(std::string name, unsigned pos)
-  : IndexExprValue(IndexExpr::ARG), name(name), pos(pos), mIsValueSet(false) {}
+IndexExprArg::IndexExprArg(const std::string &name, unsigned pos)
+  : IndexExprValue(IndexExpr::ARG), name(name), pos(pos), mIsValueSet(false),
+    mValue(42) {}
 
 IndexExprArg::~IndexExprArg() {}
 

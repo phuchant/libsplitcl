@@ -11,7 +11,7 @@ class KernelAnalysis {
  public:
   KernelAnalysis(const char *name,
 		 unsigned numArgs,
-		 std::vector<size_t> argsSizes,
+		 std::vector<size_t> &argsSizes,
 		 std::vector<ArgumentAnalysis *> argsAnalysis,
 		 std::vector<ArgIndirectionRegionExpr *>
 		 kernelIndirectionExprs);

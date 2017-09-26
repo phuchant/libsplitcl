@@ -5,7 +5,7 @@
 
 class IndexExprArg : public IndexExprValue {
 public:
-  IndexExprArg(std::string name, unsigned pos);
+  IndexExprArg(const std::string &name, unsigned pos);
   virtual ~IndexExprArg();
 
   virtual void dump() const;

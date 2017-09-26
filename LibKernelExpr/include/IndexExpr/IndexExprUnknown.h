@@ -5,7 +5,7 @@
 
 class IndexExprUnknown : public IndexExpr {
 public:
-  IndexExprUnknown(std::string str);
+  IndexExprUnknown(const std::string &str);
   virtual ~IndexExprUnknown();
 
   virtual void dump() const;

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-IndexExprUnknown::IndexExprUnknown(std::string str)
+IndexExprUnknown::IndexExprUnknown(const std::string &str)
   : IndexExpr(IndexExpr::UNKNOWN), str(str) {}
 
 IndexExprUnknown::~IndexExprUnknown() {}
