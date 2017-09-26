@@ -287,6 +287,7 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z12get_local_idj") ||
 	       funcName.equals("_Z15get_global_sizej") ||
 	       funcName.equals("_Z14get_local_sizej") ||
+	       funcName.equals("_Z14get_num_groupsj") ||
 	       funcName.equals("_Z7barrierj") ||
 	       funcName.equals("llvm.fmuladd.f32") ||
 	       funcName.equals("llvm.fmuladd.f64") ||
@@ -299,7 +300,14 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z3powff") ||
 	       funcName.equals("_Z3powdd") ||
 	       funcName.equals("_Z4fmodff") ||
-	       funcName.equals("_Z5log10f")) {
+	       funcName.equals("_Z5log10f") ||
+	       funcName.equals("_Z15convert_int_rtnd") ||
+	       funcName.equals("_Z8distanceDv3_fS_") ||
+	       funcName.equals("llvm.fmuladd.v3f32") ||
+	       funcName.equals("_Z8distanceDv3_fS_") ||
+	       funcName.equals("_Z9normalizeDv3_f") ||
+	       funcName.equals("_Z3dotDv3_fS_"))
+	{
 	// Do nothing
 	continue;
       }
