@@ -242,8 +242,8 @@ ConditionBuilder::computeExprNumOclCalls(IndexExpr *expr) {
   };
 }
 
-bool
-ConditionBuilder::exprIsOCLId(IndexExpr *expr) {
+static
+bool exprIsOCLId(IndexExpr *expr) {
   if (expr->getTag() != IndexExpr::OCL)
     return false;
 

@@ -790,7 +790,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 }
 
 unsigned
-IndexExprBuilder::getNumIndirections() {
+IndexExprBuilder::getNumIndirections() const {
   return numIndirections;
 }
 

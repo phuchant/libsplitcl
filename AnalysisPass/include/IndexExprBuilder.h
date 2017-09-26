@@ -62,7 +62,7 @@ public:
   // -> (get_global_id(0) + 1) * arg0
   IndexExpr *buildExpr(llvm::Value *value);
 
-  unsigned getNumIndirections();
+  unsigned getNumIndirections() const;
   const LoadIndirectionExpr *getIndirection(unsigned n);
 
 private:

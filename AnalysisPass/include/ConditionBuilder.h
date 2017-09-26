@@ -28,8 +28,6 @@ private:
 
   unsigned computeExprNumOclCalls(IndexExpr *expr);
 
-  bool exprIsOCLId(IndexExpr *expr);
-
   bool normalizeOCLCondition(IndexExpr **exprId, IndexExpr **expr,
 			     bool *operandSwitched);
 
