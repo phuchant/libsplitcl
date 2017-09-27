@@ -266,7 +266,8 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> OrD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicMaxD2HTranfers;
-      buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
+      buffManager->computeTransfers(SI->dataRequired, SI->dataWritten,
+				    SI->dataWrittenOr,
 				    SI->dataWrittenAtomicSum,
 				    SI->dataWrittenAtomicMax,
 				    D2HTranfers, H2DTranfers,
@@ -311,7 +312,8 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicMaxD2HTranfers;
       SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
-      buffManager->computeTransfers(SI->dataRequired, SI->dataWrittenOr,
+      buffManager->computeTransfers(SI->dataRequired, SI->dataWritten,
+				    SI->dataWrittenOr,
 				    SI->dataWrittenAtomicSum,
 				    SI->dataWrittenAtomicMax,
 				    D2HTranfers, H2DTranfers,
