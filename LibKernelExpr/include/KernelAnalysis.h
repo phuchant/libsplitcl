@@ -52,6 +52,10 @@ class KernelAnalysis {
 
   // Regions info
   bool argReadBoundsComputed(unsigned argNo) const;
+  bool argWrittenBoundsComputed(unsigned argNo) const;
+  bool argWrittenOrBoundsComputed(unsigned argNo) const;
+  bool argWrittenAtomicSumBoundsComputed(unsigned argNo) const;
+  bool argWrittenAtomicMaxBoundsComputed(unsigned argNo) const;
 
   bool argIsReadBySubkernel(unsigned argNo, unsigned i) const;
   bool argIsWrittenBySubkernel(unsigned argNo, unsigned i) const;

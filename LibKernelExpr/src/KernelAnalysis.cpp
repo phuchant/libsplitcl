@@ -192,20 +192,41 @@ KernelAnalysis::setSubkernelIndirectionsValues(unsigned n,
 
 bool
 KernelAnalysis::performAnalysis() {
+  bool ret = true;
   for (unsigned i = 0; i<mArgsAnalysis.size(); i++) {
     mArgsAnalysis[i]->performAnalysis(subKernelIndirectionValues);
     if (!mArgsAnalysis[i]->canSplit()) {
       std::cerr << "cannot split arg pos " << mArgsAnalysis[i]->getPos() << "\n";
-      return false;
+      ret = false;
     }
   }
 
-  return true;
+  return ret;
 }
 
 bool
 KernelAnalysis::argReadBoundsComputed(unsigned argNo) const {
   return mArgsAnalysis[argNo]->readBoundsComputed();
+}
+
+bool
+KernelAnalysis::argWrittenBoundsComputed(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->writeBoundsComputed();
+}
+
+bool
+KernelAnalysis::argWrittenOrBoundsComputed(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->orBoundsComputed();
+}
+
+bool
+KernelAnalysis::argWrittenAtomicSumBoundsComputed(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->atomicSumBoundsComputed();
+}
+
+bool
+KernelAnalysis::argWrittenAtomicMaxBoundsComputed(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->atomicMaxBoundsComputed();
 }
 
 bool
