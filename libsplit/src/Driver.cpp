@@ -167,6 +167,8 @@ namespace libsplit {
       exit(EXIT_FAILURE);
     }
 
+    std::cerr << "kernel " << k->getName() << "\n";
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     std::vector<SubKernelExecInfo *> subkernels;
@@ -268,6 +270,7 @@ namespace libsplit {
 	  std::cerr << "\n";);
 
     bufferMgr->computeTransfers(dataRequired,
+				dataWritten,
 				dataWrittenOr,
 				dataWrittenAtomicSum, dataWrittenAtomicMax,
 				D2HTransfers, H2DTransfers,
@@ -318,6 +321,7 @@ namespace libsplit {
     // Case where we need another execution to complete the whole original
     // NDRange.
     if (needOtherExecutionToComplete) {
+      assert(false);
       return enqueueNDRangeKernel(queue, k, work_dim,
 				  global_work_offset,
 				  global_work_size,

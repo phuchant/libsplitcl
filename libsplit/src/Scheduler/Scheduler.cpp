@@ -124,8 +124,12 @@ namespace libsplit {
       return;
 
     if (SI->currentDim >= work_dim) {
-      std::cerr << "Error: cannot split kernel " << k->getName() << "\n";
-      exit(EXIT_FAILURE);
+      std::cerr << "Cannot split kernel " << k->getName() << "\n";
+      SI->real_size_gr = 3;
+      SI->real_granu_dscr[0] = 0;
+      SI->real_granu_dscr[1] = 1.0;
+      SI->real_granu_dscr[2] = 1.0;
+      SI->currentDim = 0;
     }
 
     // Adapt partition.
@@ -218,6 +222,16 @@ namespace libsplit {
 	}
       }
 
+      if (nbSplit == 1) {
+	instantiateSingleDeviceAnalysis(k,
+					SI->real_granu_dscr, &SI->real_size_gr,
+					SI->dimOrder[SI->currentDim], SI->subkernels,
+					SI->dataRequired, SI->dataWritten,
+					SI->dataWrittenOr,
+					SI->dataWrittenAtomicSum,
+					SI->dataWrittenAtomicMax);
+	return true;
+      }
 
       if (!instantiateAnalysis(k,
 			       SI->real_granu_dscr, &SI->real_size_gr,
@@ -539,32 +553,112 @@ namespace libsplit {
     return true;
   }
 
-  bool instantiateSingleDeviceAnalysis(KernelHandle *k,
-				       unsigned dev,
-				       cl_uint work_dim,
-				       const size_t *global_work_offset,
-				       const size_t *global_work_size,
-				       const size_t *local_work_size,
-				       std::vector<SubKernelExecInfo *>
-				       &subkernels,
-				       std::vector<DeviceBufferRegion> &dataRequired,
-				       std::vector<DeviceBufferRegion> &dataWritten) {
-    (void) k;
-    (void) dev;
-    (void) work_dim;
-    (void) global_work_offset;
-    (void) global_work_size;
-    (void) local_work_size;
-    (void) subkernels;
-    (void) dataRequired;
-    (void) dataWritten;
+  bool
+  Scheduler::instantiateSingleDeviceAnalysis(KernelHandle *k,
+					     double *granu_dscr,
+					     int *size_gr,
+					     unsigned splitDim,
+					     std::vector<SubKernelExecInfo *> &subkernels,
+					     std::vector<DeviceBufferRegion> &dataRequired,
+					     std::vector<DeviceBufferRegion> &dataWritten,
+					     std::vector<DeviceBufferRegion> &dataWrittenOr,
+					     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+					     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
+    dataRequired.clear();
+    dataWritten.clear();
+    dataWrittenOr.clear();
+    dataWrittenAtomicSum.clear();
+    dataWrittenAtomicMax.clear();
+    for (unsigned i=0; i<subkernels.size(); i++)
+      delete subkernels[i];
+    subkernels.clear();
 
-    // TODO: add dataWrittenOr, dataWrittenAtomicSum dataWrittenAtomicMax to
-    // dataWritten
 
-    std::cerr << "Error instantiateSingleDeviceAnalysis not implemented yet !"
-	      << "\n";
-    exit(EXIT_FAILURE);
+    KernelAnalysis *analysis = k->getAnalysis();
+    analysis->performAnalysis();
+
+    const NDRange &origNDRange = analysis->getKernelNDRange();
+    const std::vector<NDRange> &subNDRanges = analysis->getSubNDRanges();
+    int nbSplits = *size_gr / 3;
+
+    assert(nbSplits == 1);
+
+    unsigned work_dim = origNDRange.get_work_dim();
+    unsigned num_groups = origNDRange.get_global_size(splitDim) /
+      origNDRange.get_local_size(splitDim);
+
+    // Fill subkernels vector
+    for (int i=0; i<nbSplits; i++) {
+      unsigned devId = granu_dscr[i*3];
+      SubKernelExecInfo *subkernel = new SubKernelExecInfo();
+      subkernel->device = devId;
+      subkernel->work_dim = work_dim;
+      for (unsigned dim=0; dim < work_dim; dim++) {
+	subkernel->global_work_offset[dim] = subNDRanges[i].getOffset(dim);
+	subkernel->global_work_size[dim] = subNDRanges[i].get_global_size(dim);
+	subkernel->local_work_size[dim] = subNDRanges[i].get_local_size(dim);
+      }
+      subkernel->numgroups = num_groups;
+      subkernel->splitdim = splitDim;
+      subkernels.push_back(subkernel);
+    }
+
+    // CHECK CODE
+    unsigned totalGsize = origNDRange.getOffset(splitDim);
+    for (unsigned i=0; i<subkernels.size(); i++) {
+      assert(subkernels[i]->global_work_offset[splitDim] == totalGsize);
+      totalGsize += subkernels[i]->global_work_size[splitDim];
+    }
+    totalGsize -= origNDRange.getOffset(splitDim);
+    // END CHECK CODE
+
+
+    // Fill dataRequired and dataWritten vectors
+    unsigned nbGlobals = analysis->getNbGlobalArguments();
+    for (unsigned a=0; a<nbGlobals; a++) {
+      MemoryHandle *m = k->getGlobalArgHandle(a);
+      assert(m);
+
+      for (int i=0; i<nbSplits; i++) {
+	ListInterval readRegion, writtenRegion;
+	unsigned devId = granu_dscr[i*3];
+
+	// Case where written region is unknown
+	if (!analysis->argWrittenBoundsComputed(a) ||
+	    !analysis->argWrittenOrBoundsComputed(a) ||
+	    !analysis->argWrittenAtomicSumBoundsComputed(a) ||
+	    !analysis->argWrittenAtomicMaxBoundsComputed(a)) {
+	  writtenRegion.setUndefined();
+	  readRegion.setUndefined();
+	}
+
+	// Case where writtenRegion is known.
+	else {
+
+	  // Read Region
+	  if (!analysis->argReadBoundsComputed(a)) {
+	    readRegion.setUndefined();
+	  } else {
+	    readRegion.myUnion(analysis->getArgReadSubkernelRegion(a, i));
+	  }
+
+	  // Written Region
+	  writtenRegion.myUnion(analysis->getArgWrittenSubkernelRegion(a, i));
+	  writtenRegion.myUnion(analysis->getArgWrittenOrSubkernelRegion(a, i));
+	  writtenRegion.myUnion(analysis->getArgWrittenAtomicSumSubkernelRegion(a, i));
+	  writtenRegion.myUnion(analysis->getArgWrittenAtomicMaxSubkernelRegion(a, i));
+	  readRegion.myUnion(writtenRegion);
+	}
+
+	if (readRegion.total() > 0 || readRegion.isUndefined())
+	  dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));
+	if (writtenRegion.total() > 0 || writtenRegion.isUndefined()) {
+	  dataWritten.push_back(DeviceBufferRegion(m, devId, writtenRegion));
+	}
+      }
+    }
+
+    return true;
   }
 
   void

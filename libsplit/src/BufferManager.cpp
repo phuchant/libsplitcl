@@ -60,6 +60,8 @@ namespace libsplit {
       dataRequired.difference(*toReadDevice[d]);
     }
 
+    assert(dataRequired.mList.empty());
+
     for (unsigned d=0; d<m->mNbBuffers; d++) {
       DeviceQueue *queue = m->mContext->getQueueNo(d);
 
@@ -70,7 +72,7 @@ namespace libsplit {
 
 	DEBUG("tranfers",
 	      std::cerr << "enqueueRead: reading [" << myoffset << "," << myoffset+mycb-1
-	      << "] from dev " << d << "\n");
+	      << "] from dev " << d << " for buffer " << m->id << "\n");
 
 	queue->enqueueRead(m->mBuffers[d],
 			   CL_FALSE,
@@ -174,6 +176,8 @@ namespace libsplit {
 	delete intersection;
       }
 
+      assert(missing.mList.empty());
+
       for (unsigned d=0; d<src->mNbBuffers; d++) {
 	DeviceQueue *queue = src->mContext->getQueueNo(d);
 	queue->finish();
@@ -245,6 +249,8 @@ namespace libsplit {
   BufferManager::computeTransfers(std::vector<DeviceBufferRegion> &
 				  dataRequired,
 				  std::vector<DeviceBufferRegion> &
+				  dataWritten,
+				  std::vector<DeviceBufferRegion> &
 				  dataWrittenOr,
 				  std::vector<DeviceBufferRegion> &
 				  dataWrittenAtomicSum,
@@ -260,6 +266,17 @@ namespace libsplit {
 				  AtomicSumD2HTransferList,
 				  std::vector<DeviceBufferRegion> &
 				  AtomicMaxD2HTransferList) {
+
+    // If data written is undefined, we consider that the whole buffer is
+    // written.
+    for (unsigned i=0; i<dataWritten.size(); i++) {
+      MemoryHandle *m = dataWritten[i].m;
+      if (dataWritten[i].region.isUndefined()) {
+	dataWritten[i].region.clearList();
+	size_t cb = m->mSize;
+	dataWritten[i].region.add(Interval(0, cb-1));
+      }
+    }
 
     // Compute a map of the written atomic sum region for each memory handle.
     std::map<MemoryHandle *, ListInterval> atomicSumHostRequiredData;

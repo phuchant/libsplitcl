@@ -60,6 +60,7 @@ namespace libsplit {
 				     std::vector<DeviceBufferRegion> &D2HTransferList);
 
     void computeTransfers(std::vector<DeviceBufferRegion> &dataRequired,
+			  std::vector<DeviceBufferRegion> &dataWritten,
 			  std::vector<DeviceBufferRegion> &dataWrittenOr,
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax,

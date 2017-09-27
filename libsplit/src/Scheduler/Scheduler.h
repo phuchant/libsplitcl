@@ -117,17 +117,16 @@ namespace libsplit {
 			     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
 			     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
-
     bool instantiateSingleDeviceAnalysis(KernelHandle *k,
-					 unsigned dev,
-					 cl_uint work_dim,
-					 const size_t *global_work_offset,
-					 const size_t *global_work_size,
-					 const size_t *local_work_size,
+					 double *granu_dscr,
+					 int *size_gr,
+					 unsigned splitDim,
 					 std::vector<SubKernelExecInfo *> &subkernels,
 					 std::vector<DeviceBufferRegion> &dataRequired,
-					 std::vector<DeviceBufferRegion> &dataWritten);
-
+					 std::vector<DeviceBufferRegion> &dataWritten,
+					 std::vector<DeviceBufferRegion> &dataWrittenOr,
+					 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+					 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
     void adaptGranudscr(double *granu_dscr, int *size_gr,
 			size_t global_work_size, size_t local_work_size);
