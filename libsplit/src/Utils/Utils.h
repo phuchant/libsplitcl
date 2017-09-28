@@ -90,7 +90,7 @@ namespace libsplit {
 	  name = "unknown";
       };
 
-      std::cerr << "OpenCL error : " << name << " from file "
+      std::cerr << "OpenCL error : " << name << " (" << err << ") from file "
 		<< std::string(filename) << " at line "
 		<< linenum << "\n";
       exit(EXIT_FAILURE);
