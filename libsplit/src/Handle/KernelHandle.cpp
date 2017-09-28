@@ -295,6 +295,8 @@ namespace libsplit {
     ss << str;
 
     mAnalysis = KernelAnalysis::open(ss);
+    DEBUG("analysis",
+	  mAnalysis->debug(););
 
     assert(!strcmp(mAnalysis->getName(), mName));
 
