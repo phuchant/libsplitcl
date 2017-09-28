@@ -34,6 +34,7 @@ namespace libsplit {
   bool optLockFreeQueue = false;
   int optSampleSteps = 0;
   bool optEnableIndirections = false;
+  bool optDelayedWrite = true;
 
   struct option {
     const char *name;
@@ -66,6 +67,7 @@ namespace libsplit {
   static void lockfreequeueOption(char *env);
   static void samplestepsOption(char *env);
   static void enableindirOption(char *env);
+  static void delayedWriteOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -116,6 +118,8 @@ namespace libsplit {
      samplestepsOption},
     {"ENABLEINDIR", "Enable indirections.", false,
      enableindirOption},
+    {"DELAYEDWRITE", "Delayed write (enabled by default)", false,
+     delayedWriteOption},
 
   };
 
@@ -340,6 +344,13 @@ namespace libsplit {
       return;
 
     optEnableIndirections = atoi(env);
+  }
+
+  static void delayedWriteOption(char *env) {
+    if (!env)
+      return;
+
+    optDelayedWrite = atoi(env);
   }
 
   void parseEnvOptions()

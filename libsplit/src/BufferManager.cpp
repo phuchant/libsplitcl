@@ -7,10 +7,9 @@
 #include <cstring>
 
 namespace libsplit {
-  BufferManager::BufferManager() {
+  BufferManager::BufferManager(bool delayedWrite)
+    : delayedWrite(delayedWrite) {
     noMemcpy = optNoMemcpy;
-    delayedWrite = true;
-    // TODO: handle case where delayed write equals false.
   }
 
   BufferManager::~BufferManager() {}
@@ -108,6 +107,23 @@ namespace libsplit {
     // Update max used size
     size_t total_cb = offset + size;
     m->mMaxUsedSize = total_cb > m->mMaxUsedSize ? total_cb : m->mMaxUsedSize;
+
+    if (!delayedWrite) {
+      for (unsigned d=0; d<m->mNbBuffers; d++) {
+	DeviceQueue *queue = m->mContext->getQueueNo(d);
+	queue->enqueueWrite(m->mBuffers[d], CL_FALSE, offset, size, ptr,
+			    0, NULL, NULL);
+      }
+
+      // Update valid data.
+      Interval inter(offset, offset+size-1);
+      m->hostValidData.remove(inter);
+
+      for (unsigned i=0; i<m->mNbBuffers; i++)
+	m->devicesValidData[i].add(inter);
+
+      return;
+    }
 
     if (noMemcpy) {
       // FIXME: Doesn't work when offset is not zero.

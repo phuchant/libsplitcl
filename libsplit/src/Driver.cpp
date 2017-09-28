@@ -60,7 +60,7 @@ namespace libsplit {
   }
 
   Driver::Driver() {
-    bufferMgr = new BufferManager();
+    bufferMgr = new BufferManager(optDelayedWrite);
     unsigned nbDevices = optDeviceSelection.size() / 2;
 
     switch(optScheduler) {

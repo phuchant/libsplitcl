@@ -26,6 +26,7 @@ namespace libsplit {
   extern bool optLockFreeQueue;
   extern int optSampleSteps;
   extern bool optEnableIndirections;
+  extern bool optDelayedWrite;
 
   void parseEnvOptions();
 

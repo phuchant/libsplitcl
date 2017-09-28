@@ -44,7 +44,7 @@ namespace libsplit {
   class BufferManager {
   public:
 
-    BufferManager();
+    BufferManager(bool delayedWrite);
     virtual ~BufferManager();
 
     void read(MemoryHandle *m, cl_bool blocking, size_t offset, size_t size,
