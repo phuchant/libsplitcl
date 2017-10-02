@@ -269,7 +269,9 @@ AnalysisPass::analyze(Function *F) {
 
       else if (funcName.equals("atomic_add_float") ||
 	       funcName.equals("_Z10atomic_incPU8CLglobalVj") ||
-	       funcName.equals("_Z10atomic_incPU8CLglobalVi")) {
+	       funcName.equals("_Z10atomic_incPU8CLglobalVi") ||
+	       funcName.equals("_Z8atom_incPU8CLglobalVi") ||
+	       funcName.equals("_Z8atom_decPU8CLglobalVi")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICSUM);
