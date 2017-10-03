@@ -2,6 +2,7 @@
 #include <Handle/MemoryHandle.h>
 #include <Utils/Utils.h>
 
+#include <cassert>
 #include <iostream>
 
 #include <CL/cl.h>
@@ -79,12 +80,31 @@ clGetSupportedImageFormats(cl_context           /* context */,
 }
 
 cl_int
-clGetMemObjectInfo(cl_mem           /* memobj */,
-		   cl_mem_info      /* param_name */,
-		   size_t           /* param_value_size */,
-		   void *           /* param_value */,
-		   size_t *         /* param_value_size_ret */)
+clGetMemObjectInfo(cl_mem           memobj,
+		   cl_mem_info      param_name,
+		   size_t           param_value_size,
+		   void *           param_value,
+		   size_t *         param_value_size_ret)
 {
+  if (param_name == CL_MEM_TYPE) {
+    assert(param_value_size >= sizeof(cl_mem_object_type));
+    if (param_value_size_ret)
+      *param_value_size_ret = sizeof(cl_mem_object_type);
+    if (param_value)
+      *((cl_mem_object_type *) param_value) = CL_MEM_OBJECT_BUFFER;
+    return CL_SUCCESS;
+  }
+
+  if (param_name == CL_MEM_SIZE) {
+    assert(param_value_size >= sizeof(size_t));
+    if (param_value_size_ret)
+      *param_value_size_ret = sizeof(size_t);
+    if (param_value) {
+      MemoryHandle *m = (MemoryHandle *) memobj;
+      *((size_t *) param_value) = m->mSize;
+    }
+    return CL_SUCCESS;
+  }
   std::cerr << "Error : function " << __FUNCTION__ << " not handled yet !\n";
   exit(EXIT_FAILURE);
   return CL_SUCCESS;
