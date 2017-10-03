@@ -1,5 +1,6 @@
 #include <Dispatch/OpenCLFunctions.h>
 #include <Handle/ContextHandle.h>
+#include <Globals.h>
 #include <Options.h>
 #include <Queue/DeviceLFQueue.h>
 #include <Queue/DevicePthreadQueue.h>
@@ -12,6 +13,11 @@
 namespace libsplit {
 
   ContextHandle::ContextHandle() {
+    if (contextHandle) {
+      std::cerr << "Error: maximum one context !\n";
+      exit(EXIT_FAILURE);
+    }
+    contextHandle = this;
 
     nbDevices = optDeviceSelection.size() / 2;
 
