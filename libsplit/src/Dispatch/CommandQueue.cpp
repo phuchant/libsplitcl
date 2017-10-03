@@ -1,7 +1,9 @@
 #include <Dispatch/OpenCLFunctions.h>
 #include <Handle/ContextHandle.h>
+#include <Globals.h>
 #include <Utils/Utils.h>
 
+#include <cassert>
 #include <iostream>
 
 #include <CL/cl.h>
@@ -50,6 +52,16 @@ clGetCommandQueueInfo(cl_command_queue      command_queue ,
 		      void *                param_value,
 		      size_t *              param_value_size_ret)
 {
+  assert(contextHandle);
+  if (param_name == CL_QUEUE_CONTEXT) {
+    assert(param_value_size <= sizeof(cl_context *));
+    if (param_value_size_ret)
+      *param_value_size_ret = sizeof(cl_context *);
+    if (param_value)
+      *((cl_context *) param_value) = (cl_context) contextHandle;
+    return CL_SUCCESS;
+  }
+
   return real_clGetCommandQueueInfo(command_queue, param_name, param_value_size,
 				    param_value, param_value_size_ret);
 }
