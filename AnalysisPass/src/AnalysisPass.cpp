@@ -30,6 +30,11 @@ static cl::opt<std::string> KernelName("kernelname",
 				       cl::desc("Specify kernel name"),
 				       cl::value_desc("kernel name"));
 
+static cl::opt<bool> optDump("dump",
+				       cl::init(false),
+				       cl::desc("Dump analysis"),
+				       cl::value_desc("dump analysis"));
+
 AnalysisPass::AnalysisPass() : FunctionPass(ID), conditionBuilder(NULL),
 			       indexExprBuilder(NULL) {}
 
@@ -53,10 +58,6 @@ AnalysisPass::runOnFunction(Function &F) {
   if (KernelName.compare("") && KernelName.compare(F.getName()))
     return false;
 
-// #ifdef DEBUG
-//   errs() << "\033[1;31mKernel " << F.getName() << ":\033[0m\n";
-// #endif /* DEBUG */
-
   // Get analysis passes
   loopInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   scalarEvolution = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -78,10 +79,6 @@ AnalysisPass::runOnFunction(Function &F) {
 
   // Get constant arguments;
   getConstantArguments(args, F);
-
-// #ifdef DEBUG
-//   errs() << "\033[1;31m" << args.size() << " global args\033[0m\n";
-// #endif /* DEBUG */
 
   std::vector<ArgumentAnalysis *> argsAnalysis;
 
@@ -121,12 +118,6 @@ AnalysisPass::runOnFunction(Function &F) {
     argsAnalysis.push_back(argAnalysis);
   }
 
-// #ifdef DEBUG
-//   for (unsigned i=0; i<argsAnalysis.size(); i++) {
-//     argsAnalysis[i]->dump();
-//   }
-// #endif
-
   std::vector<size_t> argsSizes;
   for (Argument &arg : F.getArgumentList()) {
     Type *argTy = arg.getType();
@@ -162,7 +153,8 @@ AnalysisPass::runOnFunction(Function &F) {
 		       argsAnalysis,
 		       indirectionExprs);
 
-  // analysis->debug();
+  if (optDump)
+    analysis->debug();
 
   // Pass number of global arguments, ArgumentAnalysis objects,
   // number of constant arguments and their positions
