@@ -688,12 +688,18 @@ namespace libsplit {
     size_t elemSize = sizeof(T);
     assert(total_size % elemSize == 0);
 
+    // For each elem
     for (size_t o = 0; elemSize * o < total_size; o++) {
+      // For each device
       for (unsigned i=1; i<regVec.size(); i++) {
-	((T *) regVec[0].tmp)[0] += ((T *) regVec[i].tmp)[o];
+	DEBUG("reduction",
+	      std::cerr << "reduce sum [" << o << "] " << ((T *) regVec[0].tmp)[o] << " += "
+	      << ((T *) regVec[i].tmp)[o] << "\n";);
+	((T *) regVec[0].tmp)[o] += ((T *) regVec[i].tmp)[o];
       }
     }
 
+    DEBUG("reduction", std::cerr << "final: ";);
     unsigned tmpOffset = 0;
     for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
       size_t myoffset = regVec[0].region.mList[id].lb;
@@ -701,8 +707,7 @@ namespace libsplit {
       assert(mycb % elemSize == 0);
       for (size_t o=0; elemSize * o < mycb; o++) {
 	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr = *((T *) ((char *) regVec[0].tmp + tmpOffset)) -
-	  *ptr * regVec.size();
+	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o];
       }
       tmpOffset += mycb;
     }
@@ -786,11 +791,11 @@ namespace libsplit {
 
     for (size_t o = 0; elemSize * o < total_size; o++) {
       for (unsigned i=1; i<regVec.size(); i++) {
-	T a = ((T *) regVec[0].tmp)[0];
+	T a = ((T *) regVec[0].tmp)[o];
 	T b = ((T *) regVec[i].tmp)[o];
 	DEBUG("reduction",
 	      std::cerr << "reduce max " << a << "," << b << "\n";);
-	((T *) regVec[0].tmp)[0] = b > a ? b : a;
+	((T *) regVec[0].tmp)[o] = b > a ? b : a;
       }
     }
 
@@ -801,15 +806,15 @@ namespace libsplit {
       assert(mycb % elemSize == 0);
       for (size_t o=0; elemSize * o < mycb; o++) {
 	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr = *((T *) ((char *) regVec[0].tmp + tmpOffset)) -
+	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
 	  *ptr * regVec.size();
+	DEBUG("reduction", std::cerr << *ptr << " ";);
       }
       tmpOffset += mycb;
     }
 
     return;
   }
-
 
   void
   Driver::performHostAtomicMaxReduction(KernelHandle *k,
