@@ -313,12 +313,14 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("llvm.fmuladd.v3f32") ||
 	       funcName.equals("_Z8distanceDv3_fS_") ||
 	       funcName.equals("_Z9normalizeDv3_f") ||
-	       funcName.equals("_Z3dotDv3_fS_"))
-	{
+	       funcName.equals("_Z3minii") ||
+	       funcName.equals("_Z5hypotff") ||
+	       funcName.equals("_Z3maxii") ||
+	       funcName.equals("_Z5atan2ff") ||
+	       funcName.equals("_Z3dotDv3_fS_")) {
 	// Do nothing
 	continue;
       }
-
 
       else {
 	errs() << "WARNING: unhandled call inst : " << *CI << "\n";
