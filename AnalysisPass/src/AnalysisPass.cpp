@@ -263,10 +263,20 @@ AnalysisPass::analyze(Function *F) {
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::STORE);
       }
 
-      else if (funcName.equals("_Z10atomic_maxPU7CLlocalVii")) {
+      // Atomic local
+      else if (funcName.equals("_Z10atomic_maxPU7CLlocalVii") ||
+	       funcName.equals("_Z10atomic_addPU7CLlocalVii")) {
 	// Do nothing
       }
 
+      // Atomic XCHG (considered as a store)
+      else if (funcName.equals("_Z11atomic_xchgPU8CLglobalVii")) {
+	IndexExpr *expr = NULL; const Argument *arg = NULL;
+	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
+	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::STORE);
+      }
+
+      // Atomic Sum global
       else if (funcName.equals("atomic_add_float") ||
 	       funcName.equals("_Z10atomic_incPU8CLglobalVj") ||
 	       funcName.equals("_Z10atomic_incPU8CLglobalVi") ||
@@ -278,6 +288,7 @@ AnalysisPass::analyze(Function *F) {
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICSUM);
       }
 
+      // Atomic Max global
       // Only int and long (signed or unsigned)
       else if (funcName.equals("_Z10atomic_maxPU8CLglobalVii")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
@@ -285,6 +296,7 @@ AnalysisPass::analyze(Function *F) {
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICMAX);
       }
 
+      // Ignored functions
       else if (funcName.equals("_Z13get_global_idj") ||
 	       funcName.equals("_Z12get_group_idj") ||
 	       funcName.equals("_Z12get_local_idj") ||
