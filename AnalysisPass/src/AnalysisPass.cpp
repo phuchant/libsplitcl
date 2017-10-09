@@ -257,6 +257,7 @@ AnalysisPass::analyze(Function *F) {
 
       // Atomic local
       else if (funcName.equals("_Z10atomic_maxPU7CLlocalVii") ||
+	       funcName.equals("_Z10atomic_addPU7CLlocalVjj") ||
 	       funcName.equals("_Z10atomic_addPU7CLlocalVii")) {
 	// Do nothing
       }
@@ -273,6 +274,7 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z10atomic_incPU8CLglobalVj") ||
 	       funcName.equals("_Z10atomic_incPU8CLglobalVi") ||
 	       funcName.equals("_Z10atomic_addPU8CLglobalVii") ||
+	       funcName.equals("_Z10atomic_addPU8CLglobalVjj") ||
 	       funcName.equals("_Z8atom_incPU8CLglobalVi") ||
 	       funcName.equals("_Z8atom_decPU8CLglobalVi")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
