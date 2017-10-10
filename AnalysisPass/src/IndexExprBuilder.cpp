@@ -183,6 +183,25 @@ IndexExprBuilder::buildExpr(Value *value) {
 	  return ret;
 	}
 
+	CallInst *call = cast<CallInst>(inst);
+	Function *called = call->getCalledFunction();
+	if (!called)
+	  return new IndexExprUnknown("indirect call");
+
+	if (called->getName().equals("_Z3maxjj")) {
+	  IndexExpr *ops[2];
+	  ops[0] = buildExpr(call->getOperand(0));
+	  ops[1] = buildExpr(call->getOperand(1));
+	  return new IndexExprMax(2, ops);
+	}
+
+	if (called->getName().equals("_Z3minjj")) {
+	  IndexExpr *ops[2];
+	  ops[0] = buildExpr(call->getOperand(0));
+	  ops[1] = buildExpr(call->getOperand(1));
+	  return new IndexExprMin(2, ops);
+	}
+
 	errs() << "buildexpr unknown function : " << *inst << "\n";
 	return new IndexExprUnknown("unknown function");
       }
