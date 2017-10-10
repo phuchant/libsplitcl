@@ -117,7 +117,10 @@ namespace libsplit {
       sprintf(inline_filename, ".source-inline%d.cl", idx);
       {
 	char command[1024];
-	sprintf(command, "%s %s %s %s > %s 2> /dev/null", CLINLINEPATH,
+	sprintf(command,
+		"%s -finclude-default-header -isystem %s/clang/%s/include %s " \
+		"%s %s > %s 2> /dev/null",
+		CLINLINEPATH, LLVM_LIB_DIR, CLANGVERSION,
 		options ? options : "",
 		"-Dcl_khr_fp64", src_filename, inline_filename);
 	// cl_khr_fp64 is defined to avoid Clang errors when using doubles
@@ -247,7 +250,11 @@ namespace libsplit {
     sprintf(trans_filename, ".trans%d.cl", idx);
     {
       char command[1024];
-      sprintf(command, "%s %s %s %s > %s 2> /dev/null", CLTRANSFORMPATH,
+
+      sprintf(command,
+	      "%s -finclude-default-header -isystem %s/clang/%s/include %s " \
+	      "%s %s > %s 2> /dev/null",
+	      CLTRANSFORMPATH, LLVM_LIB_DIR, CLANGVERSION,
 	      options ? options : "",
 	      "-Dcl_khr_fp64", src_filename, trans_filename);
       // cl_khr_fp64 is defined to avoid Clang errors when using doubles

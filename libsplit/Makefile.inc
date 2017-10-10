@@ -1,6 +1,7 @@
-CLANGPATH=~/mytools/llvm-3.9/bin/clang
-OPTPATH=~/mytools/llvm-3.9/bin/opt
-LLVMLIBPATH=~/mytools/llvm-3.9/lib
+CLANGPATH=~/mytools/llvm-5.0/bin/clang
+CLANGVERSION=5.0.0
+OPTPATH=~/mytools/llvm-5.0/bin/opt
+LLVMLIBPATH=~/mytools/llvm-5.0/lib
 
 CLTRANSFORMPATH=$(PWD)/../ClTransform/bin/cltransform
 CLINLINEPATH=$(PWD)/../ClInline/bin/clinline
