@@ -318,15 +318,21 @@ namespace libsplit {
 
     double t3 = get_time();
 
-    startD2HTransfers(kerId, D2HTransfers);
-
-    // Barrier
     ContextHandle *context = k->getContext();
-    for (unsigned i=0; i<context->getNbDevices(); i++) {
-      context->getQueueNo(i)->finish();
+
+    if (D2HTransfers.size() > 0) {
+      startD2HTransfers(kerId, D2HTransfers);
+
+      // Barrier
+      for (unsigned i=0; i<context->getNbDevices(); i++) {
+	context->getQueueNo(i)->finish();
+      }
     }
 
-    startH2DTransfers(kerId, H2DTransfers);
+
+    if (H2DTransfers.size() > 0)
+      startH2DTransfers(kerId, H2DTransfers);
+
 
     double t4 = get_time();
 
@@ -335,9 +341,13 @@ namespace libsplit {
 
     enqueueSubKernels(k, subkernels, dataWritten);
 
-    startOrD2HTransfers(kerId, OrD2HTransfers);
-    startAtomicSumD2HTransfers(kerId, AtomicSumD2HTransfers);
-    startAtomicMaxD2HTransfers(kerId, AtomicMaxD2HTransfers);
+    if (OrD2HTransfers.size() > 0)
+      startOrD2HTransfers(kerId, OrD2HTransfers);
+    if (AtomicSumD2HTransfers.size() > 0)
+      startAtomicSumD2HTransfers(kerId, AtomicSumD2HTransfers);
+    if (AtomicMaxD2HTransfers.size() > 0)
+      startAtomicMaxD2HTransfers(kerId, AtomicMaxD2HTransfers);
+
 
     double t5 = get_time();
 
@@ -346,11 +356,15 @@ namespace libsplit {
       context->getQueueNo(i)->finish();
     }
 
-    performHostOrVariableReduction(OrD2HTransfers);
-    performHostAtomicSumReduction(k, AtomicSumD2HTransfers);
-    performHostAtomicMaxReduction(k, AtomicMaxD2HTransfers);
-
     double t6 = get_time();
+
+    if (OrD2HTransfers.size() > 0)
+      performHostOrVariableReduction(OrD2HTransfers);
+    if (AtomicSumD2HTransfers.size() > 0)
+      performHostAtomicSumReduction(k, AtomicSumD2HTransfers);
+    if (AtomicMaxD2HTransfers.size() > 0)
+      performHostAtomicMaxReduction(k, AtomicMaxD2HTransfers);
+
 
     // Case where we need another execution to complete the whole original
     // NDRange.
