@@ -7,6 +7,7 @@
 #include <CL/opencl.h>
 
 #include <map>
+#include <vector>
 
 namespace libsplit {
 
@@ -28,6 +29,8 @@ namespace libsplit {
     void getProgramBuildInfo(cl_device_id device, cl_program_info param_name,
 			     size_t param_value_size, void *param_value,
 			     size_t *param_value_size_ret);
+    void createKernels(cl_uint num_kernels, cl_kernel *kernels,
+		       cl_uint *num_kernels_ret);
 
     // Getters
     cl_program getProgram(unsigned n);
@@ -53,6 +56,8 @@ namespace libsplit {
     bool hasBeenBuilt;
     unsigned nbPrograms;
     cl_program *programs;
+
+    std::vector<std::string> kernel_list;
 
     std::map<cl_device_id, cl_program> dev2ProgramMap;
 

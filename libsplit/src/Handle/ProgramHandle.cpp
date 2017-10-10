@@ -1,5 +1,6 @@
 #include <Define.h>
 #include <Handle/ProgramHandle.h>
+#include <Handle/KernelHandle.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
 
@@ -171,6 +172,32 @@ namespace libsplit {
 	int err = system(command);
 	assert(err == 0);
       }
+
+      // Get kernel list.
+      {
+	char command[2048];
+	sprintf(command, "%s -load %s %s -list .spir%d.bc > /dev/null " \
+		"2> .kernellist%d.txt",
+		OPTPATH, KERNELANALYSIS_SO_PATH, PASSARG, getId(), getId());
+	DEBUG("programhandle",
+	      std::cerr << "kernel list command: " << command << "\n";);
+	int err = system(command);
+	assert(err == 0);
+
+
+	char list_name[64];
+	sprintf(list_name, ".kernellist%d.txt", getId());
+
+	char *str_list = file_load(list_name);
+
+	char *kernel_name = strtok(str_list, ",");;
+	while (kernel_name) {
+	  kernel_list.push_back(std::string(kernel_name));
+	  kernel_name = strtok(NULL, ",");
+	}
+
+	free(str_list);
+      }
     }
 
     hasBeenBuilt = true;
@@ -232,6 +259,33 @@ namespace libsplit {
 
     clCheck(err, __FILE__, __LINE__);
   }
+
+  void
+  ProgramHandle::createKernels(cl_uint num_kernels, cl_kernel *kernels,
+			       cl_uint *num_kernels_ret) {
+    if (!hasBeenBuilt) {
+      std::cerr << "Error: clCreateKernelsInProgram called before building "
+		<< "the program.\n";
+      exit(EXIT_FAILURE);
+    }
+
+    if (num_kernels < kernel_list.size() && kernels) {
+      std::cerr << "Error: Wrong number of kernels!\n";
+      exit(EXIT_FAILURE);
+    }
+
+    if (num_kernels_ret)
+      *num_kernels_ret = kernel_list.size();
+
+    if (!kernels)
+      return;
+
+    for (unsigned i=0; i < kernel_list.size(); i++) {
+      KernelHandle *k = new KernelHandle(this, kernel_list[i].c_str());
+      kernels[i] = (cl_kernel) k;
+    }
+  }
+
 
   void
   ProgramHandle::createProgramsWithSource(const char *options) {

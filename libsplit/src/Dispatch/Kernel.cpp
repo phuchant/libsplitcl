@@ -22,13 +22,14 @@ clCreateKernel(cl_program      program,
 }
 
 cl_int
-clCreateKernelsInProgram(cl_program     /* program */,
-			 cl_uint        /* num_kernels */,
-			 cl_kernel *    /* kernels */,
-			 cl_uint *      /* num_kernels_ret */)
+clCreateKernelsInProgram(cl_program     program,
+			 cl_uint        num_kernels,
+			 cl_kernel *    kernels,
+			 cl_uint *      num_kernels_ret)
 {
-  std::cerr << "Error : function " << __FUNCTION__ << " not handled yet !\n";
-  exit(EXIT_FAILURE);
+  ProgramHandle *p = reinterpret_cast<ProgramHandle *>(program);
+  p->createKernels(num_kernels, kernels, num_kernels_ret);
+  return CL_SUCCESS;
 }
 
 cl_int
