@@ -230,51 +230,54 @@ namespace libsplit {
 				       indirectionRegions);
 
       bufferMgr->computeIndirectionTransfers(indirectionRegions, D2HTransfers);
-      startD2HTransfers(D2HTransfers);
 
-      // Barrier
-      ContextHandle *context = k->getContext();
-      for (unsigned i=0; i<context->getNbDevices(); i++) {
-	context->getQueueNo(i)->finish();
-      }
+      if (indirectionRegions.size() > 0) {
+	startD2HTransfers(D2HTransfers);
 
-      // Fill indirection values.
-      for (unsigned i=0; i<indirectionRegions.size(); i++) {
-	size_t cb = indirectionRegions[i].cb;
-	size_t lb = indirectionRegions[i].lb;
-	size_t hb = indirectionRegions[i].hb;
-	MemoryHandle *m = indirectionRegions[i].m;
-	char *lbAddress = ((char *)m->mLocalBuffer) + lb;
-	char *hbAddress = ((char *)m->mLocalBuffer) + hb;
-	switch(cb) {
-	case 8:
-	  indirectionRegions[i].lbValue = (int) *((long *) lbAddress);
-	  indirectionRegions[i].hbValue = (int) *((long *) hbAddress);
-	  break;
-	case 4:
-	  indirectionRegions[i].lbValue = *((int *) lbAddress);
-	  indirectionRegions[i].hbValue = *((int *) hbAddress);
-	  break;
-	case 2:
-	  indirectionRegions[i].lbValue = (int) *((short *) lbAddress);
-	  indirectionRegions[i].hbValue = (int) *((short *) hbAddress);
-	  break;
-	case 1:
-	  indirectionRegions[i].lbValue = (int) *((char *) lbAddress);
-	  indirectionRegions[i].hbValue = (int) *((char *) hbAddress);
-	  break;
-	default:
-	  std::cerr << "Error: Unhandled integer size : " << cb << "\n";
-	  exit(EXIT_FAILURE);
-	};
+	// Barrier
+	ContextHandle *context = k->getContext();
+	for (unsigned i=0; i<context->getNbDevices(); i++) {
+	  context->getQueueNo(i)->finish();
+	}
 
-	DEBUG("indirection",
-	      std::cerr << "kerId= " << indirectionRegions[i].subkernelId
-	      << " lbAddr= " << indirectionRegions[i].lb
-	      << " hbAddr= " << indirectionRegions[i].hb
-	      << " indirId=" << indirectionRegions[i].indirectionId
-	      << " lb=" << indirectionRegions[i].lbValue << " hb=" <<indirectionRegions[i].hbValue << "\n";
-	      );
+	// Fill indirection values.
+	for (unsigned i=0; i<indirectionRegions.size(); i++) {
+	  size_t cb = indirectionRegions[i].cb;
+	  size_t lb = indirectionRegions[i].lb;
+	  size_t hb = indirectionRegions[i].hb;
+	  MemoryHandle *m = indirectionRegions[i].m;
+	  char *lbAddress = ((char *)m->mLocalBuffer) + lb;
+	  char *hbAddress = ((char *)m->mLocalBuffer) + hb;
+	  switch(cb) {
+	  case 8:
+	    indirectionRegions[i].lbValue = (int) *((long *) lbAddress);
+	    indirectionRegions[i].hbValue = (int) *((long *) hbAddress);
+	    break;
+	  case 4:
+	    indirectionRegions[i].lbValue = *((int *) lbAddress);
+	    indirectionRegions[i].hbValue = *((int *) hbAddress);
+	    break;
+	  case 2:
+	    indirectionRegions[i].lbValue = (int) *((short *) lbAddress);
+	    indirectionRegions[i].hbValue = (int) *((short *) hbAddress);
+	    break;
+	  case 1:
+	    indirectionRegions[i].lbValue = (int) *((char *) lbAddress);
+	    indirectionRegions[i].hbValue = (int) *((char *) hbAddress);
+	    break;
+	  default:
+	    std::cerr << "Error: Unhandled integer size : " << cb << "\n";
+	    exit(EXIT_FAILURE);
+	  };
+
+	  DEBUG("indirection",
+		std::cerr << "kerId= " << indirectionRegions[i].subkernelId
+		<< " lbAddr= " << indirectionRegions[i].lb
+		<< " hbAddr= " << indirectionRegions[i].hb
+		<< " indirId=" << indirectionRegions[i].indirectionId
+		<< " lb=" << indirectionRegions[i].lbValue << " hb=" <<indirectionRegions[i].hbValue << "\n";
+		);
+	}
       }
 
       done = scheduler->setIndirectionValues(k, indirectionRegions);
