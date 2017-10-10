@@ -24,6 +24,7 @@
 using namespace clang;
 
 std::set<FunctionDecl *> functionsSet;
+std::set<FunctionDecl *> functionsSet2;
 
 // Second visitor :
 // add parameters numgroups and splitdim to stored non kernel functions
@@ -44,7 +45,8 @@ public:
       return true;
 
     std::set<FunctionDecl*>::iterator it = functionsSet.find(func);
-    if (it == functionsSet.end())
+    std::set<FunctionDecl*>::iterator it2 = functionsSet2.find(func);
+    if (it == functionsSet.end() && it2 == functionsSet2.end())
       return true;
 
     // If the function is in the set, add the two new parameters.
@@ -131,10 +133,10 @@ public:
 
     // get_group_id(workDim) -> get_globalid(workDim) / get_local_id(workDim)
     if (funcname.compare("get_group_id") == 0) {
-
-      if (!currentFunction->hasAttr<OpenCLKernelAttr>()) {
+      if (!currentFunction->hasAttr<OpenCLKernelAttr>())
 	functionsSet.insert(currentFunction);
-      }
+      else
+	functionsSet2.insert(currentFunction);
 
       // Get work dim argument as a string
       Expr *arg = call->getArg(0);
@@ -161,10 +163,10 @@ public:
 
     // get_num_groups(workDim) -> NEWVARNAME
     if (!funcname.compare("get_num_groups")) {
-
-      if (!currentFunction->hasAttr<OpenCLKernelAttr>()) {
+      if (!currentFunction->hasAttr<OpenCLKernelAttr>())
 	functionsSet.insert(currentFunction);
-      }
+      else
+	functionsSet2.insert(currentFunction);
 
       // Get work dim argument as a string
       Expr *arg = call->getArg(0);
@@ -189,10 +191,10 @@ public:
 
     // get_global_size(workDim) -> NEWVARNAME * get_local_size(workDim)
     if (!funcname.compare("get_global_size")) {
-
-      if (!currentFunction->hasAttr<OpenCLKernelAttr>()) {
+      if (!currentFunction->hasAttr<OpenCLKernelAttr>())
 	functionsSet.insert(currentFunction);
-      }
+      else
+	functionsSet2.insert(currentFunction);
 
       // Get work dim argument as a string
       Expr *arg = call->getArg(0);
@@ -243,6 +245,8 @@ public:
 		      ", const int " + SPLITDIMVAR);
       TheRewriter.InsertText(FTL.getLocalRangeEnd(), str);
     }
+
+    functionsSet2.insert(f);
 
     return true;
   }

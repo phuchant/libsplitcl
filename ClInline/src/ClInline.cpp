@@ -20,11 +20,14 @@
 
 using namespace clang;
 
+std::set<FunctionDecl *> kernelsCalledByKernel;
+
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
 // we're interested in by overriding relevant methods.
 class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor> {
 public:
-  MyASTVisitor(Rewriter &R, SourceManager &sm) : TheRewriter(R), sm(sm) {}
+  MyASTVisitor(Rewriter &R, CompilerInstance &ci, SourceManager &sm) 
+    : TheRewriter(R), ci(ci), sm(sm) {}
 
   bool VisitFunctionDecl(FunctionDecl *f) {
     // Skip kernels
@@ -54,8 +57,67 @@ public:
     return true;
   }
 
+  bool VisitStmt(Stmt *s) {
+    // Only care about CallExpr statements
+    CallExpr *call = dyn_cast<CallExpr>(s);
+    if (!call)
+      return true;
+
+    FunctionDecl *called = call->getDirectCallee();
+    if (!called)
+      return true;
+
+    if (!called->hasAttr<OpenCLKernelAttr>())
+      return true;
+
+    // If the called function is a kernel, append _inline to called
+    // function name.
+    SourceLocation start = call->getLocStart();
+    std::string kernelName = called->getNameInfo().getAsString();
+    std::string newName = kernelName + "_inline";
+    TheRewriter.ReplaceText(start, kernelName.length(), newName);
+
+    if (kernelsCalledByKernel.find(called) != kernelsCalledByKernel.end())
+      return true;
+
+    kernelsCalledByKernel.insert(called);
+
+    SourceRange calledSR = called->getSourceRange();
+    CharSourceRange calledCSR =
+      CharSourceRange::getTokenRange(calledSR);
+
+    // Duplicate function
+    std::string str = Lexer::getSourceText(calledCSR, sm, ci.getLangOpts());
+    TheRewriter.InsertText(called->getLocEnd().getLocWithOffset(1),
+			   std::string("\n") + str);
+
+    // Append inline to function name
+    TheRewriter.InsertText(called->getNameInfo().getEndLoc().
+			   getLocWithOffset(kernelName.length()), "_inline");
+
+    // Add inline attributes
+    SourceLocation loc = called->getSourceRange().getBegin();
+
+    // Handle case where return type is a macro.
+    if (loc.isMacroID()) {
+      std::pair<SourceLocation, SourceLocation> expansionRange =
+	sm.getImmediateExpansionRange(loc);
+      loc = expansionRange.first;
+    }
+
+    if (called->isInlineSpecified())
+      TheRewriter.InsertText(loc,
+			      "__attribute__((always_inline)) ");
+    else
+      TheRewriter.InsertText(loc,
+			      "__attribute__((always_inline)) inline ");
+
+    return true;
+  }
+
 private:
   Rewriter &TheRewriter;
+  CompilerInstance &ci;
   SourceManager &sm;
 };
 
@@ -63,7 +125,8 @@ private:
 // by the Clang parser.
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R, SourceManager &sm) : Visitor(R, sm) {}
+  MyASTConsumer(Rewriter &R, CompilerInstance &ci, SourceManager &sm)
+    : Visitor(R, ci, sm) {}
 
   // Override the method that gets called for each parsed top-level
   // declaration.
@@ -126,7 +189,7 @@ int main(int argc, char *argv[]) {
 
   // Create an AST consumer instance which is going to get called by
   // ParseAST.
-  MyASTConsumer TheConsumer(TheRewriter, SourceMgr);
+  MyASTConsumer TheConsumer(TheRewriter, TheCompInst, SourceMgr);
 
   // Parse the file to AST, registering our consumer as the AST consumer.
   ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
