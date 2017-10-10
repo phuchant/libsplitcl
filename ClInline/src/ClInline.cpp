@@ -152,7 +152,12 @@ int main(int argc, char *argv[]) {
   CompilerInstance TheCompInst;
   TheCompInst.createDiagnostics();
 
+#if LLVM_VERSION_MAJOR >= 5
+  std::shared_ptr<CompilerInvocation> Invocation(new CompilerInvocation);
+#else
   CompilerInvocation *Invocation = new CompilerInvocation();
+#endif
+
   CompilerInvocation::CreateFromArgs(*Invocation, argv + 1, argv + argc,
 				     TheCompInst.getDiagnostics());
   TheCompInst.setInvocation(Invocation);
