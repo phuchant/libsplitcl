@@ -755,7 +755,9 @@ namespace libsplit {
       assert(mycb % elemSize == 0);
       for (size_t o=0; elemSize * o < mycb; o++) {
 	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o];
+	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
+	  *ptr * regVec.size();
+	DEBUG("reduction", std::cerr << *ptr << " ";);
       }
       tmpOffset += mycb;
     }
@@ -854,9 +856,7 @@ namespace libsplit {
       assert(mycb % elemSize == 0);
       for (size_t o=0; elemSize * o < mycb; o++) {
 	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
-	  *ptr * regVec.size();
-	DEBUG("reduction", std::cerr << *ptr << " ";);
+	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o];
       }
       tmpOffset += mycb;
     }
