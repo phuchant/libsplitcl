@@ -35,6 +35,11 @@ static cl::opt<bool> optDump("dump",
 				       cl::desc("Dump analysis"),
 				       cl::value_desc("dump analysis"));
 
+static cl::opt<bool> optList("list",
+			     cl::init(false),
+			     cl::desc("List kernel names"),
+			     cl::value_desc("list kernel names"));
+
 AnalysisPass::AnalysisPass() : FunctionPass(ID), conditionBuilder(NULL),
 			       indexExprBuilder(NULL) {}
 
@@ -53,6 +58,11 @@ AnalysisPass::runOnFunction(Function &F) {
   // Check if it is a kernel
   if (!isKernel(&F))
     return false;
+
+  if (optList) {
+    errs() << F.getName() << ",";
+    return false;
+  }
 
   // Check kernel name if defined
   if (KernelName.compare("") && KernelName.compare(F.getName()))
