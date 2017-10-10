@@ -129,7 +129,11 @@ AnalysisPass::runOnFunction(Function &F) {
   }
 
   std::vector<size_t> argsSizes;
+#if LLVM_VERSION_MAJOR >= 5
+  for (Argument &arg : F.args()) {
+#else
   for (Argument &arg : F.getArgumentList()) {
+#endif
     Type *argTy = arg.getType();
     unsigned sizeInBytes;
     if (!argTy->isPointerTy()) {
