@@ -333,6 +333,27 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z5hypotff") ||
 	       funcName.equals("_Z3maxii") ||
 	       funcName.equals("_Z5atan2ff") ||
+	       funcName.equals("_Z3minjj") ||
+	       funcName.equals("_Z4fabsf") ||
+	       funcName.equals("_Z4fmaxff") ||
+	       funcName.equals("_Z4sqrtf") ||
+	       funcName.equals("_Z3maxff") ||
+	       funcName.equals("_Z3dotDv4_fS_") ||
+	       funcName.equals("llvm.fmuladd.v2f32") ||
+	       funcName.equals("llvm.lifetime.start") ||
+	       funcName.equals("llvm.lifetime.end") ||
+	       funcName.equals("_Z4acosf") ||
+	       funcName.equals("_Z4asinf") ||
+	       funcName.equals("_Z4atanf") ||
+	       funcName.equals("_Z4ceilf") ||
+	       funcName.equals("_Z3cosf") ||
+	       funcName.equals("_Z4coshf") ||
+	       funcName.equals("_Z3sinf") ||
+	       funcName.equals("_Z3tanf") ||
+	       funcName.equals("_Z4tanhf") ||
+	       funcName.equals("_Z4sinhf") ||
+	       funcName.equals("_Z5floorf") ||
+	       funcName.equals("_Z3maxjj") ||
 	       funcName.equals("_Z3dotDv3_fS_")) {
 	// Do nothing
 	continue;
