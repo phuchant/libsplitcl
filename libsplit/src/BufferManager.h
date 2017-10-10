@@ -42,6 +42,21 @@ namespace libsplit {
   };
 
   class BufferManager {
+  private:
+    struct map_entry {
+      map_entry(size_t offset, size_t cb, bool isWrite)
+	: offset(offset), cb(cb), isWrite(isWrite) {}
+      map_entry(const map_entry &e)
+      : offset(e.offset), cb(e.cb), isWrite(e.isWrite) {}
+      ~map_entry() {}
+
+      size_t offset;
+      size_t cb;
+      size_t isWrite;
+    };
+
+    std::map<void *, map_entry> map_entries;
+
   public:
 
     BufferManager(bool delayedWrite);
@@ -55,6 +70,11 @@ namespace libsplit {
 
     void copy(MemoryHandle *src, MemoryHandle *dst, size_t src_offset,
 	      size_t dst_offset, size_t size);
+
+    void *map(MemoryHandle *m, cl_bool blocking_map, cl_map_flags flags,
+	      size_t offset, size_t cb);
+
+    void unmap(MemoryHandle *m, void *mapped_ptr);
 
     void computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
 				     std::vector<DeviceBufferRegion> &D2HTransferList);

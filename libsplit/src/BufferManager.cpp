@@ -216,6 +216,81 @@ namespace libsplit {
       dst->devicesValidData[d].remove(dstInterval);
   }
 
+  void *
+  BufferManager::map(MemoryHandle *m, cl_bool blocking_map, cl_map_flags flags,
+		     size_t offset, size_t cb) {
+    (void) blocking_map;
+
+    void *address = (void *) (((char *) m->mLocalBuffer) + offset);
+    if (map_entries.find(address) != map_entries.end()) {
+      std::cerr << "Error: address already mapped !\n";
+      exit(EXIT_FAILURE);
+    }
+
+
+    // If the region is mapped for reading we have to get the missing valid data
+    // on the host.
+    if (flags & CL_MAP_READ) {
+      ListInterval dataRequired;
+      dataRequired.add(Interval(offset, offset+cb-1));
+      ListInterval *missing
+	= ListInterval::difference(dataRequired, m->hostValidData);
+      if (missing->total() == 0) {
+	delete missing;
+	return address;
+      }
+
+      for (unsigned d=0; d<m->mNbBuffers; d++) {
+	ListInterval *toRead =
+	  ListInterval::intersection(*missing, m->devicesValidData[d]);
+	DeviceQueue *queue = m->mContext->getQueueNo(d);
+	for (unsigned i=0; i<toRead->mList.size(); i++) {
+	  size_t myoffset = toRead->mList[i].lb;
+	  size_t mycb = toRead->mList[i].hb - myoffset + 1;
+	  queue->enqueueRead(m->mBuffers[d], CL_FALSE, myoffset, mycb,
+			     (char *) m->mLocalBuffer + myoffset,
+			     0, NULL, NULL);
+	}
+	missing->difference(*toRead);
+	delete toRead;
+	if (missing->total() == 0)
+	  break;
+      }
+
+      //      assert(missing->total() == 0);
+      delete missing;
+
+      for (unsigned d=0; d<m->mNbBuffers; d++) {
+	DeviceQueue *queue = m->mContext->getQueueNo(d);
+	queue->finish();
+      }
+    }
+
+    map_entries.emplace(address, map_entry(offset, cb, flags & CL_MAP_WRITE));
+
+    return address;
+  }
+
+  void
+  BufferManager::unmap(MemoryHandle *m, void *mapped_ptr) {
+    auto I = map_entries.find(mapped_ptr);
+    if (I == map_entries.end()) {
+      std::cerr << "Error: unmap\n";
+      exit(EXIT_FAILURE);
+    }
+
+    Interval inter(I->second.offset, I->second.offset+I->second.cb-1);
+    map_entries.erase(I);
+
+    if (!I->second.isWrite)
+      return;
+
+
+
+    for (unsigned d=0; d<m->mNbBuffers; d++)
+      m->devicesValidData[d].remove(inter);
+  }
+
   void
   BufferManager::computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
 					     std::vector<DeviceBufferRegion> &D2HTransferList) {

@@ -45,6 +45,23 @@ namespace libsplit {
 			   const cl_event *event_wait_list,
 			   cl_event *event);
 
+    void *enqueueMapBuffer(cl_command_queue queue,
+			   MemoryHandle *m,
+			   cl_bool blocking_map,
+			   cl_map_flags map_flags,
+			   size_t offset,
+			   size_t size,
+			   cl_uint num_events_in_wait_list,
+			   const cl_event *event_wait_list,
+			   cl_event *event);
+
+    void enqueueUnmapMemObject(cl_command_queue queue,
+			       MemoryHandle *m,
+			       void *mapped_ptr,
+			       cl_uint num_events_in_wait_list,
+			       const cl_event *event_wait_list,
+			       cl_event *event);
+
     void enqueueNDRangeKernel(cl_command_queue queue,
 			      KernelHandle *k,
 			      cl_uint work_dim,

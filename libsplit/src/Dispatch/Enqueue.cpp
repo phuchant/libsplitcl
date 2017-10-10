@@ -252,20 +252,23 @@ clEnqueueCopyBufferToImage(cl_command_queue /* command_queue */,
 }
 
 void *
-clEnqueueMapBuffer(cl_command_queue /* command_queue */,
-		   cl_mem           /* buffer */,
-		   cl_bool          /* blocking_map */,
-		   cl_map_flags     /* map_flags */,
-		   size_t           /* offset */,
-		   size_t           /* size */,
-		   cl_uint          /* num_events_in_wait_list */,
-		   const cl_event * /* event_wait_list */,
-		   cl_event *       /* event */,
-		   cl_int *         /* errcode_ret */)
+clEnqueueMapBuffer(cl_command_queue command_queue,
+		   cl_mem           buffer,
+		   cl_bool          blocking_map,
+		   cl_map_flags     map_flags,
+		   size_t           offset,
+		   size_t           size,
+		   cl_uint          num_events_in_wait_list,
+		   const cl_event * event_wait_list,
+		   cl_event *       event,
+		   cl_int *         errcode_ret)
 {
-  std::cerr << "Error : function " << __FUNCTION__ << " not handled yet !\n";
-  exit(EXIT_FAILURE);
-  return CL_SUCCESS;
+  MemoryHandle *m = reinterpret_cast<MemoryHandle *>(buffer);
+  *errcode_ret = CL_SUCCESS;
+  return driver->enqueueMapBuffer(command_queue, m, blocking_map, map_flags,
+				  offset,
+				  size, num_events_in_wait_list,
+				  event_wait_list, event);
 }
 
 void *
@@ -288,15 +291,17 @@ clEnqueueMapImage(cl_command_queue  /* command_queue */,
 }
 
 cl_int
-clEnqueueUnmapMemObject(cl_command_queue /* command_queue */,
-			cl_mem           /* memobj */,
-			void *           /* mapped_ptr */,
-			cl_uint          /* num_events_in_wait_list */,
-			const cl_event *  /* event_wait_list */,
-			cl_event *        /* event */)
+clEnqueueUnmapMemObject(cl_command_queue command_queue,
+			cl_mem           memobj,
+			void *           mapped_ptr,
+			cl_uint          num_events_in_wait_list,
+			const cl_event *  event_wait_list,
+			cl_event *        event)
 {
-  std::cerr << "Error : function " << __FUNCTION__ << " not handled yet !\n";
-  exit(EXIT_FAILURE);
+  MemoryHandle *m = reinterpret_cast<MemoryHandle *>(memobj);
+  driver->enqueueUnmapMemObject(command_queue, m, mapped_ptr,
+				num_events_in_wait_list,
+				event_wait_list, event);
   return CL_SUCCESS;
 }
 
