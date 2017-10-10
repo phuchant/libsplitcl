@@ -7,6 +7,7 @@
 #include "IndexExpr/IndexExprHB.h"
 #include "IndexExpr/IndexExprIndirection.h"
 #include "IndexExpr/IndexExprInterval.h"
+#include "IndexExpr/IndexExprMin.h"
 #include "IndexExpr/IndexExprMax.h"
 #include "IndexExpr/IndexExprOCL.h"
 #include "IndexExpr/IndexExprUnknown.h"
@@ -94,6 +95,9 @@ IndexExpr::toDot(std::stringstream &stream) const {
   case IndexExpr::UNKNOWN:
     stream << "unknown";
     break;
+  case IndexExpr::MIN:
+    stream << "min";
+    break;
   case IndexExpr::MAX:
     stream << "max";
     break;
@@ -177,6 +181,15 @@ IndexExpr::open(std::stringstream &s) {
     }
   case UNKNOWN:
     return new IndexExprUnknown("unknown");
+  case MIN:
+    {
+      unsigned numOperands;
+      s.read(reinterpret_cast<char *>(&numOperands), sizeof(numOperands));
+      IndexExpr *exprs[numOperands];
+      for (unsigned i=0; i<numOperands; i++)
+	exprs[i] = open(s);
+      return new IndexExprMin(numOperands, exprs);
+    }
   case MAX:
     {
       unsigned numOperands;
@@ -263,6 +276,16 @@ IndexExpr::injectArgsValues(IndexExpr *expr, const std::vector<int> &values) {
       injectArgsValues(hb, values);
       return;
     }
+  case MIN:
+    {
+      IndexExprMin *minExpr = static_cast<IndexExprMin *>(expr);
+      unsigned numOperands = minExpr->getNumOperands();
+      for (unsigned i=0; i<numOperands; i++) {
+	IndexExpr *current = minExpr->getExprN(i);
+	injectArgsValues(current, values);
+      }
+      return;
+    }
   case MAX:
     {
       IndexExprMax *maxExpr = static_cast<IndexExprMax *>(expr);
@@ -338,6 +361,16 @@ IndexExpr::injectIndirValues(IndexExpr *expr,
       delete indirExpr->hb;
       indirExpr->lb = new IndexExprConst(values[no].first);
       indirExpr->hb = new IndexExprConst(values[no].second);
+      return;
+    }
+  case MIN:
+    {
+      IndexExprMin *minExpr = static_cast<IndexExprMin *>(expr);
+      unsigned numOperands = minExpr->getNumOperands();
+      for (unsigned i=0; i<numOperands; i++) {
+	IndexExpr *current = minExpr->getExprN(i);
+	injectIndirValues(current, values);
+      }
       return;
     }
   case MAX:
@@ -538,6 +571,32 @@ IndexExpr::computeBounds(const IndexExpr *expr, long *lb, long *hb) {
       return true;
     }
 
+  case MIN:
+    {
+      const IndexExprMin *minExpr = static_cast<const IndexExprMin *>(expr);
+      unsigned numOperands = minExpr->getNumOperands();
+      long lbs[numOperands];
+      long hbs[numOperands];
+
+      for (unsigned i=0; i<numOperands; i++) {
+	if (!computeBounds(minExpr->getExprN(i), &lbs[i], &hbs[i]))
+	  return false;
+	assert(lbs[i] <= hbs[i]);
+      }
+
+      long minHb = hbs[0];
+      long minLb = lbs[0];
+      for (unsigned i=1; i<numOperands; i++) {
+	minHb = MIN(hbs[i], minHb);
+	minLb = MIN(lbs[i], minLb);
+      }
+
+      *lb = minLb;
+      *hb = minHb;
+      assert(*lb <= *hb);
+      return true;
+    }
+
   case MAX:
     {
       const IndexExprMax *maxExpr = static_cast<const IndexExprMax *>(expr);
@@ -563,6 +622,7 @@ IndexExpr::computeBounds(const IndexExpr *expr, long *lb, long *hb) {
       assert(*lb <= *hb);
       return true;
     }
+
   case LB:
     {
       const IndexExprLB *lbExpr = static_cast<const IndexExprLB *>(expr);

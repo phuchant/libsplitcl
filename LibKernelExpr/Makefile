@@ -15,6 +15,7 @@ OBJ	= $(SRC_DIR)/ArgumentAnalysis.o \
 	$(SRC_DIR)/IndexExpr/IndexExprInterval.o \
 	$(SRC_DIR)/IndexExpr/IndexExprIndirection.o \
 	$(SRC_DIR)/IndexExpr/IndexExprLB.o \
+	$(SRC_DIR)/IndexExpr/IndexExprMin.o \
 	$(SRC_DIR)/IndexExpr/IndexExprMax.o \
 	$(SRC_DIR)/IndexExpr/IndexExprOCL.o \
 	$(SRC_DIR)/IndexExpr/IndexExprUnknown.o \

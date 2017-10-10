@@ -8,6 +8,7 @@
 #include "IndexExprIndirection.h"
 #include "IndexExprInterval.h"
 #include "IndexExprLB.h"
+#include "IndexExprMin.h"
 #include "IndexExprMax.h"
 #include "IndexExprOCL.h"
 #include "IndexExprUnknown.h"
