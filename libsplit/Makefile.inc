@@ -1,5 +1,6 @@
 CLANGPATH=~/mytools/llvm-5.0/bin/clang
 CLANGVERSION=5.0.0
+CLANGMAJOR=5
 OPTPATH=~/mytools/llvm-5.0/bin/opt
 LLVMLIBPATH=~/mytools/llvm-5.0/lib
 
