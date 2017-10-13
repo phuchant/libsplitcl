@@ -56,6 +56,8 @@ namespace {
     std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
     arg2AtomicSumExprs;
     std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
+    arg2AtomicMinExprs;
+    std::map<const llvm::Argument *, std::vector<WorkItemExpr *> >
     arg2AtomicMaxExprs;
 
     void analyze(llvm::Function *F);

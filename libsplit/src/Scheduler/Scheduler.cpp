@@ -229,6 +229,7 @@ namespace libsplit {
 					SI->dataRequired, SI->dataWritten,
 					SI->dataWrittenOr,
 					SI->dataWrittenAtomicSum,
+					SI->dataWrittenAtomicMin,
 					SI->dataWrittenAtomicMax);
 	return true;
       }
@@ -239,7 +240,9 @@ namespace libsplit {
 			       SI->dataRequired, SI->dataWritten,
 			       SI->dataWrittenOr,
 			       SI->dataWrittenAtomicSum,
+			       SI->dataWrittenAtomicMin,
 			       SI->dataWrittenAtomicMax)) {
+	std::cerr << "cannot split dim " << SI->dimOrder[SI->currentDim] << "\n";
 	SI->currentDim++;
 	SI->needToInstantiateAnalysis = true;
 	return false;
@@ -257,6 +260,7 @@ namespace libsplit {
 			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMin, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
 			  unsigned *id) /* OUT */ {
     // Get kernel id
@@ -275,6 +279,7 @@ namespace libsplit {
     dataWritten = SI->dataWritten;
     dataWrittenOr = SI->dataWrittenOr;
     dataWrittenAtomicSum = SI->dataWrittenAtomicSum;
+    dataWrittenAtomicMin = SI->dataWrittenAtomicMin;
     dataWrittenAtomicMax = SI->dataWrittenAtomicMax;
     *needOtherExecutionToComplete = SI->needOtherExecToComplete;
 
@@ -439,11 +444,13 @@ namespace libsplit {
 				 std::vector<DeviceBufferRegion> &dataWritten,
 				 std::vector<DeviceBufferRegion> &dataWrittenOr,
 				 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
 				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
     dataRequired.clear();
     dataWritten.clear();
     dataWrittenOr.clear();
     dataWrittenAtomicSum.clear();
+    dataWrittenAtomicMin.clear();
     dataWrittenAtomicMax.clear();
     for (unsigned i=0; i<subkernels.size(); i++)
       delete subkernels[i];
@@ -495,7 +502,8 @@ namespace libsplit {
 
       for (int i=0; i<nbSplits; i++) {
 	ListInterval readRegion, writtenRegion, writtenOrRegion,
-	  writtenAtomicSumRegion, writtenAtomicMaxRegion;
+	  writtenAtomicSumRegion, writtenAtomicMinRegion,
+	  writtenAtomicMaxRegion;
 	unsigned devId = granu_dscr[i*3];
 
 	// Compute read region
@@ -521,6 +529,11 @@ namespace libsplit {
 	  writtenAtomicSumRegion.
 	    myUnion(analysis->getArgWrittenAtomicSumSubkernelRegion(a, i));
 
+	// Compute written_atomic_min region
+	if (analysis->argIsWrittenAtomicMinBySubkernel(a, i))
+	  writtenAtomicMinRegion.
+	    myUnion(analysis->getArgWrittenAtomicMinSubkernelRegion(a, i));
+
 	// Compute written_atomic_max region
 	if (analysis->argIsWrittenAtomicMaxBySubkernel(a, i))
 	  writtenAtomicMaxRegion.
@@ -531,6 +544,8 @@ namespace libsplit {
 	readRegion.myUnion(analysis->getArgWrittenOrSubkernelRegion(a, i));
 	readRegion.myUnion(analysis->
 			   getArgWrittenAtomicSumSubkernelRegion(a, i));
+	readRegion.myUnion(analysis->
+			   getArgWrittenAtomicMinSubkernelRegion(a, i));
 	readRegion.myUnion(analysis->
 			   getArgWrittenAtomicMaxSubkernelRegion(a, i));
 
@@ -544,6 +559,9 @@ namespace libsplit {
 	if (writtenAtomicSumRegion.total() > 0)
 	  dataWrittenAtomicSum.
 	    push_back(DeviceBufferRegion(m, devId, writtenAtomicSumRegion));
+	if (writtenAtomicMinRegion.total() > 0)
+	  dataWrittenAtomicMin.
+	    push_back(DeviceBufferRegion(m, devId, writtenAtomicMinRegion));
 	if (writtenAtomicMaxRegion.total() > 0)
 	  dataWrittenAtomicMax.
 	    push_back(DeviceBufferRegion(m, devId, writtenAtomicMaxRegion));
@@ -563,11 +581,13 @@ namespace libsplit {
 					     std::vector<DeviceBufferRegion> &dataWritten,
 					     std::vector<DeviceBufferRegion> &dataWrittenOr,
 					     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+					     std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
 					     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
     dataRequired.clear();
     dataWritten.clear();
     dataWrittenOr.clear();
     dataWrittenAtomicSum.clear();
+    dataWrittenAtomicMin.clear();
     dataWrittenAtomicMax.clear();
     for (unsigned i=0; i<subkernels.size(); i++)
       delete subkernels[i];
@@ -627,6 +647,7 @@ namespace libsplit {
 	if (!analysis->argWrittenBoundsComputed(a) ||
 	    !analysis->argWrittenOrBoundsComputed(a) ||
 	    !analysis->argWrittenAtomicSumBoundsComputed(a) ||
+	    !analysis->argWrittenAtomicMinBoundsComputed(a) ||
 	    !analysis->argWrittenAtomicMaxBoundsComputed(a)) {
 	  writtenRegion.setUndefined();
 	  readRegion.setUndefined();
@@ -646,6 +667,7 @@ namespace libsplit {
 	  writtenRegion.myUnion(analysis->getArgWrittenSubkernelRegion(a, i));
 	  writtenRegion.myUnion(analysis->getArgWrittenOrSubkernelRegion(a, i));
 	  writtenRegion.myUnion(analysis->getArgWrittenAtomicSumSubkernelRegion(a, i));
+	  writtenRegion.myUnion(analysis->getArgWrittenAtomicMinSubkernelRegion(a, i));
 	  writtenRegion.myUnion(analysis->getArgWrittenAtomicMaxSubkernelRegion(a, i));
 	  readRegion.myUnion(writtenRegion);
 	}

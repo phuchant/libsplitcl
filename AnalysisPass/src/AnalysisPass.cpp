@@ -123,8 +123,8 @@ AnalysisPass::runOnFunction(Function &F) {
     ArgumentAnalysis *argAnalysis =
       new ArgumentAnalysis(arg->getArgNo(), enumType, sizeInBytes,
 			   arg2LoadExprs[arg], arg2StoreExprs[arg],
-			   arg2OrExprs[arg],
-			   arg2AtomicSumExprs[arg], arg2AtomicMaxExprs[arg]);
+			   arg2OrExprs[arg], arg2AtomicSumExprs[arg],
+			   arg2AtomicMinExprs[arg], arg2AtomicMaxExprs[arg]);
     argsAnalysis.push_back(argAnalysis);
   }
 
@@ -204,6 +204,9 @@ AnalysisPass::computeWorkItemExpr(llvm::Instruction *inst,
   case WorkItemExpr::ATOMICSUM:
     arg2AtomicSumExprs[arg].push_back(new WorkItemExpr(expr, guards));
     return;
+  case WorkItemExpr::ATOMICMIN:
+    arg2AtomicMinExprs[arg].push_back(new WorkItemExpr(expr, guards));
+    return;
   case WorkItemExpr::ATOMICMAX:
     arg2AtomicMaxExprs[arg].push_back(new WorkItemExpr(expr, guards));
     return;
@@ -272,12 +275,14 @@ AnalysisPass::analyze(Function *F) {
       // Atomic local
       else if (funcName.equals("_Z10atomic_maxPU7CLlocalVii") ||
 	       funcName.equals("_Z10atomic_addPU7CLlocalVjj") ||
-	       funcName.equals("_Z10atomic_addPU7CLlocalVii")) {
+	       funcName.equals("_Z10atomic_addPU7CLlocalVii") ||
+	       funcName.equals("_Z8atom_addPU7CLlocalVii")) {
 	// Do nothing
       }
 
       // Atomic XCHG (considered as a store)
-      else if (funcName.equals("_Z11atomic_xchgPU8CLglobalVii")) {
+      else if (funcName.equals("_Z11atomic_xchgPU8CLglobalVii") ||
+	       funcName.equals("_Z9atom_xchgPU8CLglobalVii")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::STORE);
@@ -289,11 +294,19 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z10atomic_incPU8CLglobalVi") ||
 	       funcName.equals("_Z10atomic_addPU8CLglobalVii") ||
 	       funcName.equals("_Z10atomic_addPU8CLglobalVjj") ||
+	       funcName.equals("_Z8atom_addPU8CLglobalVii") ||
 	       funcName.equals("_Z8atom_incPU8CLglobalVi") ||
 	       funcName.equals("_Z8atom_decPU8CLglobalVi")) {
 	IndexExpr *expr = NULL; const Argument *arg = NULL;
 	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
 	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICSUM);
+      }
+
+      // Atomic Min global
+      else if (funcName.equals("_Z8atom_minPU8CLglobalVii")) {
+	IndexExpr *expr = NULL; const Argument *arg = NULL;
+	indexExprBuilder->build_atom_Expr(CI, &expr, &arg);
+	computeWorkItemExpr(inst, expr, arg, WorkItemExpr::ATOMICMIN);
       }
 
       // Atomic Max global

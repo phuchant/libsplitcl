@@ -13,6 +13,7 @@ public:
     STORE,
     OR,
     ATOMICSUM,
+    ATOMICMIN,
     ATOMICMAX
   };
 

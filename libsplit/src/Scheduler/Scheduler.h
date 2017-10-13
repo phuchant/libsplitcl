@@ -57,6 +57,7 @@ namespace libsplit {
 			      std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
+			      std::vector<DeviceBufferRegion> &dataWrittenAtomicMin, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
 			      unsigned *id);
 
@@ -115,6 +116,7 @@ namespace libsplit {
 			     std::vector<DeviceBufferRegion> &dataWritten,
 			     std::vector<DeviceBufferRegion> &dataWrittenOr,
 			     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+			     std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
 			     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
     bool instantiateSingleDeviceAnalysis(KernelHandle *k,
@@ -126,6 +128,7 @@ namespace libsplit {
 					 std::vector<DeviceBufferRegion> &dataWritten,
 					 std::vector<DeviceBufferRegion> &dataWrittenOr,
 					 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+					 std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
 					 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
     void adaptGranudscr(double *granu_dscr, int *size_gr,
@@ -207,6 +210,7 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> dataWritten;
       std::vector<DeviceBufferRegion> dataWrittenOr;
       std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
+      std::vector<DeviceBufferRegion> dataWrittenAtomicMin;
       std::vector<DeviceBufferRegion> dataWrittenAtomicMax;
 
       // scalar arguments values

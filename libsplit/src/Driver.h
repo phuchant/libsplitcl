@@ -87,6 +87,9 @@ namespace libsplit {
     void startAtomicSumD2HTransfers(unsigned kerId,
 				    const std::vector<DeviceBufferRegion>
 				    &transferList);
+    void startAtomicMinD2HTransfers(unsigned kerId,
+				    const std::vector<DeviceBufferRegion>
+				    &transferList);
     void startAtomicMaxD2HTransfers(unsigned kerId,
 				    const std::vector<DeviceBufferRegion>
 				    &transferList);
@@ -98,6 +101,9 @@ namespace libsplit {
     void performHostOrVariableReduction(const std::vector<DeviceBufferRegion> &
 					transferList);
     void performHostAtomicSumReduction(KernelHandle *k,
+				       const std::vector<DeviceBufferRegion> &
+				       transferList);
+    void performHostAtomicMinReduction(KernelHandle *k,
 				       const std::vector<DeviceBufferRegion> &
 				       transferList);
     void performHostAtomicMaxReduction(KernelHandle *k,

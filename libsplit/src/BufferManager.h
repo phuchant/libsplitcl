@@ -76,6 +76,9 @@ namespace libsplit {
 
     void unmap(MemoryHandle *m, void *mapped_ptr);
 
+    void fill(MemoryHandle *m, const void *pattern, size_t pattern_size,
+	      size_t offset, size_t size);
+
     void computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
 				     std::vector<DeviceBufferRegion> &D2HTransferList);
 
@@ -83,11 +86,13 @@ namespace libsplit {
 			  std::vector<DeviceBufferRegion> &dataWritten,
 			  std::vector<DeviceBufferRegion> &dataWrittenOr,
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMax,
 			  std::vector<DeviceBufferRegion> &D2HTransferList,
 			  std::vector<DeviceBufferRegion> &H2DTransferList,
 			  std::vector<DeviceBufferRegion> &OrD2HTransferList,
 			  std::vector<DeviceBufferRegion> &AtomicSumD2HTransferList,
+			  std::vector<DeviceBufferRegion> &AtomicMinD2HTransferList,
 			  std::vector<DeviceBufferRegion> &AtomicMaxD2HTransferList);
 
     bool noMemcpy;

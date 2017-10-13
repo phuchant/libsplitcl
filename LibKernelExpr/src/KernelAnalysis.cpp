@@ -225,6 +225,11 @@ KernelAnalysis::argWrittenAtomicSumBoundsComputed(unsigned argNo) const {
 }
 
 bool
+KernelAnalysis::argWrittenAtomicMinBoundsComputed(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->atomicMinBoundsComputed();
+}
+
+bool
 KernelAnalysis::argWrittenAtomicMaxBoundsComputed(unsigned argNo) const {
   return mArgsAnalysis[argNo]->atomicMaxBoundsComputed();
 }
@@ -248,6 +253,12 @@ bool
 KernelAnalysis::argIsWrittenAtomicSumBySubkernel(unsigned argNo, unsigned i)
   const {
   return mArgsAnalysis[argNo]->isWrittenAtomicSumBySubkernel(i);
+}
+
+bool
+KernelAnalysis::argIsWrittenAtomicMinBySubkernel(unsigned argNo, unsigned i)
+  const {
+  return mArgsAnalysis[argNo]->isWrittenAtomicMinBySubkernel(i);
 }
 
 bool
@@ -282,6 +293,12 @@ const ListInterval &
 KernelAnalysis::getArgWrittenAtomicMaxSubkernelRegion(unsigned argNo,
 						      unsigned i) const {
   return mArgsAnalysis[argNo]->getWrittenAtomicMaxSubkernelRegion(i);
+}
+
+const ListInterval &
+KernelAnalysis::getArgWrittenAtomicMinSubkernelRegion(unsigned argNo,
+						      unsigned i) const {
+  return mArgsAnalysis[argNo]->getWrittenAtomicMinSubkernelRegion(i);
 }
 
 void

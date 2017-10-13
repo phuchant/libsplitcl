@@ -265,14 +265,16 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> H2DTranfers;
       std::vector<DeviceBufferRegion> OrD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
+      std::vector<DeviceBufferRegion> AtomicMinD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicMaxD2HTranfers;
       buffManager->computeTransfers(SI->dataRequired, SI->dataWritten,
 				    SI->dataWrittenOr,
 				    SI->dataWrittenAtomicSum,
 				    SI->dataWrittenAtomicMax,
+				    SI->dataWrittenAtomicMin,
 				    D2HTranfers, H2DTranfers,
-				    OrD2HTranfers,
-				    AtomicSumD2HTranfers, AtomicMaxD2HTranfers);
+				    OrD2HTranfers, AtomicSumD2HTranfers,
+				    AtomicMinD2HTranfers, AtomicMaxD2HTranfers);
 
       // Validate data read from device onto host buffer
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
@@ -310,15 +312,18 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> H2DTranfers;
       std::vector<DeviceBufferRegion> OrD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicSumD2HTranfers;
+      std::vector<DeviceBufferRegion> AtomicMinD2HTranfers;
       std::vector<DeviceBufferRegion> AtomicMaxD2HTranfers;
       SubKernelSchedInfo *SI = kerID2SchedInfoMap[k];
       buffManager->computeTransfers(SI->dataRequired, SI->dataWritten,
 				    SI->dataWrittenOr,
 				    SI->dataWrittenAtomicSum,
+				    SI->dataWrittenAtomicMin,
 				    SI->dataWrittenAtomicMax,
 				    D2HTranfers, H2DTranfers,
 				    OrD2HTranfers,
 				    AtomicSumD2HTranfers,
+				    AtomicMinD2HTranfers,
 				    AtomicMaxD2HTranfers);
       for (unsigned i=0; i<D2HTranfers.size(); i++) {
 	unsigned d = D2HTranfers[i].devId;

@@ -24,12 +24,14 @@ public:
 		   const std::vector<WorkItemExpr *> &storeExprs,
 		   const std::vector<WorkItemExpr *> &orExprs,
 		   const std::vector<WorkItemExpr *> &atomicSumExprs,
+		   const std::vector<WorkItemExpr *> &atomicMinExprs,
 		   const std::vector<WorkItemExpr *> &atomicMaxExprs);
   ArgumentAnalysis(unsigned pos, TYPE type, unsigned sizeInBytes,
 		   std::vector<WorkItemExpr *> *loadExprs,
 		   std::vector<WorkItemExpr *> *storeExprs,
 		   std::vector<WorkItemExpr *> *orExprs,
 		   std::vector<WorkItemExpr *> *atomicSumExprs,
+		   std::vector<WorkItemExpr *> *atomicMinExprs,
 		   std::vector<WorkItemExpr *> *atomicMaxExprs);
   ~ArgumentAnalysis();
 
@@ -37,18 +39,21 @@ public:
   bool isWritten() const;
   bool isWrittenOr() const;
   bool isWrittenAtomicSum() const;
+  bool isWrittenAtomicMin() const;
   bool isWrittenAtomicMax() const;
   bool isRead() const;
   unsigned getNumLoad() const;
   unsigned getNumStore() const;
   unsigned getNumOr() const;
   unsigned getNumAtomicSum() const;
+  unsigned getNumAtomicMin() const;
   unsigned getNumAtomicMax() const;
 
   const WorkItemExpr *getLoadWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getStoreWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getOrWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getAtomicSumWorkItemExpr(unsigned n) const;
+  const WorkItemExpr *getAtomicMinWorkItemExpr(unsigned n) const;
   const WorkItemExpr *getAtomicMaxWorkItemExpr(unsigned n) const;
   const IndexExpr *getLoadSubkernelExpr(unsigned splitno, unsigned useno) const;
   const IndexExpr *getStoreSubkernelExpr(unsigned splitno,
@@ -57,6 +62,8 @@ public:
 				      unsigned useno) const;
   const IndexExpr *getAtomicSumSubkernelExpr(unsigned splitno,
 					     unsigned useno) const;
+  const IndexExpr *getAtomicMinSubkernelExpr(unsigned splitno,
+					     unsigned useno) const;
   const IndexExpr *getAtomicMaxSubkernelExpr(unsigned splitno,
 					     unsigned useno) const;
 
@@ -64,12 +71,14 @@ public:
   bool isWrittenBySubkernel(unsigned i) const;
   bool isWrittenOrBySubkernel(unsigned i) const;
   bool isWrittenAtomicSumBySubkernel(unsigned i) const;
+  bool isWrittenAtomicMinBySubkernel(unsigned i) const;
   bool isWrittenAtomicMaxBySubkernel(unsigned i) const;
 
   const ListInterval & getReadSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenOrSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenAtomicSumSubkernelRegion(unsigned i) const;
+  const ListInterval & getWrittenAtomicMinSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenAtomicMaxSubkernelRegion(unsigned i) const;
 
   void dump();
@@ -95,6 +104,7 @@ public:
   bool writeBoundsComputed() const;
   bool orBoundsComputed() const;
   bool atomicSumBoundsComputed() const;
+  bool atomicMinBoundsComputed() const;
   bool atomicMaxBoundsComputed() const;
 
 private:
@@ -117,6 +127,7 @@ private:
   std::vector<WorkItemExpr *> *storeWorkItemExprs;
   std::vector<WorkItemExpr *> *orWorkItemExprs;
   std::vector<WorkItemExpr *> *atomicSumWorkItemExprs;
+  std::vector<WorkItemExpr *> *atomicMinWorkItemExprs;
   std::vector<WorkItemExpr *> *atomicMaxWorkItemExprs;
 
   // Vector of size nbsplit, each  element containing a vector of subkernel
@@ -126,6 +137,7 @@ private:
   std::vector<std::vector<IndexExpr *> > storeSubKernelsExprs;
   std::vector<std::vector<IndexExpr *> > orSubKernelsExprs;
   std::vector<std::vector<IndexExpr *> > atomicSumSubKernelsExprs;
+  std::vector<std::vector<IndexExpr *> > atomicMinSubKernelsExprs;
   std::vector<std::vector<IndexExpr *> > atomicMaxSubKernelsExprs;
 
   /* Regions */
@@ -133,12 +145,14 @@ private:
   std::vector<ListInterval> writtenSubkernelsRegions;
   std::vector<ListInterval> writtenOrSubkernelsRegions;
   std::vector<ListInterval> writtenAtomicSumSubkernelsRegions;
+  std::vector<ListInterval> writtenAtomicMinSubkernelsRegions;
   std::vector<ListInterval> writtenAtomicMaxSubkernelsRegions;
 
   bool mReadBoundsComputed;
   bool mWriteBoundsComputed;
   bool mOrBoundsComputed;
   bool mAtomicSumBoundsComputed;
+  bool mAtomicMinBoundsComputed;
   bool mAtomicMaxBoundsComputed;
   bool areDisjoint;
   bool analysisHasBeenRun;
