@@ -293,6 +293,17 @@ cl_int
 				cl_event *        /* event */) = NULL;
 
 cl_int
+(*real_clEnqueueFillBuffer)(cl_command_queue /* command_queue */,
+			    cl_mem           /* buffer */,
+			    const void *     /* pattern */,
+			    size_t           /* pattern_size */,
+			    size_t           /* offset */,
+			    size_t           /* size */,
+			    cl_uint          /* num_events_in_wait_list */,
+			    const cl_event * /* event_wait_list */,
+			    cl_event *       /* event */) = NULL;
+
+cl_int
 (*real_clEnqueueNDRangeKernel)(cl_command_queue /* command_queue */,
 			       cl_kernel        /* kernel */,
 			       cl_uint          /* work_dim */,
@@ -460,6 +471,9 @@ void getOpenCLFunctions()
 
   if (!real_clEnqueueUnmapMemObject)
     *(void **) &real_clEnqueueUnmapMemObject = dlsym(RTLD_NEXT, "clEnqueueUnmapMemObject");
+
+  if (!real_clEnqueueFillBuffer)
+    *(void **) &real_clEnqueueFillBuffer = dlsym(RTLD_NEXT, "clEnqueueFillBuffer");
 
   if (!real_clEnqueueNDRangeKernel)
     *(void **) &real_clEnqueueNDRangeKernel = dlsym(RTLD_NEXT, "clEnqueueNDRangeKernel");
