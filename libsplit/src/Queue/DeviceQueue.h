@@ -46,6 +46,15 @@ namespace libsplit {
 		     const Event *wait_list,
 		     Event *event);
 
+    void enqueueFill(cl_mem buffer,
+		     const void *pattern,
+		     size_t pattern_size,
+		     size_t offset,
+		     size_t size,
+		     unsigned wait_list_size,
+		     const Event *wait_list,
+		     Event *event);
+
     void finish();
 
     virtual void run() = 0;

@@ -94,6 +94,27 @@ namespace libsplit {
     KernelArgs args;
   };
 
+  class CommandFill : public Command {
+  public:
+    CommandFill(cl_mem buffer,
+		const void *pattern,
+		size_t pattern_size,
+		size_t offset,
+		size_t size,
+		unsigned wait_list_size,
+		const Event *wait_list);
+
+    virtual ~CommandFill();
+
+    virtual void execute(DeviceQueue *queue);
+
+    cl_mem buffer;
+    const void *pattern;
+    size_t pattern_size;
+    size_t offset;
+    size_t size;
+  };
+
 };
 
 #endif /* COMMAND_H */

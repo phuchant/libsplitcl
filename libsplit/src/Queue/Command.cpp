@@ -175,4 +175,42 @@ namespace libsplit {
     event->setSubmitted();
   }
 
+  CommandFill::CommandFill(cl_mem buffer,
+			   const void *pattern,
+			   size_t pattern_size,
+			   size_t offset,
+			   size_t size,
+			   unsigned wait_list_size,
+			   const Event *wait_list)
+    : Command(CL_FALSE, wait_list_size, wait_list),
+      buffer(buffer), pattern(pattern), pattern_size(pattern_size),
+      offset(offset), size(size) {}
+
+  CommandFill::~CommandFill() {}
+
+  void
+  CommandFill::execute(DeviceQueue *queue) {
+    cl_int err;
+
+    err = real_clFinish(queue->cl_queue);
+    clCheck(err, __FILE__, __LINE__);
+
+
+    for (unsigned i=0; i<wait_list_size; i++)
+      wait_list[i]->wait();
+
+    err = real_clEnqueueFillBuffer(queue->cl_queue,
+				   buffer,
+				   pattern,
+				   pattern_size,
+				   offset,
+				   size,
+				   0,
+				   NULL,
+				   &event->event);
+    clCheck(err, __FILE__, __LINE__);
+
+    event->setSubmitted();
+  }
+
 };

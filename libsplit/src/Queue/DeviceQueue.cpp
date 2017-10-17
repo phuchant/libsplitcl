@@ -100,6 +100,21 @@ namespace libsplit {
   }
 
   void
+  DeviceQueue::enqueueFill(cl_mem buffer,
+			   const void *pattern,
+			   size_t pattern_size,
+			   size_t offset,
+			   size_t size,
+			   unsigned wait_list_size,
+			   const Event *wait_list,
+			   Event *event) {
+    Command *c = new CommandFill(buffer, pattern, pattern_size, offset, size,
+				 wait_list_size, wait_list);
+    enqueue(c, event);
+  }
+
+
+  void
   DeviceQueue::bindThread() {
 
 #ifdef USE_HWLOC
