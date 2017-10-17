@@ -218,6 +218,11 @@ namespace libsplit {
 
     std::cerr << "kernel " << k->getName() << "\n";
 
+    DEBUG("ndrange",
+	  for (unsigned i=0; i<work_dim; i++)
+	    std::cerr << "#wg" << i << ": " << global_work_size[i] / local_work_size[i] << " ";
+	  std::cerr << "\n";);
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     std::vector<SubKernelExecInfo *> subkernels;
