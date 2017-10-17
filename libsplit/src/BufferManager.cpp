@@ -82,6 +82,9 @@ namespace libsplit {
       }
     }
 
+    // FIXME: It is always blocking because a call to clEnqueueReadBuffer
+    // returns a fake event. Thus there is no way for the user to know
+    // when the command has been executed.
     for (unsigned d=0; d<m->mNbBuffers; d++) {
       DeviceQueue *queue = m->mContext->getQueueNo(d);
       queue->finish();
@@ -290,6 +293,32 @@ namespace libsplit {
     for (unsigned d=0; d<m->mNbBuffers; d++)
       m->devicesValidData[d].remove(inter);
   }
+
+  void
+  BufferManager::fill(MemoryHandle *m, const void *pattern, size_t pattern_size,
+		      size_t offset, size_t size) {
+    Event events[m->mNbBuffers];
+
+    // EnqueueFillBuffer for all devices.
+    for (unsigned d=0; d<m->mNbBuffers; d++) {
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+      queue->enqueueFill(m->mBuffers[d], pattern, pattern_size, offset, size,
+			 0, NULL, NULL);
+
+    }
+
+    // Update valid data.
+    Interval inter(offset, offset+size-1);
+    for (unsigned d=0; d<m->mNbBuffers; d++)
+      m->devicesValidData[d].add(inter);
+    m->hostValidData.remove(inter);
+
+    // Wait for all events to be submitted.
+    for (unsigned d=0; d<m->mNbBuffers; d++)
+      m->mContext->getQueueNo(d)->finish();
+
+  }
+
 
   void
   BufferManager::computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,

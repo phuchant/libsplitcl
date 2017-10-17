@@ -172,6 +172,24 @@ namespace libsplit {
     createFakeEvent(event, queue);
   }
 
+  void
+  Driver:: enqueueFillBuffer(cl_command_queue queue,
+			     MemoryHandle *m,
+			     const void *pattern,
+			     size_t pattern_size,
+			     size_t offset,
+			     size_t size,
+			     cl_uint num_events_in_wait_list,
+			     const cl_event *event_wait_list,
+			     cl_event *event) {
+    waitForEvents(num_events_in_wait_list, event_wait_list);
+
+    bufferMgr->fill(m, pattern, pattern_size, offset, size);
+
+    createFakeEvent(event, queue);
+}
+
+
   static void printDriverTimers(double t1, double t2, double t3, double t4,
 				double t5, double t6)
   {

@@ -62,6 +62,16 @@ namespace libsplit {
 			       const cl_event *event_wait_list,
 			       cl_event *event);
 
+    void enqueueFillBuffer(cl_command_queue queue,
+			   MemoryHandle *m,
+			   const void *pattern,
+			   size_t pattern_size,
+			   size_t offset,
+			   size_t size,
+			   cl_uint num_events_in_wait_list,
+			   const cl_event *event_wait_list,
+			   cl_event *event);
+
     void enqueueNDRangeKernel(cl_command_queue queue,
 			      KernelHandle *k,
 			      cl_uint work_dim,
