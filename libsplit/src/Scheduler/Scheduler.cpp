@@ -511,6 +511,11 @@ namespace libsplit {
 	  readRegion.setUndefined();
 	}
 
+	if (!analysis->argWrittenAtomicSumBoundsComputed(a)) {
+	  readRegion.setUndefined();
+	  writtenAtomicSumRegion.setUndefined();
+	}
+
 	if (analysis->argIsReadBySubkernel(a, i)) {
 	  readRegion.myUnion(analysis->getArgReadSubkernelRegion(a, i));
 	}
@@ -556,7 +561,7 @@ namespace libsplit {
 	if (writtenOrRegion.total() > 0)
 	  dataWrittenOr.
 	    push_back(DeviceBufferRegion(m, devId, writtenOrRegion));
-	if (writtenAtomicSumRegion.total() > 0)
+	if (writtenAtomicSumRegion.total() > 0 || writtenAtomicSumRegion.isUndefined())
 	  dataWrittenAtomicSum.
 	    push_back(DeviceBufferRegion(m, devId, writtenAtomicSumRegion));
 	if (writtenAtomicMinRegion.total() > 0)

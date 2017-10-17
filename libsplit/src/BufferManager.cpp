@@ -372,6 +372,17 @@ namespace libsplit {
       }
     }
 
+    // If atomic sum region is undefined, we consider that the whole buffer is
+    // written.
+    for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
+      MemoryHandle *m = dataWrittenAtomicSum[i].m;
+      if (dataWrittenAtomicSum[i].region.isUndefined()) {
+	dataWrittenAtomicSum[i].region.clearList();
+	size_t cb = m->mSize;
+	dataWrittenAtomicSum[i].region.add(Interval(0, cb-1));
+      }
+    }
+
     // Compute a map of the written atomic sum region for each memory handle.
     std::map<MemoryHandle *, ListInterval> atomicSumHostRequiredData;
     for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
@@ -485,8 +496,7 @@ namespace libsplit {
       MemoryHandle *m = dataWrittenAtomicSum[i].m;
       unsigned d = dataWrittenAtomicSum[i].devId;
 
-      assert(!dataWrittenAtomicSum[i].region.isUndefined());
-
+      // dataWritten can be undefined
       DeviceBufferRegion region(m, d, dataWrittenAtomicSum[i].region,
 				malloc(dataWrittenAtomicSum[i].region.total()));
       AtomicSumD2HTransferList.push_back(region);

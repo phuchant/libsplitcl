@@ -478,8 +478,9 @@ ArgumentAnalysis::performAnalysis(const
   // Compute subkernels bounds
   computeRegions();
 
+  // AtomicSum bounds can be undefined.
+
   if (!mWriteBoundsComputed || !mOrBoundsComputed ||
-      !mAtomicSumBoundsComputed ||
       !mAtomicMinBoundsComputed || !mAtomicMaxBoundsComputed)
     return;
 
@@ -491,9 +492,11 @@ bool
 ArgumentAnalysis::canSplit() const {
   // We can split if the argument is read-only or not used or
   // if each split kernel access disjoint regions of the argument
+
+  // AtomicSum bounds can be undefined.
+
   return
     ( !isWrittenOr() || mOrBoundsComputed) &&
-    ( !isWrittenAtomicSum() || mAtomicSumBoundsComputed) &&
     ( !isWrittenAtomicMin() || mAtomicMinBoundsComputed) &&
     ( !isWrittenAtomicMax() || mAtomicMaxBoundsComputed) &&
     ( !isWritten() || (mWriteBoundsComputed && areDisjoint) );
