@@ -141,12 +141,24 @@ namespace libsplit {
       // Generate spir with no optimization
       {
 	char command[1024];
+#if CLANGMAJOR < 5
+	sprintf(command, "%s %s -isystem %s/clang/%s/include %s %s -o %s",
+		CLANGPATH,
+		OPENCLFLAGS,
+		LLVM_LIB_DIR, CLANGVERSION,
+		options ? options : "",
+		inline_filename,
+		bc_filename);
+#else
 	sprintf(command, "%s %s %s %s -o %s",
 		CLANGPATH,
 		OPENCLFLAGS,
 		options ? options : "",
 		inline_filename,
 		bc_filename);
+
+#endif
+
 
 	DEBUG("programhandle",
 	      std::cerr << "spir command : " << command << "\n";
