@@ -135,10 +135,10 @@ namespace libsplit {
 			size_t global_work_size, size_t local_work_size);
 
     static
-    bool scalarParamChanged(const SubKernelSchedInfo *SI,
+    bool paramHaveChanged(const SubKernelSchedInfo *SI,
 			    const KernelHandle *k);
     static
-    void updateScalarValues(SubKernelSchedInfo *SI, const KernelHandle *k);
+    void updateParamValues(SubKernelSchedInfo *SI, const KernelHandle *k);
 
     struct SubKernelSchedInfo {
       SubKernelSchedInfo(unsigned nbDevices)
@@ -215,7 +215,7 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> dataWrittenAtomicMin;
       std::vector<DeviceBufferRegion> dataWrittenAtomicMax;
 
-      // scalar arguments values
+      // Arguments values
       std::vector<IndexExprValue *> argsValues;
 
       // iteration count

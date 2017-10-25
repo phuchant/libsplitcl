@@ -17,7 +17,7 @@ namespace libsplit {
 
 
   bool
-  Scheduler::scalarParamChanged(const SubKernelSchedInfo *SI,
+  Scheduler::paramHaveChanged(const SubKernelSchedInfo *SI,
 				const KernelHandle *k) {
     for (unsigned i=0; i<k->getArgsValues().size(); i++) {
       if (SI->argsValues[i]) {
@@ -48,7 +48,7 @@ namespace libsplit {
   }
 
   void
-  Scheduler::updateScalarValues(SubKernelSchedInfo *SI,
+  Scheduler::updateParamValues(SubKernelSchedInfo *SI,
 				const KernelHandle *k) {
     for (unsigned i=0; i< SI->argsValues.size(); i++)
       delete SI->argsValues[i];
@@ -89,7 +89,7 @@ namespace libsplit {
 	SI->last_local_work_size[i] = local_work_size[i];
       }
 
-      updateScalarValues(SI, k);
+      updateParamValues(SI, k);
       kerID2InfoMap[id] = SI;
     } else {
       SI = kerID2InfoMap[id];
@@ -120,10 +120,11 @@ namespace libsplit {
 			 &SI->needToInstantiateAnalysis);
       }
 
-      // Check if scalar parameters have changed.
-      if (scalarParamChanged(SI, k)) {
+      // Check if scalar parameters or buffer parameters have changed.
+      // For buffers we consider its address as a long value.
+      if (paramHaveChanged(SI, k)) {
 	SI->needToInstantiateAnalysis = true;
-	updateScalarValues(SI, k);
+	updateParamValues(SI, k);
       }
 
       // Check if original NDRange has changed.

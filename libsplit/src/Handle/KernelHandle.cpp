@@ -216,20 +216,26 @@ namespace libsplit {
 	{
 	  float value;
 	  value = *((float *) arg_value);
-	  argsValues[arg_index] = IndexExprValue::createFloat((float) value);
+	  argsValues[arg_index] = IndexExprValue::createFloat(value);
 	  break;
 	}
       case ArgumentAnalysis::DOUBLE:
 	{
 	  double value;
 	  value = *((double *) arg_value);
-	  argsValues[arg_index] = IndexExprValue::createLong((double) value);
+	  argsValues[arg_index] = IndexExprValue::createDouble(value);
 	  break;
 	}
       case ArgumentAnalysis::UNKNOWN:
 	std::cerr << "Error: unknown scalar type !\n";
 	exit(EXIT_FAILURE);
       };
+    }
+
+    // Buffers are considered as long
+    else {
+      long value = (long) *((MemoryHandle **) arg_value);
+      argsValues[arg_index] = IndexExprValue::createLong(value);
     }
 
     // If it is a global argument or a constant argument,
