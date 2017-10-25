@@ -218,7 +218,8 @@ IndexExprBuilder::buildExpr(Value *value) {
 	  return new IndexExprMin(2, ops);
 	}
 
-	if (called->getName().equals("_Z15convert_int_rtnd")) {
+	if (called->getName().equals("_Z15convert_int_rtnd") ||
+	    called->getName().equals("_Z15convert_int_rtnf")) {
 	  return new IndexExprCast(buildExpr(call->getOperand(0)),
 				   IndexExprCast::FLOOR);
 	}
