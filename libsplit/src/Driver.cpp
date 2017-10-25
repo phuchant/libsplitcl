@@ -200,6 +200,28 @@ namespace libsplit {
     std::cerr << "driver finish H2D + subkernels " << (t6-t5)*1.0e3 << "\n";
   }
 
+  static void debugIndirectionRegion(BufferIndirectionRegion &reg) {
+    std::cerr << "kerId= " << reg.subkernelId
+	      << " lbAddr= " << reg.lb
+	      << " hbAddr= " << reg.hb
+	      << " indirId=" << reg.indirectionId;
+
+    switch (reg.type) {
+    case INT:
+      std::cerr << " lb=" << reg.lbValue->getLongValue()
+		<< " hb=" << reg.hbValue->getLongValue() << "\n";
+      break;
+    case FLOAT:
+      std::cerr << " lb=" << reg.lbValue->getFloatValue()
+		<< " hb=" << reg.hbValue->getFloatValue() << "\n";
+      break;
+    case DOUBLE:
+      std::cerr << " lb=" << reg.lbValue->getDoubleValue()
+		<< " hb=" << reg.hbValue->getDoubleValue() << "\n";
+      break;
+    };
+  }
+
   void
   Driver::enqueueNDRangeKernel(cl_command_queue queue,
 			       KernelHandle *k,
@@ -326,11 +348,7 @@ namespace libsplit {
 	  };
 
 	  DEBUG("indirection",
-		std::cerr << "kerId= " << indirectionRegions[i].subkernelId
-		<< " lbAddr= " << indirectionRegions[i].lb
-		<< " hbAddr= " << indirectionRegions[i].hb
-		<< " indirId=" << indirectionRegions[i].indirectionId
-		<< " lb=" << indirectionRegions[i].lbValue << " hb=" <<indirectionRegions[i].hbValue << "\n";
+		debugIndirectionRegion(indirectionRegions[i]);
 		);
 	}
       }
