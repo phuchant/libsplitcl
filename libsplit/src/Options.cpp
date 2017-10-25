@@ -6,10 +6,11 @@
 #include <sstream>
 #include <string>
 
+#include <cassert>
 #include <cstring>
+#include <unistd.h>
 
 namespace libsplit {
-  // TODO
 
   extern bool DebugFlag;
   extern std::vector<std::string> CurrentDebugType;
@@ -35,6 +36,7 @@ namespace libsplit {
   int optSampleSteps = 0;
   bool optEnableIndirections = false;
   bool optDelayedWrite = true;
+  char *optFakeSources = nullptr;
 
   struct option {
     const char *name;
@@ -68,6 +70,7 @@ namespace libsplit {
   static void samplestepsOption(char *env);
   static void enableindirOption(char *env);
   static void delayedWriteOption(char *env);
+  static void fakeSourcesOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -120,6 +123,8 @@ namespace libsplit {
      enableindirOption},
     {"DELAYEDWRITE", "Delayed write (enabled by default)", false,
      delayedWriteOption},
+    {"FAKESOURCES", "Use a fake OpenCL source for kernel analysis.", false,
+     fakeSourcesOption},
 
   };
 
@@ -351,6 +356,15 @@ namespace libsplit {
       return;
 
     optDelayedWrite = atoi(env);
+  }
+
+  static void fakeSourcesOption(char *env) {
+    if (!env)
+      return;
+
+    optFakeSources = (char *) malloc(strlen(env) + 1);
+    strcpy(optFakeSources, env);
+    assert(access(optFakeSources, R_OK) == 0);
   }
 
   void parseEnvOptions()

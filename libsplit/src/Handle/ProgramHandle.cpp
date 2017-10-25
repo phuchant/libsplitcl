@@ -1,6 +1,7 @@
 #include <Define.h>
 #include <Handle/ProgramHandle.h>
 #include <Handle/KernelHandle.h>
+#include <Options.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
 
@@ -123,7 +124,9 @@ namespace libsplit {
 		"%s %s > %s 2> /dev/null",
 		CLINLINEPATH, LLVM_LIB_DIR, CLANGVERSION,
 		options ? options : "",
-		"-Dcl_khr_fp64", src_filename, inline_filename);
+		"-Dcl_khr_fp64",
+		optFakeSources ? optFakeSources : src_filename,
+		inline_filename);
 	// cl_khr_fp64 is defined to avoid Clang errors when using doubles
 
 	DEBUG("programhandle",

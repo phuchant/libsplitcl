@@ -27,6 +27,7 @@ namespace libsplit {
   extern int optSampleSteps;
   extern bool optEnableIndirections;
   extern bool optDelayedWrite;
+  extern char *optFakeSources;
 
   void parseEnvOptions();
 
