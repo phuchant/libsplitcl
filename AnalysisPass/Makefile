@@ -1,16 +1,16 @@
 CXX=g++-4.9
 
-include Makefile.inc
+include ../Makefile.inc
 
-KERNELEXPR_LIBDIR := $(PWD)/../LibKernelExpr/lib
-KERNELEXPR_INCLUDEDIR := $(PWD)/../LibKernelExpr/include
+KERNELEXPR_LIBDIR := ../LibKernelExpr/lib
+KERNELEXPR_INCLUDEDIR := ../LibKernelExpr/include
 
-SRC_DIR := $(PWD)/src
+SRC_DIR := src
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) $(shell $(LLVM_CONFIG) --system-libs) -Wl,-rpath,$(KERNELEXPR_LIBDIR) \
 	-L$(KERNELEXPR_LIBDIR) -lkernelexpr
 COMMON_FLAGS=-Wall -Wextra -gdwarf-3
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags) -std=c++11
-CPPFLAGS+=$(shell $(LLVM_CONFIG) --cppflags) -I$(PWD)/include \
+CPPFLAGS+=$(shell $(LLVM_CONFIG) --cppflags) -Iinclude \
 	-I$(KERNELEXPR_INCLUDEDIR) #-DDEBUG
 
 ifeq ($shell uname),Darwin)

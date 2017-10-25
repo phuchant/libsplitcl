@@ -1,4 +1,4 @@
-include Makefile.inc
+include ../Makefile.inc
 
 CXX := g++-4.9
 CXXFLAGS := -fno-rtti -O0 -g
