@@ -271,27 +271,57 @@ namespace libsplit {
 	  size_t lb = indirectionRegions[i].lb;
 	  size_t hb = indirectionRegions[i].hb;
 	  MemoryHandle *m = indirectionRegions[i].m;
-	  char *lbAddress = ((char *)m->mLocalBuffer) + lb;
-	  char *hbAddress = ((char *)m->mLocalBuffer) + hb;
+	  void *lbAddress = ((char *)m->mLocalBuffer) + lb;
+	  void *hbAddress = ((char *)m->mLocalBuffer) + hb;
+
+	  switch (indirectionRegions[i].type) {
+	  case INT:
 	  switch(cb) {
 	  case 8:
-	    indirectionRegions[i].lbValue = (int) *((long *) lbAddress);
-	    indirectionRegions[i].hbValue = (int) *((long *) hbAddress);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createLong(*((long *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createLong(*((long *) hbAddress));
 	    break;
 	  case 4:
-	    indirectionRegions[i].lbValue = *((int *) lbAddress);
-	    indirectionRegions[i].hbValue = *((int *) hbAddress);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createLong((long) *((int *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createLong((long) *((int *) hbAddress));
 	    break;
 	  case 2:
-	    indirectionRegions[i].lbValue = (int) *((short *) lbAddress);
-	    indirectionRegions[i].hbValue = (int) *((short *) hbAddress);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createLong((long) *((short *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createLong((long) *((short *) hbAddress));
 	    break;
 	  case 1:
-	    indirectionRegions[i].lbValue = (int) *((char *) lbAddress);
-	    indirectionRegions[i].hbValue = (int) *((char *) hbAddress);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createLong((long) *((char *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createLong((long) *((char *) hbAddress));
 	    break;
 	  default:
 	    std::cerr << "Error: Unhandled integer size : " << cb << "\n";
+	    exit(EXIT_FAILURE);
+	  };
+	  break;
+	  case FLOAT:
+	    assert(cb == 4);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createFloat(*((float *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createFloat(*((float *) hbAddress));
+	    break;
+	  case DOUBLE:
+	    assert(cb == 8);
+	    indirectionRegions[i].lbValue =
+	      IndexExprValue::createDouble(*((double *) lbAddress));
+	    indirectionRegions[i].hbValue =
+	      IndexExprValue::createDouble(*((double *) hbAddress));
+	    break;
+	  case UNDEF:
+	    std::cerr << "Error: unknown indirection type.\n";
 	    exit(EXIT_FAILURE);
 	  };
 
@@ -306,6 +336,13 @@ namespace libsplit {
       }
 
       done = scheduler->setIndirectionValues(k, indirectionRegions);
+
+      if (indirectionRegions.size() > 0) {
+	for (unsigned i=0; i<indirectionRegions.size(); i++) {
+	  delete indirectionRegions[i].lbValue;
+	  delete indirectionRegions[i].hbValue;
+	}
+      }
 
     } while(!done);
 
@@ -567,9 +604,6 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-	events.push_back(event);
-
 	DEBUG("transfers",
 	      std::cerr << "OrD2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
@@ -578,8 +612,8 @@ namespace libsplit {
 			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			    0, NULL,
-			    &events[events.size()-1]);
+			   0, NULL,
+			   NULL /* Or D2H events not used for the moment. */);
 	tmpOffset += cb;
       }
     }
@@ -609,9 +643,6 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-	events.push_back(event);
-
 	DEBUG("transfers",
 	      std::cerr << "AtomicSum D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
@@ -620,8 +651,8 @@ namespace libsplit {
 			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			    0, NULL,
-			    &events[events.size()-1]);
+			   0, NULL, NULL
+			   /* Atomic D2H events not used for the moment. */);
 	tmpOffset += cb;
       }
     }
@@ -651,9 +682,6 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-	events.push_back(event);
-
 	DEBUG("transfers",
 	      std::cerr << "AtomicMin D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
@@ -662,8 +690,8 @@ namespace libsplit {
 			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			    0, NULL,
-			    &events[events.size()-1]);
+			   0, NULL, NULL
+			   /* Atomic D2H events not used for the moment. */);
 	tmpOffset += cb;
       }
     }
@@ -693,9 +721,6 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-	events.push_back(event);
-
 	DEBUG("transfers",
 	      std::cerr << "AtomicMax D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
@@ -704,8 +729,8 @@ namespace libsplit {
 			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			    0, NULL,
-			    &events[events.size()-1]);
+			   0, NULL, NULL
+			   /* Atomic D2H events not used for the moment. */);
 	tmpOffset += cb;
       }
     }
@@ -860,7 +885,7 @@ namespace libsplit {
       assert(regVec.size() > 0);
 
       // Get argument type
-      ArgumentAnalysis::TYPE type = k->getArgType(m);
+      ArgumentAnalysis::TYPE type = k->getBufferType(m);
 
       // Perform atomic sum reduction
       switch(type) {
@@ -959,7 +984,7 @@ namespace libsplit {
       assert(regVec.size() > 0);
 
       // Get argument type
-      ArgumentAnalysis::TYPE type = k->getArgType(m);
+      ArgumentAnalysis::TYPE type = k->getBufferType(m);
 
       // Perform atomic sum reduction
       switch(type) {
@@ -1058,7 +1083,7 @@ namespace libsplit {
       assert(regVec.size() > 0);
 
       // Get argument type
-      ArgumentAnalysis::TYPE type = k->getArgType(m);
+      ArgumentAnalysis::TYPE type = k->getBufferType(m);
 
       // Perform atomic sum reduction
       switch(type) {

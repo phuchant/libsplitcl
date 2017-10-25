@@ -17,6 +17,19 @@ IndexExprUnknown::clone() const {
   return new IndexExprUnknown(str);
 }
 
+IndexExpr *
+IndexExprUnknown::getKernelExpr(const NDRange &ndRange,
+				const std::vector<GuardExpr *> & guards,
+				const std::vector<IndirectionValue> &
+				indirValues) const {
+  (void) ndRange;
+  (void) guards;
+  (void) indirValues;
+
+  return clone();
+}
+
+
 void
 IndexExprUnknown::toDot(std::stringstream &stream) const {
   IndexExpr::toDot(stream);

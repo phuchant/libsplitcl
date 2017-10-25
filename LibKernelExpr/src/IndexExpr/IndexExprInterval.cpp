@@ -1,6 +1,6 @@
 #include "IndexExpr/IndexExprArg.h"
-#include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprInterval.h"
+#include "IndexExpr/IndexExprUnknown.h"
 
 #include <iostream>
 
@@ -62,8 +62,19 @@ IndexExprInterval::getKernelExpr(const NDRange &ndRange,
 				 const std::vector<GuardExpr *> & guards,
 				 const std::vector<IndirectionValue> &
 				 indirValues) const {
-  return new IndexExprInterval(lb->getKernelExpr(ndRange, guards, indirValues),
-			       hb->getKernelExpr(ndRange, guards, indirValues));
+  IndexExpr *kl_expr1, *kl_expr2;
+
+  if (lb)
+    kl_expr1 = lb->getKernelExpr(ndRange, guards, indirValues);
+  else
+    kl_expr1 = new IndexExprUnknown("null");
+  if (hb)
+    kl_expr2 = hb->getKernelExpr(ndRange, guards, indirValues);
+  else
+    kl_expr2 = new IndexExprUnknown("null");
+
+
+  return new IndexExprInterval(kl_expr1, kl_expr2);
 }
 
 void

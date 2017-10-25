@@ -6,6 +6,8 @@
 #include "NDRange.h"
 #include "WorkItemExpr.h"
 
+class IndexExprValue;
+
 class ArgumentAnalysis {
 public:
 
@@ -88,7 +90,7 @@ public:
 
   void setPartition(const NDRange *kernelNDRange,
 		    const std::vector<NDRange> *subNDRanges);
-  void injectArgValues(const std::vector<int> &argValues);
+  void injectArgValues(const std::vector<IndexExprValue *> &argValues);
 
   void performAnalysis(const std::vector< std::vector<IndirectionValue> > &
 		       subKernelIndirectionValues);

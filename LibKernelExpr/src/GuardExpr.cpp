@@ -1,13 +1,14 @@
 #include "GuardExpr.h"
 
-#include  "Indirection.h"
-
-#include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprOCL.h"
+#include "IndexExpr/IndexExprValue.h"
+#include "Indirection.h"
+#include "NDRange.h"
 
 #include <iostream>
 
-GuardExpr::GuardExpr(unsigned oclFunc, unsigned dim, unsigned pred, bool truth,
+GuardExpr::GuardExpr(IndexExprOCL::OpenclFunction oclFunc,
+		     unsigned dim, GuardExpr::predicate pred, bool truth,
 		     IndexExpr *expr)
   : mOclFunc(oclFunc), mDim(dim), mExpr(expr)
 {
@@ -54,7 +55,7 @@ GuardExpr::getIntExpr(long *intExpr) const {
   return 1;
 }
 
-unsigned
+GuardExpr::predicate
 GuardExpr::getPredicate() const {
   return mPred;
 }
@@ -72,26 +73,24 @@ GuardExpr::getOclFunc() const {
 void
 GuardExpr::dump() const {
   switch(mOclFunc) {
-  case GET_GLOBAL_ID:
+  case IndexExprOCL::GET_GLOBAL_ID:
     std::cerr << "get_global_id(" << mDim << ") ";
     break;
-  case GET_LOCAL_ID:
+  case IndexExprOCL::GET_LOCAL_ID:
     std::cerr << "get_local_id(" << mDim << ") ";
     break;
-  case GET_GLOBAL_SIZE:
+  case IndexExprOCL::GET_GLOBAL_SIZE:
     std::cerr << "get_global_size(" << mDim << ") ";
     break;
-  case GET_LOCAL_SIZE:
+  case IndexExprOCL::GET_LOCAL_SIZE:
     std::cerr << "get_local_size(" << mDim << ") ";
     break;
-  case GET_GROUP_ID:
+  case IndexExprOCL::GET_GROUP_ID:
     std::cerr << "get_group_id(" << mDim << ") ";
     break;
-  case GET_NUM_GROUPS:
+  case IndexExprOCL::GET_NUM_GROUPS:
     std::cerr << "get_num_groups(" << mDim << ") ";
     break;
-  default:
-    std::cerr << "oclfunc(" << mDim << ") ";
   };
 
   switch(mPred) {
@@ -129,7 +128,7 @@ GuardExpr::clone() const {
 // Inject argument integer values in the Index Expression and try to compute the
 // integer value of the expression.
 void
-GuardExpr::injectArgsValues(const std::vector<int> &values,
+GuardExpr::injectArgsValues(const std::vector<IndexExprValue *> &values,
 			    const NDRange &kernelNDRange) {
   IndexExpr::injectArgsValues(mExpr, values);
   std::vector<IndirectionValue> indirValues;
@@ -167,11 +166,11 @@ GuardExpr::writeToFile(const std::string &name) const {
 
 GuardExpr *
 GuardExpr::open(std::stringstream &s) {
-  unsigned oclFunc;
+  IndexExprOCL::OpenclFunction oclFunc;
   s.read(reinterpret_cast<char *>(&oclFunc), sizeof(oclFunc));
   unsigned dim;
   s.read(reinterpret_cast<char *>(&dim), sizeof(dim));
-  unsigned pred;
+  predicate pred;
   s.read(reinterpret_cast<char *>(&pred), sizeof(pred));
   IndexExpr *expr = IndexExpr::open(s);
 

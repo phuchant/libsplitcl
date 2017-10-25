@@ -4,8 +4,9 @@
 ArgIndirectionRegionExpr::ArgIndirectionRegionExpr(unsigned id,
 						   unsigned pos,
 						   unsigned numBytes,
+						   IndirectionType ty,
 						   WorkItemExpr *expr)
-  : id(id), pos(pos), numBytes(numBytes), expr(expr) {}
+  : id(id), pos(pos), numBytes(numBytes), ty(ty), expr(expr) {}
 
 ArgIndirectionRegionExpr::~ArgIndirectionRegionExpr() {
   delete expr;
@@ -13,13 +14,15 @@ ArgIndirectionRegionExpr::~ArgIndirectionRegionExpr() {
 
 
 ArgIndirectionRegion::ArgIndirectionRegion(unsigned id, unsigned pos,
+					   IndirectionType ty,
 					   size_t cb, size_t lb, size_t hb)
-  : id(id), pos(pos), cb(cb), lb(lb), hb(hb) {}
+  : id(id), pos(pos), ty(ty), cb(cb), lb(lb), hb(hb) {}
 
 ArgIndirectionRegion::~ArgIndirectionRegion() {}
 
 
-IndirectionValue::IndirectionValue(unsigned id, int lb, int hb)
+IndirectionValue::IndirectionValue(unsigned id,
+				   IndexExprValue *lb, IndexExprValue *hb)
   : id(id), lb(lb), hb(hb) {}
 
 IndirectionValue::IndirectionValue(const IndirectionValue &indir)

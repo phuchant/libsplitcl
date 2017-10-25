@@ -10,7 +10,8 @@
 
 bool isKernel(const llvm::Function *func);
 
-unsigned isOpenCLCall(const llvm::Instruction *inst);
+bool isOpenCLCall(const llvm::Instruction *inst,
+		  IndexExprOCL::OpenclFunction *ocl);
 
 std::vector<std::string> splitString(std::string str);
 

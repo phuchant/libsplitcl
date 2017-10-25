@@ -5,7 +5,7 @@
 
 class IndexExprLB : public IndexExpr {
 public:
-  IndexExprLB(IndexExpr *expr);
+  explicit IndexExprLB(IndexExpr *expr);
   virtual ~IndexExprLB();
 
   virtual void dump() const;

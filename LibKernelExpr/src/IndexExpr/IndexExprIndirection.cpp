@@ -1,9 +1,9 @@
 #include "Indirection.h"
 #include "IndexExpr/IndexExprArg.h"
-#include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprIndirection.h"
 #include "IndexExpr/IndexExprUnknown.h"
 
+#include <cassert>
 #include <iostream>
 
 IndexExprIndirection::IndexExprIndirection(unsigned no)
@@ -75,23 +75,26 @@ IndexExprIndirection::getKernelExpr(const NDRange &ndRange,
   (void) ndRange;
   (void) guards;
 
-  IndexExpr *lb, *hb;
+  IndexExpr *kl_lb, *kl_hb;
   bool found = false;
 
   for (unsigned i=0; i<indirValues.size(); i++) {
     if (indirValues[i].id == no) {
       found = true;
-      lb = new IndexExprConst(indirValues[i].lb);
-      hb = new IndexExprConst(indirValues[i].hb);
+      assert(indirValues[i].lb);
+      assert(indirValues[i].hb);
+      kl_lb = indirValues[i].lb->clone();
+      kl_hb = indirValues[i].hb->clone();
+      break;
     }
   }
 
   if (!found) {
-    lb = new IndexExprUnknown("indir");
-    hb = new IndexExprUnknown("indir");
+    kl_lb = new IndexExprUnknown("indir");
+    kl_hb = new IndexExprUnknown("indir");
   }
 
-  return new IndexExprIndirection(no, lb, hb);
+  return new IndexExprIndirection(no, kl_lb, kl_hb);
 }
 
 void
@@ -108,6 +111,24 @@ IndexExprIndirection::write(std::stringstream &s) const {
   else
     writeNIL(s);
 }
+
+void
+IndexExprIndirection::toDot(std::stringstream &stream) const {
+  IndexExpr::toDot(stream);
+
+  stream << "\\n" << "[]" << " \"];\n";
+
+  if (lb) {
+    lb->toDot(stream);
+    stream << id << " -> " << lb->getID() << " [label=\"lb\"];\n";
+  }
+
+  if (hb) {
+    hb->toDot(stream);
+    stream << id << " -> " << hb->getID() << " [label=\"hb\"];\n";
+  }
+}
+
 
 unsigned
 IndexExprIndirection:: getNo() const {

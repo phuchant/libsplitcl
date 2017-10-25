@@ -8,13 +8,18 @@
 
 KernelAnalysis::KernelAnalysis(const char *name,
 			       unsigned numArgs,
-			       std::vector<size_t> &argsSizes,
+			       bool *scalarArgs,
+			       std::vector<size_t> &scalarArgsSizes,
+			       std::vector<ArgumentAnalysis::TYPE> &scalarArgsTypes,
 			       std::vector<ArgumentAnalysis *> argsAnalysis,
 			       std::vector<ArgIndirectionRegionExpr *>
 			       kernelIndirectionExprs)
-  : numArgs(numArgs), numGlobalArgs(0), argsSizes(argsSizes),
-    kernelNDRange(NULL), subNDRanges(NULL) {
+  : numArgs(numArgs), numGlobalArgs(0), scalarArgsSizes(scalarArgsSizes),
+    scalarArgsTypes(scalarArgsTypes), kernelNDRange(NULL), subNDRanges(NULL) {
   mName = strdup(name);
+
+  for (unsigned i=0; i<numArgs; i++)
+    argIsScalarMap[i] = scalarArgs[i];
 
   for (unsigned i=0; i<numArgs; i++)
     argIsGlobalMap[i] = false;
@@ -66,21 +71,41 @@ KernelAnalysis::getNbGlobalArguments() const {
 }
 
 bool
-KernelAnalysis::argIsGlobal(unsigned i) {
+KernelAnalysis::argIsGlobal(unsigned i) const {
   assert(i < numArgs);
-  return argIsGlobalMap[i];
+  auto it = argIsGlobalMap.find(i);
+  if (it == argIsGlobalMap.end())
+    return false;
+
+  return it->second;
+}
+
+bool
+KernelAnalysis::argIsScalar(unsigned i) const {
+  assert(i < numArgs);
+  auto it = argIsScalarMap.find(i);
+  if (it == argIsScalarMap.end())
+    return false;
+
+  return it->second;
 }
 
 size_t
-KernelAnalysis::getArgSize(unsigned i) {
+KernelAnalysis::getScalarArgSize(unsigned i) {
   assert(i < numArgs);
-  return argsSizes[i];
+  return scalarArgsSizes[i];
 }
 
 ArgumentAnalysis::TYPE
-KernelAnalysis::getArgType(unsigned i) {
-  assert(i < numArgs);
+KernelAnalysis::getGlobalArgType(unsigned i) {
+  assert(i < numGlobalArgs);
   return mArgsAnalysis[i]->getType();
+}
+
+ArgumentAnalysis::TYPE
+KernelAnalysis::getScalarArgType(unsigned i) {
+  assert(i < numArgs);
+  return scalarArgsTypes[i];
 }
 
 unsigned
@@ -98,7 +123,7 @@ KernelAnalysis::getGlobalArgId(unsigned pos) {
 void
 KernelAnalysis::setPartition(const NDRange &kernelNDRange,
 			     const std::vector<NDRange> &subNDRanges,
-			     const std::vector<int> &argValues) {
+			     const std::vector<IndexExprValue *> &argValues) {
   delete this->kernelNDRange;
   this->kernelNDRange = new NDRange(kernelNDRange);
   delete this->subNDRanges;
@@ -139,6 +164,7 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
     for (unsigned j=0; j<kernelIndirectionExprs.size(); j++) {
       unsigned id = kernelIndirectionExprs[j]->id;
       unsigned pos = kernelIndirectionExprs[j]->pos;
+      IndirectionType ty = kernelIndirectionExprs[j]->ty;
       unsigned cb = kernelIndirectionExprs[j]->numBytes;
       IndexExpr *expr =
 	kernelIndirectionExprs[j]->expr
@@ -153,9 +179,11 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
       hb = hb + 1 - cb;
       subKernelIndirectionRegions[i].push_back(new ArgIndirectionRegion(id,
 									pos,
+									ty,
 									cb,
 									lb,
 									hb));
+      delete expr;
     }
   }
 }
@@ -308,16 +336,30 @@ KernelAnalysis::write(std::stringstream &s) const {
   s.write((char *) &len, sizeof(len));
   s.write(mName, len);
 
-  // Write Arguments sizes
+  // Write num args
   s.write(reinterpret_cast<const char *>(&numArgs), sizeof(numArgs));
-  for (unsigned i=0; i<numArgs; i++)
-    s.write(reinterpret_cast<const char *>(&argsSizes[i]),
-	    sizeof(argsSizes[i]));
 
-  // Write Global Arguments Analyses
+  // Write scalar arg map
+  for (unsigned i=0; i<numArgs; i++) {
+    bool isScalar = argIsScalar(i);
+    s.write(reinterpret_cast<const char *>(&isScalar), sizeof(isScalar));
+  }
+
+  // Write scalar arg sizes
+  for (unsigned i=0; i<numArgs; i++)
+    s.write(reinterpret_cast<const char *>(&scalarArgsSizes[i]),
+	    sizeof(scalarArgsSizes[i]));
+
+  // Write scalar arg types.
+  for (unsigned i=0; i<numArgs; i++)
+    s.write(reinterpret_cast<const char *>(&scalarArgsTypes[i]),
+	    sizeof(scalarArgsTypes[i]));
+
+  // Write num global args
   s.write(reinterpret_cast<const char *>(&numGlobalArgs),
 	  sizeof(numGlobalArgs));
 
+  // Write Global Arguments Analyses
   for (unsigned i=0; i<numGlobalArgs; i++) {
     mArgsAnalysis[i]->write(s);
   }
@@ -333,6 +375,8 @@ KernelAnalysis::write(std::stringstream &s) const {
     s.write(reinterpret_cast<const char *>(&pos), sizeof(pos));
     unsigned numBytes = kernelIndirectionExprs[i]->numBytes;
     s.write(reinterpret_cast<const char *>(&numBytes), sizeof(numBytes));
+    IndirectionType ty = kernelIndirectionExprs[i]->ty;
+    s.write(reinterpret_cast<const char *>(&ty), sizeof(ty));
     kernelIndirectionExprs[i]->expr->write(s);
   }
 }
@@ -354,28 +398,51 @@ KernelAnalysis::open(std::stringstream &s) {
   char *name;
   unsigned numArgs;
   std::vector<size_t> argsSizes;
+  std::vector<ArgumentAnalysis::TYPE> argsTypes;
   unsigned numGlobalArgs;
   std::vector<ArgumentAnalysis *> argsAnalysis;
   unsigned nbIndirections;
   std::vector<ArgIndirectionRegionExpr *> kernelIndirectionExprs;
 
+  // Read name
   s.read((char *) &len, sizeof(len));
   name = (char *) malloc(len+1);
   s.read(name, len);
   name[len] = '\0';
 
+  // Read num args
   s.read(reinterpret_cast<char *>(&numArgs), sizeof(numArgs));
+
+  // Read scalar arg map
+  bool isScalarArray[numArgs];
+  for (unsigned i=0; i<numArgs; i++) {
+    s.read(reinterpret_cast<char *>(&isScalarArray[i]),
+	   sizeof(isScalarArray[i]));
+  }
+
+  // Read scalar arg sizes
   for (unsigned i=0; i<numArgs; i++) {
     size_t size;
     s.read(reinterpret_cast<char *>(&size), sizeof(size));
     argsSizes.push_back(size);
   }
 
+  // Read scalar arg types.
+  for (unsigned i=0; i<numArgs; i++) {
+    ArgumentAnalysis::TYPE ty;
+    s.read(reinterpret_cast<char *>(&ty), sizeof(ty));
+    argsTypes.push_back(ty);
+  }
+
+  // Read num global args
   s.read(reinterpret_cast<char *>(&numGlobalArgs), sizeof(numGlobalArgs));
+
+  // Read global arg analyses
   for (unsigned i=0; i<numGlobalArgs; i++) {
     argsAnalysis.push_back(ArgumentAnalysis::open(s));
   }
 
+  // Read indirection expressions.
   s.read(reinterpret_cast<char *>(&nbIndirections), sizeof(nbIndirections));
   for (unsigned i=0; i<nbIndirections; i++) {
     unsigned id;
@@ -384,15 +451,19 @@ KernelAnalysis::open(std::stringstream &s) {
     s.read(reinterpret_cast<char *>(&pos), sizeof(pos));
     unsigned numBytes;
     s.read(reinterpret_cast<char *>(&numBytes), sizeof(numBytes));
+    IndirectionType ty;
+    s.read(reinterpret_cast<char *>(&ty), sizeof(ty));
     WorkItemExpr *expr = WorkItemExpr::open(s);
     kernelIndirectionExprs.push_back(new ArgIndirectionRegionExpr(id,
 								  pos,
 								  numBytes,
+								  ty,
 								  expr));
   }
 
   KernelAnalysis *ret =
-    new KernelAnalysis(name, numArgs, argsSizes, argsAnalysis,
+    new KernelAnalysis(name, numArgs, isScalarArray, argsSizes, argsTypes,
+		       argsAnalysis,
 		       kernelIndirectionExprs);
 
   free(name);
@@ -417,8 +488,60 @@ KernelAnalysis::debug() {
   std::cerr << numArgs << " arguments, " << numGlobalArgs << " of which are "
 	    << " global.\n";
 
-  for (unsigned i=0; i<mArgsAnalysis.size(); i++) {
-    mArgsAnalysis[i]->dump();
+  for (unsigned i=0; i<numArgs; i++) {
+    if (argIsGlobal(i)) {
+      mArgsAnalysis[getGlobalArgId(i)]->dump();
+    }
+
+    else if (argIsScalar(i)) {
+      std::cerr << "\n\033[1;31m*** Arg no \"" << i << "\""
+		<< " is scalar, type=";
+      switch(getScalarArgType(i)) {
+      case ArgumentAnalysis::BOOL:
+	std::cerr << "bool";
+	break;
+      case ArgumentAnalysis::CHAR:
+	std::cerr << "char";
+	break;
+      case ArgumentAnalysis::UCHAR:
+	std::cerr << "uchar";
+	break;
+      case ArgumentAnalysis::SHORT:
+	std::cerr << "short";
+	break;
+      case ArgumentAnalysis::USHORT:
+	std::cerr << "ushort";
+	break;
+      case ArgumentAnalysis::INT:
+	std::cerr << "int";
+	break;
+      case ArgumentAnalysis::UINT:
+	std::cerr << "uint";
+	break;
+      case ArgumentAnalysis::LONG:
+	std::cerr << "long";
+	break;
+      case ArgumentAnalysis::ULONG:
+	std::cerr << "ulong";
+	break;
+      case ArgumentAnalysis::FLOAT:
+	std::cerr << "float";
+	break;
+      case ArgumentAnalysis::DOUBLE:
+	std::cerr << "double";
+	break;
+      case ArgumentAnalysis::UNKNOWN:
+	std::cerr << "unknown";
+	break;
+      };
+
+      std::cerr << " size=" << getScalarArgSize(i) << "\033[0m\n";
+    }
+
+    else {
+      std::cerr << "\n\033[1;31m*** Arg no \"" << i
+		<< "\033[0m is local\n";
+    }
   }
 
   for (unsigned i=0; i<kernelIndirectionExprs.size(); i++) {

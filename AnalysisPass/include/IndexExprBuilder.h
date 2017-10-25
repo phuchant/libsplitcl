@@ -12,7 +12,7 @@ struct LoadIndirectionExpr {
 		      const llvm::Argument *arg,
 		      unsigned numBytes,
 		      IndexExpr *expr,
-		      llvm::Instruction *inst)
+		      llvm::LoadInst *inst)
     : id(id), arg(arg), numBytes(numBytes), expr(expr), inst(inst) {}
   ~LoadIndirectionExpr() {
     delete expr;
@@ -22,7 +22,7 @@ struct LoadIndirectionExpr {
   const llvm::Argument *arg;
   unsigned numBytes;
   IndexExpr *expr;
-  llvm::Instruction *inst;
+  llvm::LoadInst *inst;
 };
 
 class IndexExprBuilder {

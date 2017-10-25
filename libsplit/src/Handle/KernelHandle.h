@@ -62,9 +62,9 @@ namespace libsplit {
 
     KernelAnalysis *getAnalysis();
 
-    std::vector<int> getArgsValuesAsInt();
+    const std::vector<IndexExprValue *> &getArgsValues() const;
     MemoryHandle *getGlobalArgHandle(unsigned i);
-    ArgumentAnalysis::TYPE getArgType(MemoryHandle *m);
+    ArgumentAnalysis::TYPE getBufferType(MemoryHandle *m);
 
     const char *getName() const;
 
@@ -92,7 +92,7 @@ namespace libsplit {
 
     // Arguments
     unsigned mNumArgs; // Number of arguments before transformation
-    int *argsValuesAsInt;
+    std::vector<IndexExprValue *> argsValues;
     KernelArgs *subkernelArgs;
 
     // Global arguments

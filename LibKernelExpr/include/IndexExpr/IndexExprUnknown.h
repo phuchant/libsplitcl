@@ -5,8 +5,12 @@
 
 class IndexExprUnknown : public IndexExpr {
 public:
-  IndexExprUnknown(const std::string &str);
+  explicit IndexExprUnknown(const std::string &str);
   virtual ~IndexExprUnknown();
+  virtual IndexExpr *getKernelExpr(const NDRange &ndRange,
+				   const std::vector<GuardExpr *> & guards,
+				   const std::vector<IndirectionValue> &
+				   indirValues) const;
 
   virtual void dump() const;
   virtual IndexExpr *clone() const;

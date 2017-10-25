@@ -5,7 +5,20 @@
 
 class IndexExprBinop : public IndexExpr {
 public:
-  IndexExprBinop(unsigned op, IndexExpr *expr1, IndexExpr *expr2);
+  enum BinOp {
+    Add = 1,
+    Sub = 2,
+    Mul = 3,
+    Div = 4,
+    Mod = 5,
+    Or = 6,
+    Xor = 7,
+    And = 8,
+    Shl = 9,
+    Shr = 10,
+  };
+
+  IndexExprBinop(BinOp op, IndexExpr *expr1, IndexExpr *expr2);
   virtual ~IndexExprBinop();
 
   virtual void dump() const;
@@ -19,7 +32,7 @@ public:
   virtual void toDot(std::stringstream &stream) const;
   virtual void write(std::stringstream &s) const;
 
-  int getOp() const;
+  BinOp getOp() const;
   const IndexExpr *getExpr1() const;
   const IndexExpr *getExpr2() const;
   IndexExpr *getExpr1();
@@ -27,22 +40,9 @@ public:
   void setExpr1(IndexExpr *expr);
   void setExpr2(IndexExpr *expr);
 
-  enum BinOp {
-    Add = 1,
-    Sub = 2,
-    Mul = 3,
-    Div = 4,
-    Mod = 5,
-    Or = 6,
-    Xor = 7,
-    And = 8,
-    Shl = 9,
-    Shr = 10,
-    Unknown = 11
-  };
 
 private:
-  unsigned op;
+  BinOp op;
   IndexExpr *expr1;
   IndexExpr *expr2;
 };

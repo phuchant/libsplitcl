@@ -195,9 +195,9 @@ ConditionBuilder::computeExprNumOclCalls(IndexExpr *expr) {
     {
       IndexExprOCL *oclExpr = static_cast<IndexExprOCL *>(expr);
       unsigned oclFunc = oclExpr->getOCLFunc();
-      if (oclFunc == GET_GLOBAL_ID ||
-	  oclFunc == GET_LOCAL_ID ||
-	  oclFunc == GET_GROUP_ID)
+      if (oclFunc == IndexExprOCL::GET_GLOBAL_ID ||
+	  oclFunc == IndexExprOCL::GET_LOCAL_ID ||
+	  oclFunc == IndexExprOCL::GET_GROUP_ID)
 	return 1;
       return 0;
     }
@@ -248,10 +248,10 @@ bool exprIsOCLId(IndexExpr *expr) {
     return false;
 
   IndexExprOCL *oclExpr = static_cast<IndexExprOCL *>(expr);
-  unsigned oclFunc = oclExpr->getOCLFunc();
-  if (oclFunc == GET_GLOBAL_ID ||
-      oclFunc == GET_LOCAL_ID ||
-      oclFunc == GET_GROUP_ID)
+  IndexExprOCL::OpenclFunction oclFunc = oclExpr->getOCLFunc();
+  if (oclFunc == IndexExprOCL::GET_GLOBAL_ID ||
+      oclFunc == IndexExprOCL::GET_LOCAL_ID ||
+      oclFunc == IndexExprOCL::GET_GROUP_ID)
     return true;
   return false;
 }
@@ -373,14 +373,26 @@ ConditionBuilder::pushGuardExprLeft(std::vector<GuardExpr *> *guards,
   // Get work dim
   const IndexExpr *dimExpr = oclExpr->getArg();
   long dim;
-  if (dimExpr->getTag() != IndexExpr::CONST ||
-      !static_cast<const IndexExprConst *>(dimExpr)->getValue(&dim)) {
+  if (dimExpr->getTag() != IndexExpr::VALUE) {
     delete oclExpr;
     delete expr;
     return;
   }
 
-  unsigned pred;
+  const IndexExprValue *dimValue = static_cast<const IndexExprValue *>(dimExpr);
+  switch(dimValue->type) {
+  case IndexExpr::LONG:
+    dim = dimValue->getLongValue();
+    break;
+  case IndexExpr::FLOAT:
+    dim = (long) dimValue->getFloatValue();
+    break;
+  case IndexExpr::DOUBLE:
+    dim = (long) dimValue->getDoubleValue();
+    break;
+  };
+
+  GuardExpr::predicate pred;
   switch (cond->getSignedPredicate()) {
   case CmpInst::ICMP_SGT:
     pred = GuardExpr::GT;
@@ -419,14 +431,26 @@ ConditionBuilder::pushGuardExprRight(std::vector<GuardExpr *> *guards,
   // Get work dim
   const IndexExpr *dimExpr = oclExpr->getArg();
   long dim;
-  if (dimExpr->getTag() != IndexExpr::CONST ||
-      !static_cast<const IndexExprConst *>(dimExpr)->getValue(&dim)) {
+  if (dimExpr->getTag() != IndexExpr::VALUE) {
     delete oclExpr;
     delete expr;
     return;
   }
 
-  unsigned pred;
+  const IndexExprValue *dimValue = static_cast<const IndexExprValue *>(dimExpr);
+  switch(dimValue->type) {
+  case IndexExpr::LONG:
+    dim = dimValue->getLongValue();
+    break;
+  case IndexExpr::FLOAT:
+    dim = (long) dimValue->getFloatValue();
+    break;
+  case IndexExpr::DOUBLE:
+    dim = (long) dimValue->getDoubleValue();
+    break;
+  };
+
+  GuardExpr::predicate pred;
   switch (cond->getSignedPredicate()) {
   case CmpInst::ICMP_SGT:
     pred = GuardExpr::LT;

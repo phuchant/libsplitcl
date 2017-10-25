@@ -1,9 +1,9 @@
 #ifndef BUFFERMANAGER_H
 #define BUFFERMANAGER_H
 
+#include <Indirection.h>
 #include <Handle/MemoryHandle.h>
 #include <ListInterval.h>
-
 #include <utility>
 #include <vector>
 
@@ -24,21 +24,23 @@ namespace libsplit {
     BufferIndirectionRegion(unsigned subkernelId,
 			    unsigned indirectionId,
 			    MemoryHandle *m,
+			    IndirectionType type,
 			    size_t cb,
 			    size_t lb,
 			    size_t hb)
       : subkernelId(subkernelId), indirectionId(indirectionId), m(m),
-	cb(cb), lb(lb), hb(hb) {}
+	type(type), cb(cb), lb(lb), hb(hb), lbValue(NULL), hbValue(NULL) {}
     ~BufferIndirectionRegion() {}
 
     unsigned subkernelId;
     unsigned indirectionId;
     MemoryHandle *m;
+    IndirectionType type;
     size_t cb;
     size_t lb;
     size_t hb;
-    int lbValue;
-    int hbValue;
+    IndexExprValue *lbValue;
+    IndexExprValue *hbValue;
   };
 
   class BufferManager {

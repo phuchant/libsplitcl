@@ -3,19 +3,18 @@
 
 #include "IndexExpr.h"
 
-enum OpenclFunctions {
-  UNKNOWN = 0,
-  GET_GLOBAL_ID = 1,
-  GET_LOCAL_ID = 2,
-  GET_GLOBAL_SIZE = 3,
-  GET_LOCAL_SIZE = 4,
-  GET_GROUP_ID = 5,
-  GET_NUM_GROUPS = 6
-};
-
 class IndexExprOCL : public IndexExpr {
 public:
-  IndexExprOCL(unsigned oclFunc, IndexExpr *arg);
+  enum OpenclFunction {
+    GET_GLOBAL_ID = 0,
+    GET_LOCAL_ID = 1,
+    GET_GLOBAL_SIZE = 2,
+    GET_LOCAL_SIZE = 3,
+    GET_GROUP_ID = 4,
+    GET_NUM_GROUPS = 5
+  };
+
+  IndexExprOCL(OpenclFunction oclFunc, IndexExpr *arg);
   virtual ~IndexExprOCL();
 
   virtual void dump() const;
@@ -29,13 +28,13 @@ public:
   virtual void toDot(std::stringstream &stream) const;
   virtual void write(std::stringstream &s) const;
 
-  unsigned getOCLFunc() const;
+  OpenclFunction getOCLFunc() const;
   const IndexExpr *getArg() const;
   IndexExpr *getArg();
   void setArg(IndexExpr *expr);
 
 private:
-  unsigned oclFunc;
+  OpenclFunction oclFunc;
   IndexExpr *arg;
 };
 

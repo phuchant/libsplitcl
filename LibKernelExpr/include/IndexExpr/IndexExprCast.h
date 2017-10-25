@@ -1,13 +1,24 @@
-#ifndef INDEXEXPRINDIRECTION_H
-#define INDEXEXPRINDIRECTION_H
+#ifndef INDEXEXPRCAST_H
+#define INDEXEXPRCAST_H
 
-#include "IndexExprInterval.h"
+#include "IndexExpr.h"
 
-class IndexExprIndirection : public IndexExprInterval {
+class IndexExprCast : public IndexExpr {
 public:
-  explicit IndexExprIndirection(unsigned no);
-  IndexExprIndirection(unsigned no, IndexExpr *lb, IndexExpr *hb);
-  virtual ~IndexExprIndirection();
+  enum castTy {
+    F2D, D2F,
+    I2F, F2I,
+    I2D, D2I,
+    FLOOR
+  };
+
+  castTy cast;
+
+  IndexExprCast(IndexExpr *expr, castTy c);
+  virtual ~IndexExprCast();
+
+  const IndexExpr *getExpr() const;
+  IndexExpr *getExpr();
 
   virtual void dump() const;
   virtual IndexExpr *clone() const;
@@ -16,14 +27,12 @@ public:
 				   const std::vector<GuardExpr *> & guards,
 				   const std::vector<IndirectionValue> &
 				   indirValues) const;
+
   virtual void toDot(std::stringstream &stream) const;
   virtual void write(std::stringstream &s) const;
 
-  unsigned getNo() const;
-
 private:
-  unsigned no;
+  IndexExpr *expr;
 };
 
-#endif /* INDEXEXPRINDIRECTION_H */
-
+#endif /* INDEXEXPRCAST_H */

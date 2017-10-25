@@ -1,3 +1,4 @@
+
 #include <Handle/KernelHandle.h>
 #include <Options.h>
 #include <Scheduler/Scheduler.h>
@@ -13,6 +14,56 @@ namespace libsplit {
     buffManager(buffManager), nbDevices(nbDevices), count(0) {}
 
   Scheduler::~Scheduler() {}
+
+
+  bool
+  Scheduler::scalarParamChanged(const SubKernelSchedInfo *SI,
+				const KernelHandle *k) {
+    for (unsigned i=0; i<k->getArgsValues().size(); i++) {
+      if (SI->argsValues[i]) {
+	switch(SI->argsValues[i]->type) {
+	case IndexExpr::LONG:
+	  if (SI->argsValues[i]->getLongValue() !=
+	      k->getArgsValues()[i]->getLongValue())
+	    return true;
+	  break;
+	case IndexExpr::FLOAT:
+	  if (SI->argsValues[i]->getFloatValue() !=
+	      k->getArgsValues()[i]->getFloatValue())
+	    return true;
+	  break;
+	case IndexExpr::DOUBLE:
+	  if (SI->argsValues[i]->getDoubleValue() !=
+	      k->getArgsValues()[i]->getDoubleValue())
+	    return true;
+	  break;
+	};
+      } else {
+	if (k->getArgsValues()[i])
+	  return true;
+      }
+    }
+
+    return false;
+  }
+
+  void
+  Scheduler::updateScalarValues(SubKernelSchedInfo *SI,
+				const KernelHandle *k) {
+    for (unsigned i=0; i< SI->argsValues.size(); i++)
+      delete SI->argsValues[i];
+    SI->argsValues.clear();
+
+    for (unsigned i=0; i<k->getArgsValues().size(); i++) {
+      if (k->getArgsValues()[i])
+	SI->argsValues.
+	  push_back(static_cast<IndexExprValue *>
+		    (k->getArgsValues()[i]->clone()));
+      else
+	SI->argsValues.push_back(nullptr);
+    }
+  }
+
 
   void
   Scheduler::getIndirectionRegions(KernelHandle *k,
@@ -37,6 +88,8 @@ namespace libsplit {
 	SI->last_global_work_size[i] = global_work_size[i];
 	SI->last_local_work_size[i] = local_work_size[i];
       }
+
+      updateScalarValues(SI, k);
       kerID2InfoMap[id] = SI;
     } else {
       SI = kerID2InfoMap[id];
@@ -68,14 +121,10 @@ namespace libsplit {
       }
 
       // Check if scalar parameters have changed.
-      std::vector<int> currentArgsValues = k->getArgsValuesAsInt();
-      for (unsigned i=0; i<SI->argsValues.size(); ++i) {
-	if (SI->argsValues[i] != currentArgsValues[i]) {
-	  SI->needToInstantiateAnalysis = true;
-	  break;
-	}
+      if (scalarParamChanged(SI, k)) {
+	SI->needToInstantiateAnalysis = true;
+	updateScalarValues(SI, k);
       }
-      SI->argsValues = k->getArgsValuesAsInt();
 
       // Check if original NDRange has changed.
       if (SI->last_work_dim != work_dim) {
@@ -169,8 +218,8 @@ namespace libsplit {
 			 &subNDRanges);
 
     // Set partition to analysis
-    std::vector<int> argsValues = k->getArgsValuesAsInt();
-    k->getAnalysis()->setPartition(origNDRange, subNDRanges, argsValues);
+    k->getAnalysis()->setPartition(origNDRange, subNDRanges,
+				   k->getArgsValues());
 
     // Get indirection regions.
     if (!optEnableIndirections)
@@ -185,6 +234,7 @@ namespace libsplit {
     	regions.push_back(BufferIndirectionRegion(s,
     						  argRegions[i]->id,
     						  m,
+						  argRegions[i]->ty,
     						  argRegions[i]->cb,
     						  argRegions[i]->lb,
     						  argRegions[i]->hb));
@@ -212,8 +262,8 @@ namespace libsplit {
 	for (unsigned i=0; i<regions.size(); i++) {
 	  unsigned subkernelId = regions[i].subkernelId;
 	  unsigned indirectionId = regions[i].indirectionId;
-	  int lbValue = regions[i].lbValue;
-	  int hbValue = regions[i].hbValue;
+	  IndexExprValue *lbValue = regions[i].lbValue;
+	  IndexExprValue *hbValue = regions[i].hbValue;
 	  regionValues[subkernelId].push_back(IndirectionValue(indirectionId,
 							       lbValue, hbValue));
 	}

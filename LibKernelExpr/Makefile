@@ -10,7 +10,7 @@ OBJ	= $(SRC_DIR)/ArgumentAnalysis.o \
 	$(SRC_DIR)/IndexExpr/IndexExpr.o \
 	$(SRC_DIR)/IndexExpr/IndexExprArg.o \
 	$(SRC_DIR)/IndexExpr/IndexExprBinop.o \
-	$(SRC_DIR)/IndexExpr/IndexExprConst.o \
+	$(SRC_DIR)/IndexExpr/IndexExprCast.o \
 	$(SRC_DIR)/IndexExpr/IndexExprHB.o \
 	$(SRC_DIR)/IndexExpr/IndexExprInterval.o \
 	$(SRC_DIR)/IndexExpr/IndexExprIndirection.o \

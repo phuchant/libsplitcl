@@ -330,9 +330,6 @@ ArgumentAnalysis:: setPartition(const NDRange *kernelNDRange,
 
   nbSplit = subNDRanges->size();
 
-  // Vector of size nbsplit, each element containing of vector of
-  // IndexExpr (one indexExpr per use)
-  //  std::vector<std::vector<IndexExpr *> > kernelSplitExprs(m_nbSplit);
   loadSubKernelsExprs.resize(nbSplit);
   storeSubKernelsExprs.resize(nbSplit);
   orSubKernelsExprs.resize(nbSplit);
@@ -358,7 +355,7 @@ ArgumentAnalysis:: setPartition(const NDRange *kernelNDRange,
 }
 
 void
-ArgumentAnalysis::injectArgValues(const std::vector<int> &argValues) {
+ArgumentAnalysis::injectArgValues(const std::vector<IndexExprValue *> &argValues) {
   assert(kernelNDRange);
 
   for (unsigned idx=0; idx<loadWorkItemExprs->size(); idx++)
@@ -379,6 +376,76 @@ void
 ArgumentAnalysis::performAnalysis(const
 				  std::vector<std::vector<IndirectionValue> > &
 				  subKernelIndirectionValues) {
+ // Clear subKernelsExprs.
+  for (unsigned i=0; i<loadSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<loadSubKernelsExprs[i].size(); ++j) {
+      delete loadSubKernelsExprs[i][j];
+    }
+
+    loadSubKernelsExprs[i].resize(0);
+  }
+  for (unsigned i=0; i<storeSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<storeSubKernelsExprs[i].size(); ++j) {
+      delete storeSubKernelsExprs[i][j];
+    }
+
+    storeSubKernelsExprs[i].resize(0);
+  }
+  for (unsigned i=0; i<orSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<orSubKernelsExprs[i].size(); ++j) {
+      delete orSubKernelsExprs[i][j];
+    }
+
+    orSubKernelsExprs[i].resize(0);
+  }
+  for (unsigned i=0; i<atomicSumSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<atomicSumSubKernelsExprs[i].size(); ++j) {
+      delete atomicSumSubKernelsExprs[i][j];
+    }
+
+    atomicSumSubKernelsExprs[i].resize(0);
+  }
+  for (unsigned i=0; i<atomicMinSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<atomicMinSubKernelsExprs[i].size(); ++j) {
+      delete atomicMinSubKernelsExprs[i][j];
+    }
+
+    atomicMinSubKernelsExprs[i].resize(0);
+  }
+  for (unsigned i=0; i<atomicMaxSubKernelsExprs.size(); ++i) {
+    for (unsigned j=0; j<atomicMaxSubKernelsExprs[i].size(); ++j) {
+      delete atomicMaxSubKernelsExprs[i][j];
+    }
+
+    atomicMaxSubKernelsExprs[i].resize(0);
+  }
+
+  nbSplit = subNDRanges->size();
+
+  // Vector of size nbsplit, each element containing of vector of
+  // IndexExpr (one indexExpr per use)
+  //  std::vector<std::vector<IndexExpr *> > kernelSplitExprs(m_nbSplit);
+  loadSubKernelsExprs.resize(nbSplit);
+  storeSubKernelsExprs.resize(nbSplit);
+  orSubKernelsExprs.resize(nbSplit);
+  atomicSumSubKernelsExprs.resize(nbSplit);
+  atomicMinSubKernelsExprs.resize(nbSplit);
+  atomicMaxSubKernelsExprs.resize(nbSplit);
+
+  // Clear regions
+  readSubkernelsRegions.clear();
+  readSubkernelsRegions.resize(nbSplit);
+  writtenSubkernelsRegions.clear();
+  writtenSubkernelsRegions.resize(nbSplit);
+  writtenOrSubkernelsRegions.clear();
+  writtenOrSubkernelsRegions.resize(nbSplit);
+  writtenAtomicSumSubkernelsRegions.clear();
+  writtenAtomicSumSubkernelsRegions.resize(nbSplit);
+  writtenAtomicMinSubkernelsRegions.clear();
+  writtenAtomicMinSubkernelsRegions.resize(nbSplit);
+  writtenAtomicMaxSubkernelsRegions.clear();
+  writtenAtomicMaxSubkernelsRegions.resize(nbSplit);
+
   analysisHasBeenRun = true;
 #ifdef DEBUG
   std::cerr << "\n\033[1;31m*** Arg no \"" << m_pos << "\" nb load: "

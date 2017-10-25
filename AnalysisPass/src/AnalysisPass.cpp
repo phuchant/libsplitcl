@@ -128,7 +128,11 @@ AnalysisPass::runOnFunction(Function &F) {
     argsAnalysis.push_back(argAnalysis);
   }
 
-  std::vector<size_t> argsSizes;
+  bool *argIsScalar = new bool(F.arg_size());
+  std::vector<size_t> scalarArgsSizes;
+  std::vector<ArgumentAnalysis::TYPE> scalarArgsTypes;
+  unsigned argIdx = 0;
+
 #if LLVM_VERSION_MAJOR >= 5
   for (Argument &arg : F.args()) {
 #else
@@ -136,14 +140,48 @@ AnalysisPass::runOnFunction(Function &F) {
 #endif
     Type *argTy = arg.getType();
     unsigned sizeInBytes;
-    if (!argTy->isPointerTy()) {
-      sizeInBytes = dataLayout->getTypeAllocSize(argTy);
-    } else {
-      PointerType *PT = cast<PointerType>(argTy);
-      Type *elemTy = PT->getElementType();
-      sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
+
+    // Non scalar args
+    if (argTy->isPointerTy()) {
+      argIsScalar[argIdx] = false;
+      scalarArgsSizes.push_back(0);
+      scalarArgsTypes.push_back(ArgumentAnalysis::UNKNOWN);
     }
-    argsSizes.push_back(sizeInBytes);
+
+    // Scalar args
+    else {
+      argIsScalar[argIdx] = true;
+      sizeInBytes = dataLayout->getTypeAllocSize(argTy);
+      scalarArgsSizes.push_back(sizeInBytes);
+      if (argTy->isDoubleTy()) {
+	scalarArgsTypes.push_back(ArgumentAnalysis::DOUBLE);
+      } else if (argTy->isFloatTy()) {
+	scalarArgsTypes.push_back(ArgumentAnalysis::FLOAT);
+      } else if (argTy->isIntegerTy()) {
+	ArgumentAnalysis::TYPE scalarTy;
+	switch (sizeInBytes) {
+	case 1:
+	  scalarTy = ArgumentAnalysis::CHAR;
+	  break;
+	case 2:
+	  scalarTy = ArgumentAnalysis::SHORT;
+	  break;
+	case 4:
+	  scalarTy = ArgumentAnalysis::INT;
+	  break;
+	case 8:
+	  scalarTy = ArgumentAnalysis::LONG;
+	  break;
+	default:
+	  scalarTy = ArgumentAnalysis::UNKNOWN;
+	};
+	scalarArgsTypes.push_back(scalarTy);
+      } else {
+	scalarArgsTypes.push_back(ArgumentAnalysis::UNKNOWN);
+      }
+    }
+
+    argIdx++;
   }
 
   std::vector<ArgIndirectionRegionExpr *> indirectionExprs;
@@ -155,17 +193,33 @@ AnalysisPass::runOnFunction(Function &F) {
     unsigned id = expr->id;
     unsigned pos = expr->arg->getArgNo();
     unsigned numBytes = expr->numBytes;
+    IndirectionType indirTy = UNDEF;
+    LoadInst *LI = expr->inst;
+    Type *ptrOpTy = LI->getPointerOperand()->getType();
+    PointerType *ptrTy = dyn_cast<PointerType>(ptrOpTy);
+    assert(ptrTy);
+    Type *elemTy = ptrTy->getElementType();
+    if (elemTy->isIntegerTy())
+      indirTy = INT;
+    else if (elemTy->isFloatTy())
+      indirTy = FLOAT;
+    else if (elemTy->isDoubleTy())
+      indirTy = DOUBLE;
+
     WorkItemExpr *wi_expr = new WorkItemExpr(*(expr->expr), *guards);
     indirectionExprs.push_back(new ArgIndirectionRegionExpr(id, pos, numBytes,
-							    wi_expr));
+							    indirTy, wi_expr));
   }
 
   KernelAnalysis *analysis =
     new KernelAnalysis(F.getName().data(),
 		       F.arg_size(),
-		       argsSizes,
+		       argIsScalar,
+		       scalarArgsSizes,
+		       scalarArgsTypes,
 		       argsAnalysis,
 		       indirectionExprs);
+  delete argIsScalar;
 
   if (optDump)
     analysis->debug();
@@ -338,7 +392,6 @@ AnalysisPass::analyze(Function *F) {
 	       funcName.equals("_Z4fmodff") ||
 	       funcName.equals("_Z5log10f") ||
 	       funcName.equals("_Z15convert_int_rtnd") ||
-	       funcName.equals("_Z8distanceDv3_fS_") ||
 	       funcName.equals("llvm.fmuladd.v3f32") ||
 	       funcName.equals("_Z8distanceDv3_fS_") ||
 	       funcName.equals("_Z9normalizeDv3_f") ||

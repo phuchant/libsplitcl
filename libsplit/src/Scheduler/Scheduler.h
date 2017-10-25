@@ -3,7 +3,7 @@
 
 #include <BufferManager.h>
 #include <Queue/Event.h>
-
+#include <IndexExpr/IndexExprValue.h>
 #include <vector>
 
 namespace libsplit {
@@ -134,9 +134,11 @@ namespace libsplit {
     void adaptGranudscr(double *granu_dscr, int *size_gr,
 			size_t global_work_size, size_t local_work_size);
 
-
-
-
+    static
+    bool scalarParamChanged(const SubKernelSchedInfo *SI,
+			    const KernelHandle *k);
+    static
+    void updateScalarValues(SubKernelSchedInfo *SI, const KernelHandle *k);
 
     struct SubKernelSchedInfo {
       SubKernelSchedInfo(unsigned nbDevices)
@@ -214,7 +216,7 @@ namespace libsplit {
       std::vector<DeviceBufferRegion> dataWrittenAtomicMax;
 
       // scalar arguments values
-      std::vector<int> argsValues;
+      std::vector<IndexExprValue *> argsValues;
 
       // iteration count
       unsigned iterno;

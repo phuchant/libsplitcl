@@ -3,42 +3,54 @@
 
 #include <cstdlib>
 
-// TODO: replace num bytes par type ?
-
+class IndexExprValue;
 class WorkItemExpr;
 
+enum IndirectionType {
+  INT,
+  FLOAT,
+  DOUBLE,
+  UNDEF
+};
+
+// Expression for the indirection, created by analysis pass.
 struct ArgIndirectionRegionExpr {
+
   ArgIndirectionRegionExpr(unsigned id, unsigned pos, unsigned numBytes,
-			   WorkItemExpr *expr);
+			   IndirectionType ty, WorkItemExpr *expr);
   ~ArgIndirectionRegionExpr();
+
 
   unsigned id;
   unsigned pos;
   unsigned numBytes;
+  IndirectionType ty;
   WorkItemExpr *expr;
 };
 
-
+// Returned by KernelAnalysis to libsplit.
 struct ArgIndirectionRegion {
-  ArgIndirectionRegion(unsigned id, unsigned pos,
+  ArgIndirectionRegion(unsigned id, unsigned pos, IndirectionType ty,
 		       size_t cb, size_t lb, size_t hb);
   ~ArgIndirectionRegion();
 
   unsigned id;
   unsigned pos;
+  IndirectionType ty;
   size_t cb;
   size_t lb;
   size_t hb;
 };
 
+// Indirection value to inject.
 struct IndirectionValue {
-  IndirectionValue(unsigned id, int lb, int hb);
+  IndirectionValue(unsigned id, IndexExprValue *lb, IndexExprValue *hb);
   IndirectionValue(const IndirectionValue &indir);
   ~IndirectionValue();
 
   unsigned id;
-  int lb;
-  int hb;
+  IndexExprValue *lb;
+  IndexExprValue *hb;
 };
 
 #endif /* INDIRECTION_H */

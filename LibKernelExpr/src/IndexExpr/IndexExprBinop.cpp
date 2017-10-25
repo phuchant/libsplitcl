@@ -1,12 +1,11 @@
 #include "IndexExpr/IndexExprArg.h"
 #include "IndexExpr/IndexExprBinop.h"
-#include "IndexExpr/IndexExprConst.h"
 #include "IndexExpr/IndexExprInterval.h"
 #include "IndexExpr/IndexExprUnknown.h"
 
 #include <iostream>
 
-IndexExprBinop::IndexExprBinop(unsigned op, IndexExpr *expr1, IndexExpr *expr2)
+IndexExprBinop::IndexExprBinop(IndexExprBinop::BinOp op, IndexExpr *expr1, IndexExpr *expr2)
   : IndexExpr(IndexExpr::BINOP), op(op), expr1(expr1), expr2(expr2) {}
 
 IndexExprBinop::~IndexExprBinop() {
@@ -150,9 +149,6 @@ IndexExprBinop::toDot(std::stringstream &stream) const {
   case IndexExprBinop::Mod:
     stream << " % ";
     break;
-  case IndexExprBinop::Unknown:
-    stream << " ? ";
-    break;
   case IndexExprBinop::Or:
     stream << " or ";
     break;
@@ -183,7 +179,7 @@ IndexExprBinop::toDot(std::stringstream &stream) const {
   }
 }
 
-int
+IndexExprBinop::BinOp
 IndexExprBinop::getOp() const {
   return op;
 }

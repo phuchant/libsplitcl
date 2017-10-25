@@ -33,8 +33,8 @@ IndexExprBuilder::buildLoadExpr(llvm::LoadInst *LI, IndexExpr **expr,
   assert(*expr);
   unsigned sizeInBytes = dataLayout->getTypeAllocSize(LI->getType());
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
-			  new IndexExprConst(sizeInBytes-1));
+    new IndexExprInterval(IndexExprValue::createLong(0),
+			  IndexExprValue::createLong(sizeInBytes-1));
   *expr = new IndexExprBinop(IndexExprBinop::Add,
 			     *expr, elemSizeInterval);
 }
@@ -48,8 +48,8 @@ IndexExprBuilder::buildStoreExpr(llvm::StoreInst *SI, IndexExpr **expr,
   unsigned sizeInBytes =
     dataLayout->getTypeAllocSize(SI->getValueOperand()->getType());
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
-			  new IndexExprConst(sizeInBytes-1));
+    new IndexExprInterval(IndexExprValue::createLong(0),
+			  IndexExprValue::createLong(sizeInBytes-1));
   *expr = new IndexExprBinop(IndexExprBinop::Add, *expr, elemSizeInterval);
 }
 
@@ -66,10 +66,10 @@ IndexExprBuilder::buildMemcpyLoadExpr(llvm::CallInst *CI, IndexExpr **expr,
   parseSCEV(scSrc, &srcExpr, &srcArg); assert(srcExpr);
   parseSCEV(scSize, &sizeExpr, &sizeArg); assert(sizeExpr);
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
+    new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
 					     sizeExpr,
-					     new IndexExprConst(1)));
+					     IndexExprValue::createLong(1)));
   srcExpr = new IndexExprBinop(IndexExprBinop::Add,
 			       srcExpr,
 			       elemSizeInterval->clone());
@@ -89,10 +89,10 @@ IndexExprBuilder::buildMemcpyStoreExpr(llvm::CallInst *CI, IndexExpr **expr,
   parseSCEV(scDst, &dstExpr, &dstArg); assert(dstExpr);
   parseSCEV(scSize, &sizeExpr, &sizeArg); assert(sizeExpr);
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
+    new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
 					     sizeExpr,
-					     new IndexExprConst(1)));
+					     IndexExprValue::createLong(1)));
   dstExpr = new IndexExprBinop(IndexExprBinop::Add,
 			       dstExpr,
 			       elemSizeInterval);
@@ -113,10 +113,10 @@ IndexExprBuilder::buildMemsetExpr(llvm::CallInst *CI, IndexExpr **expr,
   parseSCEV(scDst, &dstExpr, &dstArg); assert(dstExpr);
   parseSCEV(scLen, &lenExpr, &lenArg); assert(lenExpr);
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
+    new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
 					     lenExpr,
-					     new IndexExprConst(1)));
+					     IndexExprValue::createLong(1)));
   dstExpr = new IndexExprBinop(IndexExprBinop::Add,
 			       dstExpr,
 			       elemSizeInterval);
@@ -136,8 +136,8 @@ IndexExprBuilder::build_atom_Expr(llvm::CallInst *CI, IndexExpr **expr,
   Type *elemTy = PT->getElementType();
   unsigned sizeInBytes = dataLayout->getTypeAllocSize(elemTy);
   IndexExpr *elemSizeInterval =
-    new IndexExprInterval(new IndexExprConst(0),
-			    new IndexExprConst(sizeInBytes-1));
+    new IndexExprInterval(IndexExprValue::createLong(0),
+			    IndexExprValue::createLong(sizeInBytes-1));
   *expr = new IndexExprBinop(IndexExprBinop::Add, *expr, elemSizeInterval);
 }
 
@@ -159,7 +159,22 @@ IndexExprBuilder::buildExpr(Value *value) {
   if (isa<Constant>(user)) {
     /* Integer */
     if (isa<ConstantInt>(user))
-      return new IndexExprConst(cast<ConstantInt>(user)->getSExtValue());
+      return IndexExprValue::createLong(cast<ConstantInt>(user)->getSExtValue());
+
+    if (isa<ConstantFP>(user)) {
+      ConstantFP *fp = cast<ConstantFP>(user);
+      const APFloat &apf = fp->getValueAPF();
+      if (fp->getType()->isFloatTy()) {
+	float val = apf.convertToFloat();
+	return IndexExprValue::createFloat(val);
+      } else if (fp->getType()->isDoubleTy()) {
+	double val = apf.convertToDouble();
+	return IndexExprValue::createDouble(val);
+      } else {
+	errs() << "Error unknown ConstantFP type.\n";
+	exit(EXIT_FAILURE);
+      }
+    }
 
     if (isa<UndefValue>(user))
       return new IndexExprUnknown("undef");
@@ -175,9 +190,10 @@ IndexExprBuilder::buildExpr(Value *value) {
     switch (inst->getOpcode()) {
     case Instruction::Call:
       {
-	unsigned oclFunc = isOpenCLCall(inst);
-	if (oclFunc != UNKNOWN) {
-	  IndexExpr *ret = new IndexExprOCL(oclFunc, buildExpr(user->getOperand(0)));
+	IndexExprOCL::OpenclFunction oclFunc;
+	if (isOpenCLCall(inst, &oclFunc)) {
+	  IndexExpr *ret = new IndexExprOCL(oclFunc,
+					    buildExpr(user->getOperand(0)));
 	  if (computingBackedge)
 	    ret = new IndexExprHB(ret);
 	  return ret;
@@ -200,6 +216,11 @@ IndexExprBuilder::buildExpr(Value *value) {
 	  ops[0] = buildExpr(call->getOperand(0));
 	  ops[1] = buildExpr(call->getOperand(1));
 	  return new IndexExprMin(2, ops);
+	}
+
+	if (called->getName().equals("_Z15convert_int_rtnd")) {
+	  return new IndexExprCast(buildExpr(call->getOperand(0)),
+				   IndexExprCast::FLOOR);
 	}
 
 	errs() << "buildexpr unknown function : " << *inst << "\n";
@@ -243,28 +264,33 @@ IndexExprBuilder::buildExpr(Value *value) {
       }
 
     case Instruction::Add:
+    case Instruction::FAdd:
       return new IndexExprBinop(IndexExprBinop::Add,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
 
     case Instruction::Sub:
+    case Instruction::FSub:
       return new IndexExprBinop(IndexExprBinop::Sub,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
 
     case Instruction::Mul:
+    case Instruction::FMul:
       return new IndexExprBinop(IndexExprBinop::Mul,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
 
     case Instruction::UDiv:
     case Instruction::SDiv:
+    case Instruction::FDiv:
       return new IndexExprBinop(IndexExprBinop::Div,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
 
     case Instruction::SRem:
     case Instruction::URem:
+    case Instruction::FRem:
       return new IndexExprBinop(IndexExprBinop::Mod,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
@@ -293,9 +319,61 @@ IndexExprBuilder::buildExpr(Value *value) {
       return new IndexExprBinop(IndexExprBinop::Shr,
 				buildExpr(user->getOperand(0)),
 				buildExpr(user->getOperand(1)));
+    case Instruction::FPToUI:
+    case Instruction::FPToSI:
+      {
+	CastInst *castInst = cast<CastInst>(inst);
+	Type *srcTy = castInst->getSrcTy();
+	if (srcTy->isFloatTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::F2I);
+	} else if (srcTy->isDoubleTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::D2I);
+	} else {
+	  errs() << "Error: Unhandled cast inst: " << *inst << "\n";
+	  exit(EXIT_FAILURE);
+	}
+      }
+
+    case Instruction::UIToFP:
+    case Instruction::SIToFP:
+      {
+	CastInst *castInst = cast<CastInst>(inst);
+	Type *dstTy = castInst->getDestTy();
+	if (dstTy->isFloatTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::I2F);
+	} else if (dstTy->isDoubleTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::I2D);
+	} else {
+	  errs() << "Error: Unhandled cast inst: " << *inst << "\n";
+	  exit(EXIT_FAILURE);
+	}
+      }
+
+    case Instruction::FPTrunc:
+    case Instruction::FPExt:
+      {
+	CastInst *castInst = cast<CastInst>(inst);
+	Type *srcTy = castInst->getSrcTy();
+	Type *dstTy = castInst->getDestTy();
+
+	if (srcTy->isFloatTy() && dstTy->isDoubleTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::F2D);
+	} else if (srcTy->isDoubleTy() && dstTy->isFloatTy()) {
+	  return new IndexExprCast(buildExpr(castInst->getOperand(0)),
+				   IndexExprCast::D2F);
+	} else {
+	  errs() << "Error: Unhandled cast inst: " << *inst << "\n";
+	  exit(EXIT_FAILURE);
+	}
+      }
 
     case Instruction::BitCast:
-      return new IndexExprConst(0);
+      return IndexExprValue::createLong(0);
 
       /* Ignored instructions */
     case Instruction::Trunc:
@@ -479,7 +557,7 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 						 start);
   IndexExpr *step_minus_one = new IndexExprBinop(IndexExprBinop::Sub,
 						 new IndexExprHB(step),
-						 new IndexExprConst(1));
+						 IndexExprValue::createLong(1));
   IndexExpr *add = new IndexExprBinop(IndexExprBinop::Add,
 				      hb_minus_start,
 				      step_minus_one);
@@ -488,7 +566,7 @@ IndexExprBuilder::tryComputeLoopBackedCount(Loop *L) {
 				      new IndexExprHB(step->clone()));
   IndexExpr *backedgeCount = new IndexExprBinop(IndexExprBinop::Sub,
 						div,
-						new IndexExprConst(1));
+						IndexExprValue::createLong(1));
 
   return backedgeCount;
 }
@@ -679,7 +757,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
 	  (isGlobalArgument(argument) || isConstantArgument(argument))) {
 	assert(*arg == NULL || *arg == argument);
 	*arg = argument;
-	*indexExpr = new IndexExprConst(0);
+	*indexExpr = IndexExprValue::createLong(0);
 	return;
 
       }
@@ -717,7 +795,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
     {
       const SCEVNAryExpr *scNExpr = cast<SCEVNAryExpr>(scev);
 
-      unsigned op;
+      IndexExprBinop::BinOp op;
 
       switch(type) {
       case scAddExpr:

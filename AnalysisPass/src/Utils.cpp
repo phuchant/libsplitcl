@@ -19,28 +19,40 @@ bool isKernel(const Function *func) {
   return func->getMetadata("kernel_arg_addr_space");
 }
 
-unsigned isOpenCLCall(const Instruction *inst) {
+bool isOpenCLCall(const Instruction *inst, IndexExprOCL::OpenclFunction *ocl) {
   const CallInst *callInst = dyn_cast<CallInst>(inst);
 
   if (!callInst)
-    return UNKNOWN;
+    return false;
 
   StringRef funcName = callInst->getCalledFunction()->getName();
 
-  if (funcName.find("get_global_id") != StringRef::npos)
-    return GET_GLOBAL_ID;
-  if (funcName.find("get_local_id") != StringRef::npos)
-    return GET_LOCAL_ID;
-  if (funcName.find("get_global_size") != StringRef::npos)
-    return GET_GLOBAL_SIZE;
-  if (funcName.find("get_local_size") != StringRef::npos)
-    return GET_LOCAL_SIZE;
-  if (funcName.find("get_group_id") != StringRef::npos)
-    return GET_GROUP_ID;
-  if (funcName.find("get_num_groups") != StringRef::npos)
-    return GET_NUM_GROUPS;
+  if (funcName.find("get_global_id") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_GLOBAL_ID;
+    return true;
+  }
+  if (funcName.find("get_local_id") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_LOCAL_ID;
+    return true;
+  }
+  if (funcName.find("get_global_size") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_GLOBAL_SIZE;
+    return true;
+  }
+  if (funcName.find("get_local_size") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_LOCAL_SIZE;
+    return true;
+  }
+  if (funcName.find("get_group_id") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_GROUP_ID;
+    return true;
+  }
+  if (funcName.find("get_num_groups") != StringRef::npos) {
+    *ocl = IndexExprOCL::GET_NUM_GROUPS;
+    return true;
+  }
 
-  return UNKNOWN;
+  return false;
 }
 
 vector<string> splitString(string str) {
@@ -121,8 +133,9 @@ void getGetNumGroupsCalls(llvm::TinyPtrVector<llvm::CallInst *> &v,
       continue;
 
     // Check if it is a call to get_num_groups()
-    unsigned oclFunc = isOpenCLCall(callInst);
-    if (oclFunc == GET_NUM_GROUPS)
+    IndexExprOCL::OpenclFunction oclFunc;
+    if (isOpenCLCall(callInst, &oclFunc) &&
+	oclFunc == IndexExprOCL::GET_NUM_GROUPS)
       v.push_back(callInst);
   }
 }
@@ -137,8 +150,9 @@ void getGetGroupIDCalls(llvm::TinyPtrVector<llvm::CallInst *> &v,
       continue;
 
     // Check if it is a call to get_group_id()
-    unsigned oclFunc = isOpenCLCall(callInst);
-    if (oclFunc == GET_GROUP_ID)
+    IndexExprOCL::OpenclFunction oclFunc;
+    if (isOpenCLCall(callInst, &oclFunc) &&
+	oclFunc == IndexExprOCL::GET_GROUP_ID)
       v.push_back(callInst);
   }
 }
@@ -154,8 +168,10 @@ void getGetGlobalSizeCalls(llvm::TinyPtrVector<llvm::CallInst *> &v,
       continue;
 
     // Check if it is a call to get_group_id()
-    unsigned oclFunc = isOpenCLCall(callInst);
-    if (oclFunc == GET_GLOBAL_SIZE)
+    // Check if it is a call to get_group_id()
+    IndexExprOCL::OpenclFunction oclFunc;
+    if (isOpenCLCall(callInst, &oclFunc) &&
+	oclFunc == IndexExprOCL::GET_GLOBAL_SIZE)
       v.push_back(callInst);
   }
 }

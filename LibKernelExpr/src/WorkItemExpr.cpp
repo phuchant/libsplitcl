@@ -1,6 +1,9 @@
 #include "IndexExpr/IndexExprOCL.h"
+#include "IndexExpr/IndexExprValue.h"
+#include "NDRange.h"
 #include "WorkItemExpr.h"
 
+#include <cassert>
 #include <iostream>
 
 WorkItemExpr::WorkItemExpr(const IndexExpr &wiExpr,
@@ -28,7 +31,7 @@ WorkItemExpr::WorkItemExpr(const WorkItemExpr &expr) {
 }
 
 void
-WorkItemExpr::injectArgsValues(const std::vector<int> &values,
+WorkItemExpr::injectArgsValues(const std::vector<IndexExprValue *> &values,
 			       const NDRange &kernelNDRange) {
   IndexExpr::injectArgsValues(mWiExpr, values);
 
@@ -138,7 +141,7 @@ WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
     long localHb = kernelNDRange.get_local_size(guardDim) - 1;
 
     switch((*mGuards)[i]->getOclFunc()) {
-    case GET_GLOBAL_ID:
+    case IndexExprOCL::GET_GLOBAL_ID:
       {
 	switch ((*mGuards)[i]->getPredicate()) {
 	case GuardExpr::LT:
@@ -176,12 +179,15 @@ WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
 	      return true;
 	    break;
 	  }
+	case GuardExpr::NEQ:
+	  std::cerr << "warning: Guard predicate NEQ not handled !\n";
+	  return false;
 	};
 
 	break;
       }
 
-    case GET_GROUP_ID:
+    case IndexExprOCL::GET_GROUP_ID:
       {
 	switch((*mGuards)[i]->getPredicate()) {
 	case GuardExpr::LT:
@@ -219,12 +225,15 @@ WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
 	      return true;
 	    break;
 	  }
+	case GuardExpr::NEQ:
+	  std::cerr << "warning: Guard predicate NEQ not handled !\n";
+	  return false;
 	};
 
 	break;
       }
 
-    case GET_LOCAL_ID:
+    case IndexExprOCL::GET_LOCAL_ID:
       {
 	switch ((*mGuards)[i]->getPredicate()) {
 	case GuardExpr::LT:
@@ -262,6 +271,9 @@ WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
 	      return true;
 	    break;
 	  }
+	case GuardExpr::NEQ:
+	  std::cerr << "warning: Guard predicate NEQ not handled !\n";
+	  return false;
 	};
 
 	break;

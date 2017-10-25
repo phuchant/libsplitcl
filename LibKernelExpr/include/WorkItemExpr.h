@@ -4,6 +4,7 @@
 #include "GuardExpr.h"
 #include "IndexExpr/IndexExpr.h"
 
+class IndexExprValue;
 class IndirectionValue;
 
 class WorkItemExpr {
@@ -22,7 +23,7 @@ public:
   WorkItemExpr(const WorkItemExpr &expr);
   ~WorkItemExpr();
 
-  void injectArgsValues(const std::vector<int> &values,
+  void injectArgsValues(const std::vector<IndexExprValue *> &values,
 			const NDRange &kernelNDRange);
   IndexExpr *getKernelExpr(const NDRange &kernelNDRange,
 			   const std::vector<IndirectionValue> &

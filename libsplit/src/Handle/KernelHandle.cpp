@@ -3,6 +3,7 @@
 #include <Options.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
+#include <IndexExpr/IndexExprValue.h>
 
 #include <cassert>
 #include <iostream>
@@ -92,7 +93,8 @@ namespace libsplit {
     // Launch analysis
     launchAnalysis();
 
-    argsValuesAsInt = new int[mNumArgs];
+    for (unsigned i=0; i<mNumArgs; i++)
+      argsValues.push_back(nullptr);
 
     // Get environment variables SINGLEID, DONTSPLIT and SCHED and instantiate
     // the scheduler.
@@ -125,6 +127,9 @@ namespace libsplit {
       clCheck(err, __FILE__, __LINE__);
     }
 
+    for (unsigned i=0; i<mNumArgs; i++)
+      delete argsValues[i];
+
     mProgram->release();
 
     delete[] mSubKernels;
@@ -140,13 +145,92 @@ namespace libsplit {
 			     const void *arg_value) {
     assert(arg_index < mNumArgs);
 
-    // Store argument value as an interger.
-    int intValue;
-    if (arg_value)
-      intValue = *((int *) arg_value);
-    else
-      intValue = 0;
-    argsValuesAsInt[arg_index] = intValue;
+    // Store scalar argument value
+    if (mAnalysis->argIsScalar(arg_index)) {
+      delete argsValues[arg_index];
+      switch (mAnalysis->getScalarArgType(arg_index)) {
+      case ArgumentAnalysis::BOOL:
+	{
+	  bool value;
+	  value = *((bool *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::UCHAR:
+	{
+	  unsigned char value;
+	  value = *((unsigned char *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::CHAR:
+	{
+	  char value;
+	  value = *((char *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::SHORT:
+	{
+	  short value;
+	  value = *((short *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::USHORT:
+	{
+	  unsigned short value;
+	  value = *((unsigned short *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::INT:
+	{
+	  int value;
+	  value = *((int *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::UINT:
+	{
+	  unsigned int value;
+	  value = *((unsigned int *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::LONG:
+	{
+	  long value;
+	  value = *((long *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::ULONG:
+	{
+	  unsigned long value;
+	  value = *((unsigned long *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((long) value);
+	  break;
+	}
+      case ArgumentAnalysis::FLOAT:
+	{
+	  float value;
+	  value = *((float *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createFloat((float) value);
+	  break;
+	}
+      case ArgumentAnalysis::DOUBLE:
+	{
+	  double value;
+	  value = *((double *) arg_value);
+	  argsValues[arg_index] = IndexExprValue::createLong((double) value);
+	  break;
+	}
+      case ArgumentAnalysis::UNKNOWN:
+	std::cerr << "Error: unknown scalar type !\n";
+	exit(EXIT_FAILURE);
+      };
+    }
 
     // If it is a global argument or a constant argument,
     // set different membuffer for each split kernel
@@ -233,9 +317,9 @@ namespace libsplit {
     return mAnalysis;
   }
 
-  std::vector<int>
-  KernelHandle::getArgsValuesAsInt() {
-    return std::vector<int>(argsValuesAsInt, argsValuesAsInt + mNumArgs);
+  const std::vector<IndexExprValue *> &
+  KernelHandle::getArgsValues() const {
+    return argsValues;
   }
 
   MemoryHandle *
@@ -244,7 +328,7 @@ namespace libsplit {
   }
 
   ArgumentAnalysis::TYPE
-  KernelHandle::getArgType(MemoryHandle *m) {
+  KernelHandle::getBufferType(MemoryHandle *m) {
     bool found = false;
     unsigned i=0;
     for (auto I : globalArg2MemHandleMap) {
@@ -257,7 +341,7 @@ namespace libsplit {
 
     assert(found);
 
-    return getAnalysis()->getArgType(i);
+    return getAnalysis()->getGlobalArgType(i);
   }
 
   void
