@@ -1011,6 +1011,8 @@ IndexExpr::computeBoundsRec(const IndexExpr *expr, value *lb, value *hb,
 	*type = LONG;
 	break;
       };
+
+      return true;
     }
 
   default:
