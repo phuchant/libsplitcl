@@ -81,7 +81,7 @@ namespace libsplit {
     void fill(MemoryHandle *m, const void *pattern, size_t pattern_size,
 	      size_t offset, size_t size);
 
-    void computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
+    void computeIndirectionTransfers(std::vector<BufferIndirectionRegion> &regions,
 				     std::vector<DeviceBufferRegion> &D2HTransferList);
 
     void computeTransfers(std::vector<DeviceBufferRegion> &dataRequired,

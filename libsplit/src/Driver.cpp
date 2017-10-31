@@ -523,7 +523,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -534,9 +533,6 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-	events.push_back(event);
-
 	DEBUG("transfers",
 	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
@@ -546,7 +542,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
 			   0, NULL,
-			   &events[events.size()-1]);
+			   NULL /* These tranfers are ignored for the now */);
       }
 
       // 2) update valid data

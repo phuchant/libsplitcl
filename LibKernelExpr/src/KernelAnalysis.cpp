@@ -6,6 +6,8 @@
 
 #include <string.h>
 
+#include <IndexExpr/IndexExprValue.h>
+
 KernelAnalysis::KernelAnalysis(const char *name,
 			       unsigned numArgs,
 			       bool *scalarArgs,
@@ -35,6 +37,12 @@ KernelAnalysis::KernelAnalysis(const char *name,
 
   for (unsigned i=0; i<kernelIndirectionExprs.size(); i++)
     this->kernelIndirectionExprs.push_back(kernelIndirectionExprs[i]);
+
+  if (kernelIndirectionExprs.size() > 0) {
+    indirectionsComputed = new bool[kernelIndirectionExprs.size()];
+  } else {
+    indirectionsComputed = nullptr;
+  }
 }
 
 KernelAnalysis::~KernelAnalysis() {
@@ -50,6 +58,7 @@ KernelAnalysis::~KernelAnalysis() {
       delete subKernelIndirectionRegions[i][j];
     }
   }
+  delete[] indirectionsComputed;
 
   delete kernelNDRange;
   delete subNDRanges;
@@ -128,6 +137,11 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
   this->kernelNDRange = new NDRange(kernelNDRange);
   delete this->subNDRanges;
   this->subNDRanges = new std::vector<NDRange>(subNDRanges);
+  unsigned nbSplit = this->subNDRanges->size();
+
+  // Clear computed set
+  for (unsigned i=0; i<kernelIndirectionExprs.size(); i++)
+    indirectionsComputed[i] = false;
 
   // For each global argument: set partition and inject argValues
   for (unsigned i=0; i<numGlobalArgs; i++) {
@@ -141,8 +155,24 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
 						      *(this->kernelNDRange));
   }
 
+  // Clear indirection values.
+  for (unsigned i=0; i<subKernelIndirectionValues.size(); i++) {
+    for (unsigned j=0; j<subKernelIndirectionValues[i].size(); j++) {
+      delete subKernelIndirectionValues[i][j].lb;
+      delete subKernelIndirectionValues[i][j].hb;
+    }
+    subKernelIndirectionValues[i].clear();
+  }
+  subKernelIndirectionValues.clear();
+  subKernelIndirectionValues.resize(nbSplit);
+}
+
+void
+KernelAnalysis::computeIndirections() {
+  std::vector<unsigned> indirComputed;
   // Clear indirection regions.
   unsigned nbSplit = this->subNDRanges->size();
+
   for (unsigned i=0; i<subKernelIndirectionRegions.size(); i++) {
     for (unsigned j=0; j<subKernelIndirectionRegions[i].size(); j++) {
       delete subKernelIndirectionRegions[i][j];
@@ -153,16 +183,14 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
   subKernelIndirectionRegions.clear();
   subKernelIndirectionRegions.resize(nbSplit);
 
-  // Clear indirection values.
-  for (unsigned i=0; i<subKernelIndirectionValues.size(); i++)
-    subKernelIndirectionValues[i].clear();
-  subKernelIndirectionValues.clear();
-  subKernelIndirectionValues.resize(nbSplit);
-
   // Compute indirection regions.
   for (unsigned i=0; i<nbSplit; i++) {
     for (unsigned j=0; j<kernelIndirectionExprs.size(); j++) {
       unsigned id = kernelIndirectionExprs[j]->id;
+
+      if (indirectionsComputed[id])
+	continue;
+
       unsigned pos = kernelIndirectionExprs[j]->pos;
       IndirectionType ty = kernelIndirectionExprs[j]->ty;
       unsigned cb = kernelIndirectionExprs[j]->numBytes;
@@ -176,6 +204,9 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
 	continue;
       }
 
+
+      indirComputed.push_back(id);
+
       hb = hb + 1 - cb;
       subKernelIndirectionRegions[i].push_back(new ArgIndirectionRegion(id,
 									pos,
@@ -186,6 +217,9 @@ KernelAnalysis::setPartition(const NDRange &kernelNDRange,
       delete expr;
     }
   }
+
+  for (unsigned i=0; i<indirComputed.size(); i++)
+    indirectionsComputed[indirComputed[i]] = true;
 }
 
 const NDRange &
@@ -205,6 +239,16 @@ KernelAnalysis::hasIndirection() const {
   return kernelIndirectionExprs.size() > 0;
 }
 
+bool
+KernelAnalysis::indirectionMissing() const {
+  for (unsigned i=0; i<kernelIndirectionExprs.size(); i++) {
+    if (!indirectionsComputed[i])
+      return true;
+  }
+
+  return false;
+}
+
 const std::vector<ArgIndirectionRegion *> &
 KernelAnalysis::getSubkernelIndirectionsRegions(unsigned n) {
   return subKernelIndirectionRegions[n];
@@ -215,6 +259,11 @@ KernelAnalysis::setSubkernelIndirectionsValues(unsigned n,
 					       const
 					       std::vector<IndirectionValue> &
 					       values) {
+  for (unsigned i=0; i<subKernelIndirectionValues[n].size(); i++) {
+    delete subKernelIndirectionValues[n][i].lb;
+    delete subKernelIndirectionValues[n][i].hb;
+  }
+
   subKernelIndirectionValues[n] = values;
 }
 

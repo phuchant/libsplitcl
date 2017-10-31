@@ -40,6 +40,8 @@ class KernelAnalysis {
   const std::vector<NDRange> &getSubNDRanges() const;
 
   bool hasIndirection() const;
+  void computeIndirections();
+  bool indirectionMissing() const;
 
   // Get the indirection regions to read for the subkernel n.
   const std::vector<ArgIndirectionRegion *> &
@@ -109,6 +111,7 @@ class KernelAnalysis {
   std::vector<ArgIndirectionRegionExpr *> kernelIndirectionExprs;
   std::vector< std::vector<ArgIndirectionRegion *> > subKernelIndirectionRegions;
   std::vector< std::vector<IndirectionValue> > subKernelIndirectionValues;
+  bool *indirectionsComputed;
 
   // Current partition
   NDRange *kernelNDRange;

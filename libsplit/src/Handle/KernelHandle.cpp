@@ -144,10 +144,10 @@ namespace libsplit {
   KernelHandle::setKernelArg(cl_uint arg_index, size_t arg_size,
 			     const void *arg_value) {
     assert(arg_index < mNumArgs);
+    delete argsValues[arg_index];
 
     // Store scalar argument value
     if (mAnalysis->argIsScalar(arg_index)) {
-      delete argsValues[arg_index];
       switch (mAnalysis->getScalarArgType(arg_index)) {
       case ArgumentAnalysis::BOOL:
 	{

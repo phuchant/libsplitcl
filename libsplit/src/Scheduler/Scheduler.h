@@ -143,6 +143,7 @@ namespace libsplit {
     struct SubKernelSchedInfo {
       SubKernelSchedInfo(unsigned nbDevices)
       : hasInitPartition(false), hasPartition(false),
+	partitionUnchanged(false),
 	needOtherExecToComplete(false),
 	needToInstantiateAnalysis(true),
 	currentDim(0) {
@@ -173,6 +174,7 @@ namespace libsplit {
 
       bool hasInitPartition;
       bool hasPartition;
+      bool partitionUnchanged;
       bool needOtherExecToComplete;
       bool needToInstantiateAnalysis;
 

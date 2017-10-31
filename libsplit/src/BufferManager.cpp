@@ -321,10 +321,17 @@ namespace libsplit {
 
 
   void
-  BufferManager::computeIndirectionTransfers(const std::vector<BufferIndirectionRegion> &regions,
+  BufferManager::computeIndirectionTransfers(std::vector<BufferIndirectionRegion> &regions,
 					     std::vector<DeviceBufferRegion> &D2HTransferList) {
     for (unsigned i=0; i<regions.size(); i++) {
       MemoryHandle *m = regions[i].m;
+      // Restrict region to buffer size
+      if (regions[i].lb < 0)
+	regions[i].lb = 0;
+      if (regions[i].hb + regions[i].cb -1 >= m->mSize) {
+	regions[i].hb = m->mSize - regions[i].cb;
+      }
+
       size_t lb = regions[i].lb;
       size_t hb = regions[i].hb;
       size_t cb = regions[i].cb;
@@ -357,10 +364,15 @@ namespace libsplit {
 	  break;
       }
 
-      std::cerr << "missing > 0 for indirection " << regions[i].indirectionId
-		<< " subkernel " << regions[i].subkernelId << " lb=" << regions[i].lb
-		<< " hb=" << regions[i].hb << " cb=" << regions[i].cb << "\n";
+      if (missing->total() != 0) {
+	std::cerr << "missing : ";
+	missing->debug();
+	std::cerr << "\n";
+	std::cerr << "buffer size : " << m->mSize << "\n";
+	std::cerr << "indirectionId : " << regions[i].indirectionId << "\n";
+      }
       assert(missing->total() == 0);
+      delete missing;
     }
   }
 

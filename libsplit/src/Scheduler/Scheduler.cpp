@@ -182,49 +182,55 @@ namespace libsplit {
       SI->currentDim = 0;
     }
 
-    // Adapt partition.
-    unsigned nbSplits = SI->real_size_gr / 3;
-    unsigned currentDim = SI->currentDim;
-    unsigned nbWgs = global_work_size[SI->dimOrder[currentDim]] /
-      local_work_size[SI->dimOrder[currentDim]];
-    if (nbWgs < nbSplits) {
-      SI->real_size_gr = nbWgs * 3;
-      for (unsigned w=0; w<nbWgs; w++)
-	SI->real_granu_dscr[w*3+2] = 1.0 / nbWgs;
+    if (!SI->partitionUnchanged) {
+      // Adapt partition.
+      unsigned nbSplits = SI->real_size_gr / 3;
+      unsigned currentDim = SI->currentDim;
+      unsigned nbWgs = global_work_size[SI->dimOrder[currentDim]] /
+	local_work_size[SI->dimOrder[currentDim]];
+      if (nbWgs < nbSplits) {
+	SI->real_size_gr = nbWgs * 3;
+	for (unsigned w=0; w<nbWgs; w++)
+	  SI->real_granu_dscr[w*3+2] = 1.0 / nbWgs;
 
-      DEBUG("granu",
-	    std::cerr << "kernel " << k->getName()
-	    << ": insufficient number of workgroups !"
-	    << " (" << nbWgs << ")\n";
-	    std::cerr << "requested partition : ";
-	    for (int ii=0; ii<SI->req_size_gr; ii++)
-	      std::cerr << SI->req_granu_dscr[ii] << " ";
-	    std::cerr << "\n";
-	    std::cerr << "adapted partition : ";
-	    for (int ii=0; ii<SI->real_size_gr; ii++)
-	      std::cerr << SI->real_granu_dscr[ii] << " ";
-	    std::cerr << "\n";);
+	DEBUG("granu",
+	      std::cerr << "kernel " << k->getName()
+	      << ": insufficient number of workgroups !"
+	      << " (" << nbWgs << ")\n";
+	      std::cerr << "requested partition : ";
+	      for (int ii=0; ii<SI->req_size_gr; ii++)
+		std::cerr << SI->req_granu_dscr[ii] << " ";
+	      std::cerr << "\n";
+	      std::cerr << "adapted partition : ";
+	      for (int ii=0; ii<SI->real_size_gr; ii++)
+		std::cerr << SI->real_granu_dscr[ii] << " ";
+	      std::cerr << "\n";);
+      }
+      adaptGranudscr(SI->real_granu_dscr, &SI->real_size_gr,
+		     global_work_size[SI->dimOrder[currentDim]],
+		     local_work_size[SI->dimOrder[currentDim]]);
+      nbSplits = SI->real_size_gr / 3;
+
+      // Create original and sub NDRanges.
+      NDRange origNDRange = NDRange(work_dim, global_work_size,
+				    global_work_offset, local_work_size);
+      std::vector<NDRange> subNDRanges;
+      origNDRange.splitDim(SI->dimOrder[currentDim],
+			   SI->real_size_gr, SI->real_granu_dscr,
+			   &subNDRanges);
+
+      // Set partition to analysis
+      k->getAnalysis()->setPartition(origNDRange, subNDRanges,
+				     k->getArgsValues());
     }
-    adaptGranudscr(SI->real_granu_dscr, &SI->real_size_gr,
-		   global_work_size[SI->dimOrder[currentDim]],
-		   local_work_size[SI->dimOrder[currentDim]]);
-    nbSplits = SI->real_size_gr / 3;
-
-    // Create original and sub NDRanges.
-    NDRange origNDRange = NDRange(work_dim, global_work_size,
-				  global_work_offset, local_work_size);
-    std::vector<NDRange> subNDRanges;
-    origNDRange.splitDim(SI->dimOrder[currentDim],
-			 SI->real_size_gr, SI->real_granu_dscr,
-			 &subNDRanges);
-
-    // Set partition to analysis
-    k->getAnalysis()->setPartition(origNDRange, subNDRanges,
-				   k->getArgsValues());
 
     // Get indirection regions.
     if (!optEnableIndirections)
       return;
+
+    k->getAnalysis()->computeIndirections();
+
+    unsigned nbSplits = SI->real_size_gr / 3;
     for (unsigned s=0; s<nbSplits; s++) {
       const std::vector<ArgIndirectionRegion *> argRegions =
     	k->getAnalysis()->getSubkernelIndirectionsRegions(s);
@@ -263,13 +269,23 @@ namespace libsplit {
 	for (unsigned i=0; i<regions.size(); i++) {
 	  unsigned subkernelId = regions[i].subkernelId;
 	  unsigned indirectionId = regions[i].indirectionId;
-	  IndexExprValue *lbValue = regions[i].lbValue;
-	  IndexExprValue *hbValue = regions[i].hbValue;
+	  IndexExprValue *lbValue = (IndexExprValue *) regions[i].lbValue->clone();
+	  IndexExprValue *hbValue = (IndexExprValue *) regions[i].hbValue->clone();
 	  regionValues[subkernelId].push_back(IndirectionValue(indirectionId,
 							       lbValue, hbValue));
 	}
 	for (unsigned i=0; i<nbSplit; i++) {
 	  k->getAnalysis()->setSubkernelIndirectionsValues(i, regionValues[i]);
+	}
+      }
+
+      // Check if there is missing indirection values.
+      if (optEnableIndirections) {
+	if (k->getAnalysis()->indirectionMissing()) {
+	  SI->partitionUnchanged = true;
+	  return false;
+	} else {
+	  SI->partitionUnchanged = false;
 	}
       }
 
@@ -296,10 +312,12 @@ namespace libsplit {
 	std::cerr << "cannot split dim " << SI->dimOrder[SI->currentDim] << "\n";
 	SI->currentDim++;
 	SI->needToInstantiateAnalysis = true;
+
 	return false;
       }
     }
 
+    SI->partitionUnchanged = false;
     return true;
   }
 

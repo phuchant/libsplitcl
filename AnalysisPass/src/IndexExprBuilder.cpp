@@ -403,10 +403,10 @@ IndexExprBuilder::buildExpr(Value *value) {
 	if (indirectionsDisabled)
 	  return new IndexExprUnknown("load");
 
-	if (buildingIndirection) {
-	  doubleIndirectionReached = true;
-	  return new IndexExprUnknown("doubleindir");
-	}
+	// if (buildingIndirection) {
+	//   doubleIndirectionReached = true;
+	//   return new IndexExprUnknown("doubleindir");
+	// }
 
 	LoadInst *load = cast<LoadInst>(user);
 
@@ -423,10 +423,10 @@ IndexExprBuilder::buildExpr(Value *value) {
 	buildLoadExpr(load, &e, &arg);
 	buildingIndirection = false;
 
-	if (doubleIndirectionReached) {
-	  doubleIndirectionReached = false;
-	  return new IndexExprUnknown("doubleindir");
-	}
+	// if (doubleIndirectionReached) {
+	//   doubleIndirectionReached = false;
+	//   return new IndexExprUnknown("doubleindir");
+	// }
 
 	if (!arg) {
 	  delete e;
