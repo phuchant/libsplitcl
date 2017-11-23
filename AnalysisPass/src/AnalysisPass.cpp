@@ -79,6 +79,10 @@ AnalysisPass::runOnFunction(Function &F) {
 
   indexExprBuilder = new IndexExprBuilder(loopInfo, scalarEvolution,
 					  dataLayout);
+
+  if (F.getName().equals("box_count"))
+    indexExprBuilder->disableIndirections();
+
   conditionBuilder = new ConditionBuilder(*PDT, indexExprBuilder);
 
   analyze(&F);

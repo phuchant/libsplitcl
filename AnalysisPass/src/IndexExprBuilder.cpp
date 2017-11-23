@@ -210,8 +210,8 @@ IndexExprBuilder::buildExpr(Value *value) {
 	  ops[1] = buildExpr(call->getOperand(1));
 	  return new IndexExprMax(2, ops);
 	}
-
-	if (called->getName().equals("_Z3minjj")) {
+	if (called->getName().equals("_Z3minjj") ||
+	    called->getName().equals("_Z3minii")) {
 	  IndexExpr *ops[2];
 	  ops[0] = buildExpr(call->getOperand(0));
 	  ops[1] = buildExpr(call->getOperand(1));
@@ -906,4 +906,9 @@ IndexExprBuilder::disableIndirections() {
 void
 IndexExprBuilder::enableIndirections() {
   indirectionsDisabled = false;
+}
+
+bool
+IndexExprBuilder::areIndirectionsEnabled() {
+  return indirectionsDisabled == false;
 }

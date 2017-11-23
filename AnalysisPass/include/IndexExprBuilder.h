@@ -50,6 +50,7 @@ public:
 
   void disableIndirections();
   void enableIndirections();
+  bool areIndirectionsEnabled();
 
   // This function compute an IndexExpr for a value
   // Example:

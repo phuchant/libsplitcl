@@ -484,6 +484,8 @@ ConditionBuilder::pushGuardExprRight(std::vector<GuardExpr *> *guards,
 
 std::vector<GuardExpr *> *
 ConditionBuilder::buildBasicBlockGuards(llvm::BasicBlock *BB) {
+  bool indirectionsEnabled = indexExprBuilder->areIndirectionsEnabled();
+
   indexExprBuilder->disableIndirections();
 
 
@@ -550,6 +552,7 @@ ConditionBuilder::buildBasicBlockGuards(llvm::BasicBlock *BB) {
     }
   }
 
-  indexExprBuilder->enableIndirections();
+  if (indirectionsEnabled)
+    indexExprBuilder->enableIndirections();
   return guards;
 }
