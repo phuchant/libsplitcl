@@ -173,6 +173,7 @@ namespace libsplit {
     if (!SI->needToInstantiateAnalysis)
       return;
 
+    // Fail case
     if (SI->currentDim >= work_dim) {
       std::cerr << "Cannot split kernel " << k->getName() << "\n";
       SI->real_size_gr = 3;
@@ -182,7 +183,47 @@ namespace libsplit {
       SI->currentDim = 0;
     }
 
-    if (!SI->partitionUnchanged) {
+    // Shifting
+    if (!SI->partitionUnchanged && SI->shiftingPartition) {
+      SI->partitionUnchanged = true;
+
+      // Shift sub ndranges
+      unsigned shiftingDevice = SI->shiftingDevice;
+      unsigned shiftingWgs = SI->shiftingWgs;
+      NDRange *origNDRange = SI->origNDRange;
+      std::vector<NDRange> subNDRanges = SI->requiredSubNDRanges;
+      unsigned nbDevices = subNDRanges.size();
+      assert(nbDevices >= 2);
+      if (shiftingDevice == 0) {
+	subNDRanges[shiftingDevice].shiftRight(SI->currentDim, shiftingWgs);
+	subNDRanges[shiftingDevice+1].shiftLeft(SI->currentDim, -shiftingWgs);
+      } else if (shiftingDevice == nbDevices-1) {
+	subNDRanges[shiftingDevice].shiftLeft(SI->currentDim, shiftingWgs);
+	subNDRanges[shiftingDevice-1].shiftRight(SI->currentDim, -shiftingWgs);
+      } else {
+	subNDRanges[shiftingDevice].shiftLeft(SI->currentDim, shiftingWgs);
+	subNDRanges[shiftingDevice].shiftRight(SI->currentDim, shiftingWgs);
+	subNDRanges[shiftingDevice-1].shiftRight(SI->currentDim, -shiftingWgs);
+	subNDRanges[shiftingDevice+1].shiftLeft(SI->currentDim, -shiftingWgs);
+      }
+
+      DEBUG("shift",
+	    std::cerr << "shifting dev " << shiftingDevice << "\n";
+	    for (unsigned i=0; i<nbDevices; i++) {
+	      std::cerr << "dev " << i << ":\n";
+	      subNDRanges[i].dump();
+	    });
+      // Save current device shifted NDRange
+      SI->shiftedSubNDRanges[shiftingDevice] = subNDRanges[shiftingDevice];
+
+      // Set partition
+      k->getAnalysis()->setPartition(*origNDRange, subNDRanges,
+				     k->getArgsValues());
+    }
+
+
+    // New scheduler partition
+    if (!SI->partitionUnchanged && !SI->shiftingPartition) {
       // Adapt partition.
       unsigned nbSplits = SI->real_size_gr / 3;
       unsigned currentDim = SI->currentDim;
@@ -212,15 +253,17 @@ namespace libsplit {
       nbSplits = SI->real_size_gr / 3;
 
       // Create original and sub NDRanges.
-      NDRange origNDRange = NDRange(work_dim, global_work_size,
+      delete SI->origNDRange;
+      SI->origNDRange = new NDRange(work_dim, global_work_size,
 				    global_work_offset, local_work_size);
       std::vector<NDRange> subNDRanges;
-      origNDRange.splitDim(SI->dimOrder[currentDim],
-			   SI->real_size_gr, SI->real_granu_dscr,
-			   &subNDRanges);
+      SI->origNDRange->splitDim(SI->dimOrder[currentDim],
+			    SI->real_size_gr, SI->real_granu_dscr,
+			    &subNDRanges);
+      SI->requiredSubNDRanges = subNDRanges;
 
       // Set partition to analysis
-      k->getAnalysis()->setPartition(origNDRange, subNDRanges,
+      k->getAnalysis()->setPartition(*SI->origNDRange, subNDRanges,
 				     k->getArgsValues());
     }
 
@@ -248,6 +291,7 @@ namespace libsplit {
       }
     }
   }
+
 
   bool
   Scheduler::setIndirectionValues(KernelHandle *k,
@@ -289,35 +333,213 @@ namespace libsplit {
 	}
       }
 
+      // Perform analysis with current partition
+      ArgumentAnalysis::status st = k->getAnalysis()->performAnalysis();
+
+      // Single device, we don't care about the analysis status.
       if (nbSplit == 1) {
-	instantiateSingleDeviceAnalysis(k,
-					SI->real_granu_dscr, &SI->real_size_gr,
-					SI->dimOrder[SI->currentDim], SI->subkernels,
-					SI->dataRequired, SI->dataWritten,
-					SI->dataWrittenOr,
-					SI->dataWrittenAtomicSum,
-					SI->dataWrittenAtomicMin,
-					SI->dataWrittenAtomicMax);
+	fillSubkernelInfoSingle(k,
+				SI->real_granu_dscr, &SI->real_size_gr,
+				SI->dimOrder[SI->currentDim], SI->subkernels,
+				SI->dataRequired, SI->dataWritten,
+				SI->dataWrittenMerge,
+				SI->dataWrittenOr,
+				SI->dataWrittenAtomicSum,
+				SI->dataWrittenAtomicMin,
+				SI->dataWrittenAtomicMax);
 	return true;
       }
 
-      if (!instantiateAnalysis(k,
-			       SI->real_granu_dscr, &SI->real_size_gr,
-			       SI->dimOrder[SI->currentDim], SI->subkernels,
-			       SI->dataRequired, SI->dataWritten,
-			       SI->dataWrittenOr,
-			       SI->dataWrittenAtomicSum,
-			       SI->dataWrittenAtomicMin,
-			       SI->dataWrittenAtomicMax)) {
+      switch(st) {
+      case ArgumentAnalysis::SUCCESS:
+	DEBUG("status", std::cerr << k->getName() << " success\n");
+	break;
+      case ArgumentAnalysis::MERGE:
+	DEBUG("status", std::cerr << k->getName() << " merge\n";);
+	break;
+      case ArgumentAnalysis::FAIL:
+	DEBUG("status", std::cerr << k->getName() << " fail\n";);
+	break;
+      }
+
+      // Multi device Shifting
+      if (SI->shiftingPartition) {
+
+	// Save shifted device analyse
+	unsigned shiftingDevice = SI->shiftingDevice;
+	KernelAnalysis *analysis = k->getAnalysis();
+	unsigned nbGlobals = analysis->getNbGlobalArguments();
+	for (unsigned a=0; a<nbGlobals; a++) {
+	  SI->shiftDataRequired[shiftingDevice][a] =
+	    analysis->getArgReadSubkernelRegion(a, shiftingDevice);
+	  if (!analysis->argReadBoundsComputed(a))
+	    SI->shiftDataRequired[shiftingDevice][a].setUndefined();
+	  SI->shiftDataWritten[shiftingDevice][a] =
+	    analysis->getArgWrittenSubkernelRegion(a, shiftingDevice);
+	  SI->shiftDataWrittenOr[shiftingDevice][a] =
+	    analysis->getArgWrittenOrSubkernelRegion(a, shiftingDevice);
+	  SI->shiftDataWrittenAtomicSum[shiftingDevice][a] =
+	    analysis->getArgWrittenAtomicSumSubkernelRegion(a, shiftingDevice);
+	  if (!analysis->argWrittenAtomicSumBoundsComputed(a)) {
+	    SI->shiftDataRequired[shiftingDevice][a].setUndefined();
+	    SI->shiftDataWrittenAtomicSum[shiftingDevice][a].setUndefined();
+	  }
+	  SI->shiftDataWrittenAtomicMin[shiftingDevice][a] =
+	    analysis->getArgWrittenAtomicMinSubkernelRegion(a, shiftingDevice);
+	  SI->shiftDataWrittenAtomicMax[shiftingDevice][a] =
+	    analysis->getArgWrittenAtomicMaxSubkernelRegion(a, shiftingDevice);
+	}
+
+	unsigned nbDevices = SI->real_size_gr / 3;
+
+	// If the device shifted is the last one, test if the union of the
+	// the for each merge argument if the union of the single written
+	// region in included in the full written region.
+	if (SI->shiftingDevice == nbDevices - 1) {
+	  bool shiftDone = true;
+
+	  DEBUG("shift",
+		std::cerr << "shifted workgroups = " << SI->shiftingWgs << "\n";
+	  	for (unsigned i=0; i<nbDevices; i++) {
+	  	  std::cerr << "shift ndRange dev " << i << ": ";
+	  	  SI->shiftedSubNDRanges[i].dump();
+	  	});
+
+	  for (unsigned a=0; a<SI->nbMergeArgs; a++) {
+	    ListInterval fullSingleWrittenRegion;
+	    unsigned globalPos = SI->mergeArg2GlobalPos[a];
+	    for (unsigned i=0; i<nbDevices; i++) {
+	      fullSingleWrittenRegion.myUnion(SI->shiftDataWritten[i][globalPos]);
+	      DEBUG("shift",
+		    std::cerr << "single written region global " << globalPos << " dev " << i << ": ";
+		    SI->shiftDataWritten[i][globalPos].debug();
+		    std::cerr << "\n";);
+	    }
+	    DEBUG("shift",
+		  std::cerr << "full written region global " << globalPos << ": ";
+		  SI->fullWrittenRegion[globalPos]->debug();
+		  std::cerr << "\n";);
+
+	    ListInterval *difference = ListInterval::difference(*SI->fullWrittenRegion[globalPos],
+								fullSingleWrittenRegion);
+	    if (difference->total() > 0)
+	      shiftDone = false;
+	    delete difference;
+	  }
+
+	  if (shiftDone) {
+	    SI->partitionUnchanged = false;
+	    SI->shiftingPartition = false;
+	    fillSubkernelInfoShift(k,
+				   SI,
+				   *SI->origNDRange,
+				   SI->shiftedSubNDRanges,
+				   SI->real_granu_dscr,
+				   &SI->real_size_gr,
+				   SI->dimOrder[SI->currentDim], SI->subkernels,
+				   k->getAnalysis()->getNbGlobalArguments(),
+				   SI->dataRequired, SI->dataWritten,
+				   SI->dataWrittenMerge,
+				   SI->dataWrittenOr,
+				   SI->dataWrittenAtomicSum,
+				   SI->dataWrittenAtomicMin,
+				   SI->dataWrittenAtomicMax);
+
+	    return true;
+	  } else {
+	    SI->shiftingDevice = 0;
+	    SI->shiftingWgs++;
+	    SI->needToInstantiateAnalysis = true;
+
+	    SI->shiftDataRequired.clear(); SI->shiftDataRequired.resize(nbDevices);
+	    SI->shiftDataWritten.clear(); SI->shiftDataWritten.resize(nbDevices);
+	    SI->shiftDataWrittenOr.clear(); SI->shiftDataWrittenOr.resize(nbDevices);
+	    SI->shiftDataWrittenAtomicSum.clear(); SI->shiftDataWrittenAtomicSum.resize(nbDevices);
+	    SI->shiftDataWrittenAtomicMin.clear(); SI->shiftDataWrittenAtomicMin.resize(nbDevices);
+	    SI->shiftDataWrittenAtomicMax.clear(); SI->shiftDataWrittenAtomicMax.resize(nbDevices);
+	    unsigned nbGlobals = analysis->getNbGlobalArguments();
+	    for (unsigned i=0; i<nbDevices; i++) {
+	      SI->shiftDataRequired[i].resize(nbGlobals);
+	      SI->shiftDataWritten[i].resize(nbGlobals);
+	      SI->shiftDataWrittenOr[i].resize(nbGlobals);
+	      SI->shiftDataWrittenAtomicSum[i].resize(nbGlobals);
+	      SI->shiftDataWrittenAtomicMin[i].resize(nbGlobals);
+	      SI->shiftDataWrittenAtomicMax[i].resize(nbGlobals);
+	    }
+
+	    return false;
+	  }
+	} else {
+	  SI->shiftingDevice++;
+	  SI->needToInstantiateAnalysis = true;
+	  return false;
+	}
+      }
+
+      // Multi device
+      switch (st) {
+      case ArgumentAnalysis::FAIL:
 	std::cerr << "cannot split dim " << SI->dimOrder[SI->currentDim] << "\n";
 	SI->currentDim++;
 	SI->needToInstantiateAnalysis = true;
-
 	return false;
-      }
+
+      case ArgumentAnalysis::MERGE:
+	{
+	  assert(!SI->shiftingPartition);
+	  SI->shiftingPartition = true;
+	  SI->shiftingDevice = 0;
+	  SI->shiftingWgs = 1;
+	  SI->shiftedSubNDRanges = SI->requiredSubNDRanges;
+	  SI->nbMergeArgs = k->getAnalysis()->getNbMergeArguments();
+	  SI->mergeArg2GlobalPos.clear();
+
+
+	  SI->shiftDataRequired.clear(); SI->shiftDataRequired.resize(nbDevices);
+	  SI->shiftDataWritten.clear(); SI->shiftDataWritten.resize(nbDevices);
+	  SI->shiftDataWrittenOr.clear(); SI->shiftDataWrittenOr.resize(nbDevices);
+	  SI->shiftDataWrittenAtomicSum.clear(); SI->shiftDataWrittenAtomicSum.resize(nbDevices);
+	  SI->shiftDataWrittenAtomicMin.clear(); SI->shiftDataWrittenAtomicMin.resize(nbDevices);
+	  SI->shiftDataWrittenAtomicMax.clear(); SI->shiftDataWrittenAtomicMax.resize(nbDevices);
+	  unsigned nbGlobals = k->getAnalysis()->getNbGlobalArguments();
+	  for (unsigned i=0; i<nbDevices; i++) {
+	    SI->shiftDataRequired[i].resize(nbGlobals);
+	    SI->shiftDataWritten[i].resize(nbGlobals);
+	    SI->shiftDataWrittenOr[i].resize(nbGlobals);
+	    SI->shiftDataWrittenAtomicSum[i].resize(nbGlobals);
+	    SI->shiftDataWrittenAtomicMin[i].resize(nbGlobals);
+	    SI->shiftDataWrittenAtomicMax[i].resize(nbGlobals);
+	  }
+
+	  // Save full written region for merge arguments.
+	  for (unsigned a=0; a<SI->nbMergeArgs; a++) {
+	    unsigned globalPos = k->getAnalysis()->getMergeArgGlobalPos(a);
+	    SI->mergeArg2GlobalPos[a] = globalPos;
+	    SI->fullWrittenRegion[globalPos] =
+	      k->getAnalysis()->getArgFullWrittenRegion(globalPos);
+	  }
+
+	  SI->needToInstantiateAnalysis = true;
+	  return false;
+	}
+      case ArgumentAnalysis::SUCCESS:
+	SI->partitionUnchanged = false;
+	fillSubkernelInfoMulti(k,
+				SI->real_granu_dscr, &SI->real_size_gr,
+				SI->dimOrder[SI->currentDim], SI->subkernels,
+				SI->dataRequired, SI->dataWritten,
+				SI->dataWrittenMerge,
+				SI->dataWrittenOr,
+				SI->dataWrittenAtomicSum,
+				SI->dataWrittenAtomicMin,
+				SI->dataWrittenAtomicMax);
+
+	return true;
+      };
     }
 
     SI->partitionUnchanged = false;
+
     return true;
   }
 
@@ -327,6 +549,7 @@ namespace libsplit {
 			  std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
+			  std::vector<DeviceBufferRegion> &dataWrittenMerge, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
 			  std::vector<DeviceBufferRegion> &dataWrittenAtomicMin, /* OUT */
@@ -346,6 +569,7 @@ namespace libsplit {
       subkernels.push_back(SI->subkernels[i]);
     dataRequired = SI->dataRequired;
     dataWritten = SI->dataWritten;
+    dataWrittenMerge = SI->dataWrittenMerge;
     dataWrittenOr = SI->dataWrittenOr;
     dataWrittenAtomicSum = SI->dataWrittenAtomicSum;
     dataWrittenAtomicMin = SI->dataWrittenAtomicMin;
@@ -504,31 +728,32 @@ namespace libsplit {
   }
 
   bool
-  Scheduler::instantiateAnalysis(KernelHandle *k,
-				 double *granu_dscr,
-				 int *size_gr,
-				 unsigned splitDim,
-				 std::vector<SubKernelExecInfo *> &subkernels,
-				 std::vector<DeviceBufferRegion> &dataRequired,
-				 std::vector<DeviceBufferRegion> &dataWritten,
-				 std::vector<DeviceBufferRegion> &dataWrittenOr,
-				 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
-				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
-				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
+  Scheduler::fillSubkernelInfoMulti(KernelHandle *k,
+				    double *granu_dscr,
+				    int *size_gr,
+				    unsigned splitDim,
+				    std::vector<SubKernelExecInfo *> &subkernels,
+				    std::vector<DeviceBufferRegion> &dataRequired,
+				    std::vector<DeviceBufferRegion> &dataWritten,
+				    std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				    std::vector<DeviceBufferRegion> &dataWrittenOr,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
     dataRequired.clear();
     dataWritten.clear();
+    dataWrittenMerge.clear();
     dataWrittenOr.clear();
     dataWrittenAtomicSum.clear();
     dataWrittenAtomicMin.clear();
     dataWrittenAtomicMax.clear();
+    dataWrittenMerge.clear();
     for (unsigned i=0; i<subkernels.size(); i++)
       delete subkernels[i];
     subkernels.clear();
 
 
     KernelAnalysis *analysis = k->getAnalysis();
-    if (!analysis->performAnalysis())
-      return false;
 
     const NDRange &origNDRange = analysis->getKernelNDRange();
     const std::vector<NDRange> &subNDRanges = analysis->getSubNDRanges();
@@ -569,9 +794,13 @@ namespace libsplit {
       MemoryHandle *m = k->getGlobalArgHandle(a);
       assert(m);
 
+      // Compute written merge region
+      ListInterval writtenMergeRegion;
+      writtenMergeRegion.myUnion(analysis->getArgWrittenMergeRegion(a));
+
       for (int i=0; i<nbSplits; i++) {
-	ListInterval readRegion, writtenRegion, writtenOrRegion,
-	  writtenAtomicSumRegion, writtenAtomicMinRegion,
+	ListInterval readRegion, writtenRegion,
+	  writtenOrRegion, writtenAtomicSumRegion, writtenAtomicMinRegion,
 	  writtenAtomicMaxRegion;
 	unsigned devId = granu_dscr[i*3];
 
@@ -622,6 +851,7 @@ namespace libsplit {
 			   getArgWrittenAtomicMinSubkernelRegion(a, i));
 	readRegion.myUnion(analysis->
 			   getArgWrittenAtomicMaxSubkernelRegion(a, i));
+	readRegion.myUnion(writtenMergeRegion);
 
 	if (readRegion.total() > 0 || readRegion.isUndefined())
 	  dataRequired.push_back(DeviceBufferRegion(m, devId, readRegion));
@@ -639,6 +869,9 @@ namespace libsplit {
 	if (writtenAtomicMaxRegion.total() > 0)
 	  dataWrittenAtomicMax.
 	    push_back(DeviceBufferRegion(m, devId, writtenAtomicMaxRegion));
+	if (writtenMergeRegion.total() > 0)
+	  dataWrittenMerge.
+	    push_back(DeviceBufferRegion(m, devId, writtenMergeRegion));
       }
     }
 
@@ -646,19 +879,111 @@ namespace libsplit {
   }
 
   bool
-  Scheduler::instantiateSingleDeviceAnalysis(KernelHandle *k,
-					     double *granu_dscr,
-					     int *size_gr,
-					     unsigned splitDim,
-					     std::vector<SubKernelExecInfo *> &subkernels,
-					     std::vector<DeviceBufferRegion> &dataRequired,
-					     std::vector<DeviceBufferRegion> &dataWritten,
-					     std::vector<DeviceBufferRegion> &dataWrittenOr,
-					     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
-					     std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
-					     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
+  Scheduler::fillSubkernelInfoShift(KernelHandle *k,
+				    SubKernelSchedInfo *SI,
+				    const NDRange &origNDRange,
+				    const std::vector<NDRange> &subNDRanges,
+				    double *granu_dscr,
+				    int *size_gr,
+				    unsigned splitDim,
+				    std::vector<SubKernelExecInfo *> &subkernels,
+				    unsigned nbGlobals,
+				    std::vector<DeviceBufferRegion> &dataRequired,
+				    std::vector<DeviceBufferRegion> &dataWritten,
+				    std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				    std::vector<DeviceBufferRegion> &dataWrittenOr,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				    std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
     dataRequired.clear();
     dataWritten.clear();
+    dataWrittenMerge.clear();
+    dataWrittenOr.clear();
+    dataWrittenAtomicSum.clear();
+    dataWrittenAtomicMin.clear();
+    dataWrittenAtomicMax.clear();
+    dataWrittenMerge.clear();
+    for (unsigned i=0; i<subkernels.size(); i++)
+      delete subkernels[i];
+    subkernels.clear();
+
+    int nbSplits = *size_gr / 3;
+    unsigned work_dim = origNDRange.get_work_dim();
+    unsigned num_groups = origNDRange.get_global_size(splitDim) /
+      origNDRange.get_local_size(splitDim);
+
+    // Fill subkernels vector
+    for (int i=0; i<nbSplits; i++) {
+      unsigned devId = granu_dscr[i*3];
+      SubKernelExecInfo *subkernel = new SubKernelExecInfo();
+      subkernel->device = devId;
+      subkernel->work_dim = work_dim;
+      for (unsigned dim=0; dim < work_dim; dim++) {
+	subkernel->global_work_offset[dim] = subNDRanges[i].getOffset(dim);
+	subkernel->global_work_size[dim] = subNDRanges[i].get_global_size(dim);
+	subkernel->local_work_size[dim] = subNDRanges[i].get_local_size(dim);
+      }
+      subkernel->numgroups = num_groups;
+      subkernel->splitdim = splitDim;
+      subkernels.push_back(subkernel);
+    }
+
+    // Fill dataRequired and dataWritten vectors
+    for (unsigned a=0; a<nbGlobals; a++) {
+      MemoryHandle *m = k->getGlobalArgHandle(a);
+      assert(m);
+
+      for (int i=0; i<nbSplits; i++) {
+	unsigned devId = granu_dscr[i*3];
+
+	// The data written have to be send to the device.
+	SI->shiftDataRequired[i][a].myUnion(SI->shiftDataWritten[i][a]);
+	SI->shiftDataRequired[i][a].myUnion(SI->shiftDataWrittenOr[i][a]);
+	SI->shiftDataRequired[i][a].myUnion(SI->shiftDataWrittenAtomicSum[i][a]);
+	SI->shiftDataRequired[i][a].myUnion(SI->shiftDataWrittenAtomicMin[i][a]);
+	SI->shiftDataRequired[i][a].myUnion(SI->shiftDataWrittenAtomicMax[i][a]);
+
+	if (SI->shiftDataRequired[i][a].total() > 0 ||
+	    SI->shiftDataRequired[i][a].isUndefined())
+	  dataRequired.push_back(DeviceBufferRegion(m, devId,
+						    SI->shiftDataRequired[i][a]));
+	if (SI->shiftDataWritten[i][a].total() > 0)
+	  dataWritten.push_back(DeviceBufferRegion(m, devId, SI->shiftDataWritten[i][a]));
+	if (SI->shiftDataWrittenOr[i][a].total() > 0)
+	  dataWrittenOr.
+	    push_back(DeviceBufferRegion(m, devId, SI->shiftDataWrittenOr[i][a]));
+	if (SI->shiftDataWrittenAtomicSum[i][a].total() > 0 ||
+	    SI->shiftDataWrittenAtomicSum[i][a].isUndefined())
+	  dataWrittenAtomicSum.
+	    push_back(DeviceBufferRegion(m, devId, SI->shiftDataWrittenAtomicSum[i][a]));
+	if (SI->shiftDataWrittenAtomicMin[i][a].total() > 0)
+	  dataWrittenAtomicMin.
+	    push_back(DeviceBufferRegion(m, devId, SI->shiftDataWrittenAtomicMin[i][a]));
+	if (SI->shiftDataWrittenAtomicMax[i][a].total() > 0)
+	  dataWrittenAtomicMax.
+	    push_back(DeviceBufferRegion(m, devId, SI->shiftDataWrittenAtomicMax[i][a]));
+      }
+    }
+
+    return true;
+  }
+
+  bool
+  Scheduler::fillSubkernelInfoSingle(KernelHandle *k,
+				     double *granu_dscr,
+				     int *size_gr,
+				     unsigned splitDim,
+				     std::vector<SubKernelExecInfo *> &subkernels,
+				     std::vector<DeviceBufferRegion> &dataRequired,
+				     std::vector<DeviceBufferRegion> &dataWritten,
+				     std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				     std::vector<DeviceBufferRegion> &dataWrittenOr,
+				     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				     std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax) {
+    dataRequired.clear();
+    dataWritten.clear();
+    dataWrittenMerge.clear();
     dataWrittenOr.clear();
     dataWrittenAtomicSum.clear();
     dataWrittenAtomicMin.clear();
@@ -669,7 +994,6 @@ namespace libsplit {
 
 
     KernelAnalysis *analysis = k->getAnalysis();
-    analysis->performAnalysis();
 
     const NDRange &origNDRange = analysis->getKernelNDRange();
     const std::vector<NDRange> &subNDRanges = analysis->getSubNDRanges();

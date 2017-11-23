@@ -180,7 +180,7 @@ WorkItemExpr::isOutOfGuards(const NDRange &kernelNDRange) const {
 	    break;
 	  }
 	case GuardExpr::NEQ:
-	  std::cerr << "warning: Guard predicate NEQ not handled !\n";
+	  // std::cerr << "warning: Guard predicate NEQ not handled !\n";
 	  return false;
 	};
 

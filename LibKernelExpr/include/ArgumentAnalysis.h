@@ -21,6 +21,12 @@ public:
     UNKNOWN
   };
 
+  enum status {
+    SUCCESS,
+    MERGE,
+    FAIL,
+  };
+
   ArgumentAnalysis(unsigned pos, TYPE type, unsigned sizeInBytes,
 		   const std::vector<WorkItemExpr *> &loadExprs,
 		   const std::vector<WorkItemExpr *> &storeExprs,
@@ -37,7 +43,6 @@ public:
 		   std::vector<WorkItemExpr *> *atomicMaxExprs);
   ~ArgumentAnalysis();
 
-  bool canSplit() const;
   bool isWritten() const;
   bool isWrittenOr() const;
   bool isWrittenAtomicSum() const;
@@ -82,6 +87,7 @@ public:
   const ListInterval & getWrittenAtomicSumSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenAtomicMinSubkernelRegion(unsigned i) const;
   const ListInterval & getWrittenAtomicMaxSubkernelRegion(unsigned i) const;
+  const ListInterval & getWrittenMergeRegion() const;
 
   void dump();
 
@@ -92,8 +98,8 @@ public:
 		    const std::vector<NDRange> *subNDRanges);
   void injectArgValues(const std::vector<IndexExprValue *> &argValues);
 
-  void performAnalysis(const std::vector< std::vector<IndirectionValue> > &
-		       subKernelIndirectionValues);
+  enum status performAnalysis(const std::vector< std::vector<IndirectionValue> > &
+			      subKernelIndirectionValues);
 
   unsigned getPos() const;
   TYPE getType() const;
@@ -149,6 +155,7 @@ private:
   std::vector<ListInterval> writtenAtomicSumSubkernelsRegions;
   std::vector<ListInterval> writtenAtomicMinSubkernelsRegions;
   std::vector<ListInterval> writtenAtomicMaxSubkernelsRegions;
+  ListInterval writtenMergeRegion;
 
   bool mReadBoundsComputed;
   bool mWriteBoundsComputed;

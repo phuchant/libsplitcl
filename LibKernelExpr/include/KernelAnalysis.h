@@ -54,7 +54,13 @@ class KernelAnalysis {
 
   // Try to split the kernel for the current partition.
   // Return true if the kernel can be split, false otherwise.
-  bool performAnalysis();
+
+  ArgumentAnalysis::status performAnalysis();
+
+  unsigned getNbMergeArguments() const;
+  unsigned getMergeArgGlobalPos(unsigned mergeNo) const;
+  ListInterval *
+  getArgFullWrittenRegion(unsigned argNo) const;
 
   // Regions info
   bool argReadBoundsComputed(unsigned argNo) const;
@@ -83,6 +89,8 @@ class KernelAnalysis {
   getArgWrittenAtomicMinSubkernelRegion(unsigned argNo, unsigned i) const;
   const ListInterval &
   getArgWrittenAtomicMaxSubkernelRegion(unsigned argNo, unsigned i) const;
+  const ListInterval &
+  getArgWrittenMergeRegion(unsigned argNo) const;
 
   // I/O
   void write(std::stringstream &s) const;
@@ -106,6 +114,8 @@ class KernelAnalysis {
   std::map<unsigned, unsigned> argPos2GlobalId;
   std::map<unsigned, bool> argIsGlobalMap;
   std::map<unsigned, bool> argIsScalarMap;
+
+  std::vector<unsigned> mergeArguments;
 
   // Indirections regions to be read.
   std::vector<ArgIndirectionRegionExpr *> kernelIndirectionExprs;

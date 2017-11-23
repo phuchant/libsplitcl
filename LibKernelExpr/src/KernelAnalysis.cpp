@@ -278,19 +278,52 @@ KernelAnalysis::setSubkernelIndirectionsValues(unsigned n,
 				       values.begin(), values.end());
 }
 
-bool
+ArgumentAnalysis::status
 KernelAnalysis::performAnalysis() {
-  bool ret = true;
+  enum ArgumentAnalysis::status ret = ArgumentAnalysis::SUCCESS;
+  mergeArguments.clear();
+
   for (unsigned i = 0; i<mArgsAnalysis.size(); i++) {
-    mArgsAnalysis[i]->performAnalysis(subKernelIndirectionValues);
-    if (!mArgsAnalysis[i]->canSplit()) {
-      std::cerr << "cannot split arg pos " << mArgsAnalysis[i]->getPos() << "\n";
-      ret = false;
-    }
+    switch (mArgsAnalysis[i]->performAnalysis(subKernelIndirectionValues)) {
+    case ArgumentAnalysis::SUCCESS:
+      continue;
+
+    case ArgumentAnalysis::MERGE:
+      mergeArguments.push_back(i);
+      ret = ret == ArgumentAnalysis::FAIL ?
+	ArgumentAnalysis::FAIL : ArgumentAnalysis::MERGE;
+      continue;
+
+    case ArgumentAnalysis::FAIL:
+      ret = ArgumentAnalysis::FAIL;
+    };
   }
 
   return ret;
 }
+
+unsigned
+KernelAnalysis::getNbMergeArguments() const {
+  return mergeArguments.size();
+}
+
+unsigned
+KernelAnalysis::getMergeArgGlobalPos(unsigned mergeNo) const {
+  assert(mergeNo < mergeArguments.size());
+  return mergeArguments[mergeNo];
+}
+
+
+ListInterval *
+KernelAnalysis::getArgFullWrittenRegion(unsigned argNo) const {
+  ListInterval *ret = new ListInterval();
+  ret->myUnion(mArgsAnalysis[argNo]->getWrittenMergeRegion());
+  assert(subNDRanges);
+  for (unsigned i=0; i<subNDRanges->size(); i++)
+    ret->myUnion(mArgsAnalysis[argNo]->getWrittenSubkernelRegion(i));
+  return ret;
+}
+
 
 bool
 KernelAnalysis::argReadBoundsComputed(unsigned argNo) const {
@@ -387,6 +420,11 @@ const ListInterval &
 KernelAnalysis::getArgWrittenAtomicMinSubkernelRegion(unsigned argNo,
 						      unsigned i) const {
   return mArgsAnalysis[argNo]->getWrittenAtomicMinSubkernelRegion(i);
+}
+
+const ListInterval &
+KernelAnalysis::getArgWrittenMergeRegion(unsigned argNo) const {
+  return mArgsAnalysis[argNo]->getWrittenMergeRegion();
 }
 
 void

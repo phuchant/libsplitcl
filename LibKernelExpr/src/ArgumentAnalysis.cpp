@@ -224,6 +224,11 @@ ArgumentAnalysis::dump() {
       writtenSubkernelsRegions[i].debug();
       std::cerr << "\n";
     }
+
+    std::cerr << "\033[1mWritten merge region : \033[0m";
+    writtenMergeRegion.debug();
+    std::cerr << "\n";
+
   } else {
     std::cerr << "\033[1mWritten region not computed\033[0m\n";
   }
@@ -350,6 +355,7 @@ ArgumentAnalysis:: setPartition(const NDRange *kernelNDRange,
   writtenAtomicMinSubkernelsRegions.resize(nbSplit);
   writtenAtomicMaxSubkernelsRegions.clear();
   writtenAtomicMaxSubkernelsRegions.resize(nbSplit);
+  writtenMergeRegion.clear();
 
   analysisHasBeenRun = false;
 }
@@ -372,7 +378,7 @@ ArgumentAnalysis::injectArgValues(const std::vector<IndexExprValue *> &argValues
     (*atomicMaxWorkItemExprs)[idx]->injectArgsValues(argValues, *kernelNDRange);
 }
 
-void
+enum ArgumentAnalysis::status
 ArgumentAnalysis::performAnalysis(const
 				  std::vector<std::vector<IndirectionValue> > &
 				  subKernelIndirectionValues) {
@@ -445,6 +451,7 @@ ArgumentAnalysis::performAnalysis(const
   writtenAtomicMinSubkernelsRegions.resize(nbSplit);
   writtenAtomicMaxSubkernelsRegions.clear();
   writtenAtomicMaxSubkernelsRegions.resize(nbSplit);
+  writtenMergeRegion.clear();
 
   analysisHasBeenRun = true;
 #ifdef DEBUG
@@ -547,26 +554,22 @@ ArgumentAnalysis::performAnalysis(const
 
   // AtomicSum bounds can be undefined.
 
-  if (!mWriteBoundsComputed || !mOrBoundsComputed ||
-      !mAtomicMinBoundsComputed || !mAtomicMaxBoundsComputed)
-    return;
+  // If written bounds are not computed return FAIL
+  if ((isWrittenOr() && !mWriteBoundsComputed) ||
+      (isWrittenAtomicMin() && !mAtomicMinBoundsComputed) ||
+      (isWrittenAtomicMax() && !mAtomicMaxBoundsComputed) ||
+      (isWritten() && !mWriteBoundsComputed)) {
+    return ArgumentAnalysis::FAIL;
+  }
 
   // Find out if subkernels region are disjoint
   performDisjointTest();
-}
 
-bool
-ArgumentAnalysis::canSplit() const {
-  // We can split if the argument is read-only or not used or
-  // if each split kernel access disjoint regions of the argument
+  if (!areDisjoint) {
+    return ArgumentAnalysis::MERGE;
+  }
 
-  // AtomicSum bounds can be undefined.
-
-  return
-    ( !isWrittenOr() || mOrBoundsComputed) &&
-    ( !isWrittenAtomicMin() || mAtomicMinBoundsComputed) &&
-    ( !isWrittenAtomicMax() || mAtomicMaxBoundsComputed) &&
-    ( !isWritten() || (mWriteBoundsComputed && areDisjoint) );
+  return ArgumentAnalysis::SUCCESS;
 }
 
 bool
@@ -799,6 +802,11 @@ ArgumentAnalysis::getWrittenAtomicMaxSubkernelRegion(unsigned i) const {
   return writtenAtomicMaxSubkernelsRegions[i];
 }
 
+const ListInterval &
+ArgumentAnalysis::getWrittenMergeRegion() const {
+  return writtenMergeRegion;
+}
+
 ArgumentAnalysis::TYPE
 ArgumentAnalysis::getType() const {
   return type;
@@ -989,6 +997,7 @@ ArgumentAnalysis::computeRegions() {
 
 void ArgumentAnalysis::performDisjointTest() {
   areDisjoint = true;
+  writtenMergeRegion.clear();
 
   // If the argument is n ot used, set areDisjoint to true.
   if (!isWritten())
@@ -1007,11 +1016,16 @@ void ArgumentAnalysis::performDisjointTest() {
 				   writtenSubkernelsRegions[j]);
       if (!inter->mList.empty()) {
 	areDisjoint = false;
-	delete inter;
-	return;
+	writtenMergeRegion.myUnion(*inter);
       }
 
       delete inter;
+    }
+  }
+
+  if (!areDisjoint) {
+    for (unsigned i=0; i<nbSplit; i++) {
+      writtenSubkernelsRegions[i].difference(writtenMergeRegion);
     }
   }
 }

@@ -103,6 +103,9 @@ namespace libsplit {
     void startAtomicMaxD2HTransfers(unsigned kerId,
 				    const std::vector<DeviceBufferRegion>
 				    &transferList);
+    void startMergeD2HTransfers(unsigned kerId,
+				const std::vector<DeviceBufferRegion>
+				&transferList);
 
     void enqueueSubKernels(KernelHandle *k,
 			   std::vector<SubKernelExecInfo *> &subkernels,
@@ -119,6 +122,9 @@ namespace libsplit {
     void performHostAtomicMaxReduction(KernelHandle *k,
 				       const std::vector<DeviceBufferRegion> &
 				       transferList);
+    void performHostMerge(KernelHandle *k,
+			  const std::vector<DeviceBufferRegion> &
+			  transferList);
   };
 
 };

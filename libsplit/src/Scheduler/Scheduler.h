@@ -4,6 +4,7 @@
 #include <BufferManager.h>
 #include <Queue/Event.h>
 #include <IndexExpr/IndexExprValue.h>
+#include <NDRange.h>
 #include <vector>
 
 namespace libsplit {
@@ -55,6 +56,7 @@ namespace libsplit {
 			      std::vector<SubKernelExecInfo *> &subkernels, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataRequired, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWritten, /* OUT */
+			      std::vector<DeviceBufferRegion> &dataWrittenMerge, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenOr, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenAtomicSum, /* OUT */
 			      std::vector<DeviceBufferRegion> &dataWrittenAtomicMin, /* OUT */
@@ -107,29 +109,48 @@ namespace libsplit {
 		      const size_t *local_work_size,
 		      unsigned order[3]);
 
-    bool instantiateAnalysis(KernelHandle *k,
-			     double *granu_dscr,
-			     int *size_gr,
-			     unsigned splitDim,
-			     std::vector<SubKernelExecInfo *> &subkernels,
-			     std::vector<DeviceBufferRegion> &dataRequired,
-			     std::vector<DeviceBufferRegion> &dataWritten,
-			     std::vector<DeviceBufferRegion> &dataWrittenOr,
-			     std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
-			     std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
-			     std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
+    bool fillSubkernelInfoMulti(KernelHandle *k,
+				double *granu_dscr,
+				int *size_gr,
+				unsigned splitDim,
+				std::vector<SubKernelExecInfo *> &subkernels,
+				std::vector<DeviceBufferRegion> &dataRequired,
+				std::vector<DeviceBufferRegion> &dataWritten,
+				std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				std::vector<DeviceBufferRegion> &dataWrittenOr,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
-    bool instantiateSingleDeviceAnalysis(KernelHandle *k,
-					 double *granu_dscr,
-					 int *size_gr,
-					 unsigned splitDim,
-					 std::vector<SubKernelExecInfo *> &subkernels,
-					 std::vector<DeviceBufferRegion> &dataRequired,
-					 std::vector<DeviceBufferRegion> &dataWritten,
-					 std::vector<DeviceBufferRegion> &dataWrittenOr,
-					 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
-					 std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
-					 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
+    bool fillSubkernelInfoShift(KernelHandle *k,
+				SubKernelSchedInfo *SI,
+				const NDRange &origNDRange,
+				const std::vector<NDRange> &subNDRanges,
+				double *granu_dscr,
+				int *size_gr,
+				unsigned splitDim,
+				std::vector<SubKernelExecInfo *> &subkernels,
+				unsigned nbGlobals,
+				std::vector<DeviceBufferRegion> &dataRequired,
+				std::vector<DeviceBufferRegion> &dataWritten,
+				std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				std::vector<DeviceBufferRegion> &dataWrittenOr,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
+
+    bool fillSubkernelInfoSingle(KernelHandle *k,
+				 double *granu_dscr,
+				 int *size_gr,
+				 unsigned splitDim,
+				 std::vector<SubKernelExecInfo *> &subkernels,
+				 std::vector<DeviceBufferRegion> &dataRequired,
+				 std::vector<DeviceBufferRegion> &dataWritten,
+				 std::vector<DeviceBufferRegion> &dataWrittenMerge,
+				 std::vector<DeviceBufferRegion> &dataWrittenOr,
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicSum,
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMin,
+				 std::vector<DeviceBufferRegion> &dataWrittenAtomicMax);
 
     void adaptGranudscr(double *granu_dscr, int *size_gr,
 			size_t global_work_size, size_t local_work_size);
@@ -146,7 +167,10 @@ namespace libsplit {
 	partitionUnchanged(false),
 	needOtherExecToComplete(false),
 	needToInstantiateAnalysis(true),
-	currentDim(0) {
+	currentDim(0),
+	shiftingPartition(false),
+	nbMergeArgs(0),
+	origNDRange(nullptr) {
 	req_size_gr = real_size_gr = size_perf_dscr = nbDevices*3;
 	req_granu_dscr = new double[req_size_gr];
 	real_granu_dscr = new double[real_size_gr];
@@ -209,13 +233,33 @@ namespace libsplit {
       double *D2HTimes;
       double *kernelTimes;
 
+      // shifting
+      unsigned shiftingPartition;
+      unsigned shiftingDevice;
+      unsigned shiftingWgs;
+      unsigned nbMergeArgs;
+      std::map<unsigned, unsigned> mergeArg2GlobalPos;
+      std::map<unsigned, ListInterval *> fullWrittenRegion;
+      NDRange *origNDRange;
+      std::vector<NDRange> requiredSubNDRanges;
+      std::vector<NDRange> shiftedSubNDRanges;
+
       // read and written regions
       std::vector<DeviceBufferRegion> dataRequired;
       std::vector<DeviceBufferRegion> dataWritten;
+      std::vector<DeviceBufferRegion> dataWrittenMerge;
       std::vector<DeviceBufferRegion> dataWrittenOr;
       std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
       std::vector<DeviceBufferRegion> dataWrittenAtomicMin;
       std::vector<DeviceBufferRegion> dataWrittenAtomicMax;
+
+      // read and written shift regions
+      std::vector<std::vector<ListInterval> > shiftDataRequired;
+      std::vector<std::vector<ListInterval> > shiftDataWritten;
+      std::vector<std::vector<ListInterval> > shiftDataWrittenOr;
+      std::vector<std::vector<ListInterval> > shiftDataWrittenAtomicSum;
+      std::vector<std::vector<ListInterval> > shiftDataWrittenAtomicMin;
+      std::vector<std::vector<ListInterval> > shiftDataWrittenAtomicMax;
 
       // Arguments values
       std::vector<IndexExprValue *> argsValues;

@@ -46,15 +46,31 @@ namespace libsplit {
   }
 
   static void debugRegions(std::vector<DeviceBufferRegion> &dataRequired,
-			   std::vector<DeviceBufferRegion> &dataWritten) {
+			   std::vector<DeviceBufferRegion> &dataWritten,
+			   std::vector<DeviceBufferRegion> &dataWrittenAtomicSum) {
     for (unsigned i=0; i<dataRequired.size(); i++) {
       std::cerr << "data required on dev " << dataRequired[i].devId << " :";
+      std::cerr << "m=" << dataRequired[i].m << " ";
+      if (dataRequired[i].region.isUndefined())
+	std::cerr << "(undefined) ";
       dataRequired[i].region.debug();
       std::cerr << "\n";
     }
     for (unsigned i=0; i<dataWritten.size(); i++) {
       std::cerr << "data written on dev " << dataWritten[i].devId << " :";
+      std::cerr << "m=" << dataWritten[i].m << " ";
+      if (dataWritten[i].region.isUndefined())
+	std::cerr << "(undefined) ";
       dataWritten[i].region.debug();
+      std::cerr << "\n";
+    }
+    for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
+      std::cerr << "m=" << dataWrittenAtomicSum[i].m << " ";
+      if (dataWrittenAtomicSum[i].region.isUndefined())
+	std::cerr << "(undefined) ";
+
+      std::cerr << "data written atomic sum on dev " << dataWrittenAtomicSum[i].devId << " :";
+      dataWrittenAtomicSum[i].region.debug();
       std::cerr << "\n";
     }
   }
@@ -219,6 +235,8 @@ namespace libsplit {
       std::cerr << " lb=" << reg.lbValue->getDoubleValue()
 		<< " hb=" << reg.hbValue->getDoubleValue() << "\n";
       break;
+    default:
+      std::cerr << "lb=UNKNOWN hb=UNKNOWN\n";
     };
   }
 
@@ -250,6 +268,7 @@ namespace libsplit {
     std::vector<SubKernelExecInfo *> subkernels;
     std::vector<DeviceBufferRegion> dataRequired;
     std::vector<DeviceBufferRegion> dataWritten;
+    std::vector<DeviceBufferRegion> dataWrittenMerge;
     std::vector<DeviceBufferRegion> dataWrittenOr;
     std::vector<DeviceBufferRegion> dataWrittenAtomicSum;
     std::vector<DeviceBufferRegion> dataWrittenAtomicMin;
@@ -260,6 +279,7 @@ namespace libsplit {
     std::vector<DeviceBufferRegion> AtomicSumD2HTransfers;
     std::vector<DeviceBufferRegion> AtomicMinD2HTransfers;
     std::vector<DeviceBufferRegion> AtomicMaxD2HTransfers;
+    std::vector<DeviceBufferRegion> MergeD2HTransfers;
     bool needOtherExecutionToComplete = false;
     unsigned kerId = 0;
 
@@ -368,7 +388,7 @@ namespace libsplit {
     scheduler->getPartition(k,
 			    &needOtherExecutionToComplete,
 			    subkernels,
-			    dataRequired, dataWritten,
+			    dataRequired, dataWritten, dataWrittenMerge,
 			    dataWrittenOr,
 			    dataWrittenAtomicSum, dataWrittenAtomicMin,
 			    dataWrittenAtomicMax,
@@ -376,7 +396,7 @@ namespace libsplit {
 
     double t2 = get_time();
 
-    DEBUG("regions", debugRegions(dataRequired, dataWritten));
+    DEBUG("regions", debugRegions(dataRequired, dataWritten, dataWrittenAtomicSum));
 
     DEBUG("granu",
     std::cerr << k->getName() << ": ";
@@ -386,13 +406,14 @@ namespace libsplit {
 
     bufferMgr->computeTransfers(dataRequired,
 				dataWritten,
+				dataWrittenMerge,
 				dataWrittenOr,
 				dataWrittenAtomicSum, dataWrittenAtomicMin,
 				dataWrittenAtomicMax,
 				D2HTransfers, H2DTransfers,
 				OrD2HTransfers,
 				AtomicSumD2HTransfers, AtomicMinD2HTransfers,
-				AtomicMaxD2HTransfers);
+				AtomicMaxD2HTransfers, MergeD2HTransfers);
 
     DEBUG("transfers",
 	  std::cerr << "OrD2HTransfers.size()="<< OrD2HTransfers.size() << "\n";
@@ -433,6 +454,8 @@ namespace libsplit {
       startAtomicMinD2HTransfers(kerId, AtomicMinD2HTransfers);
     if (AtomicMaxD2HTransfers.size() > 0)
       startAtomicMaxD2HTransfers(kerId, AtomicMaxD2HTransfers);
+    if (MergeD2HTransfers.size() > 0)
+      startMergeD2HTransfers(kerId, MergeD2HTransfers);
 
 
     double t5 = get_time();
@@ -452,7 +475,8 @@ namespace libsplit {
       performHostAtomicMinReduction(k, AtomicMinD2HTransfers);
     if (AtomicMaxD2HTransfers.size() > 0)
       performHostAtomicMaxReduction(k, AtomicMaxD2HTransfers);
-
+    if (MergeD2HTransfers.size() > 0)
+      performHostMerge(k, MergeD2HTransfers);
 
     // Case where we need another execution to complete the whole original
     // NDRange.
@@ -753,6 +777,49 @@ namespace libsplit {
   }
 
   void
+  Driver::startMergeD2HTransfers(unsigned kerId,
+				 const std::vector<DeviceBufferRegion>
+				 &transferList) {
+
+    std::cerr << "Error: merge disabled !\n";
+    assert(false);
+
+    DEBUG("transfers", std::cerr << "start MERGE D2H\n");
+
+    // For each device
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      std::vector<Event> events;
+      MemoryHandle *m = transferList[i].m;
+      unsigned d = transferList[i].devId;
+      DeviceQueue *queue = m->mContext->getQueueNo(d);
+
+      // 1) enqueue transfers
+
+      size_t tmpOffset = 0;
+
+      for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
+	size_t offset = transferList[i].region.mList[j].lb;
+	size_t cb = transferList[i].region.mList[j].hb -
+	  transferList[i].region.mList[j].lb + 1;
+
+	DEBUG("transfers",
+	      std::cerr << "Merge D2H: reading [" << offset << "," << offset+cb-1
+	      << "] from dev " << d << "\n");
+
+	queue->enqueueRead(m->mBuffers[d],
+			   CL_FALSE,
+			   offset, cb,
+			   (char *) transferList[i].tmp + tmpOffset,
+			   0, NULL, NULL
+			   /* Atomic D2H events not used for the moment. */);
+	tmpOffset += cb;
+      }
+    }
+
+    DEBUG("transfers", std::cerr << "end Merge D2H\n");
+  }
+
+  void
   Driver::enqueueSubKernels(KernelHandle *k,
 			    std::vector<SubKernelExecInfo *> &subkernels,
 			    const std::vector<DeviceBufferRegion> &dataWritten)
@@ -780,13 +847,17 @@ namespace libsplit {
       MemoryHandle *m = dataWritten[i].m;
       unsigned dev = dataWritten[i].devId;
       unsigned nbDevices = m->mNbBuffers;
-      m->devicesValidData[dev].myUnion(dataWritten[i].region);
       m->hostValidData.difference(dataWritten[i].region);
       for (unsigned j=0; j<nbDevices; j++) {
 	if (j == dev)
 	  continue;
 	m->devicesValidData[j].difference(dataWritten[i].region);
       }
+    }
+    for (unsigned i=0; i<dataWritten.size(); i++) {
+      MemoryHandle *m = dataWritten[i].m;
+      unsigned dev = dataWritten[i].devId;
+      m->devicesValidData[dev].myUnion(dataWritten[i].region);
     }
   }
 
@@ -810,16 +881,8 @@ namespace libsplit {
 
       // Perform OR reduction
       for (unsigned o=0; o<regVec[0].region.total(); o++) {
-
-	// // DEBUG
-	// for (unsigned i=0; i<regVec.size(); ++i)
-	//   std::cerr << "avant or offset " << o << " = " << (int) ((char *) regVec[i].tmp)[o] << "\n";
-
 	for (unsigned i=1; i<regVec.size(); ++i)
 	  ((char *) regVec[0].tmp)[o] |= ((char *) regVec[i].tmp)[o];
-
-	// // DEBUG
-	// std::cerr << "apres or offset " << o << " = " << (int) ((char *) regVec[0].tmp)[o] << "\n";
       }
 
       // Update value in local buffer
@@ -846,22 +909,23 @@ namespace libsplit {
 
   template<typename T>
   void doReduction(MemoryHandle *m, std::vector<DeviceBufferRegion> &regVec) {
+    unsigned nbDevices = regVec.size();
     size_t total_size = regVec[0].region.total();
     size_t elemSize = sizeof(T);
     assert(total_size % elemSize == 0);
 
-    // For each elem
+    // Sum of elements from all devices in regVec[0]
     for (size_t o = 0; elemSize * o < total_size; o++) {
-      // For each device
-      for (unsigned i=1; i<regVec.size(); i++) {
-	DEBUG("reduction",
-	      std::cerr << "reduce sum [" << o << "] " << ((T *) regVec[0].tmp)[o] << " += "
-	      << ((T *) regVec[i].tmp)[o] << "\n";);
-	((T *) regVec[0].tmp)[o] += ((T *) regVec[i].tmp)[o];
+      DEBUG("reduction", std::cerr << "atomic sum " << o << " : " << ((T *) regVec[0].tmp)[o] << " ";);
+      for (unsigned i=1; i<nbDevices; i++) {
+	T b = ((T *) regVec[i].tmp)[o];
+	DEBUG("reduction",std::cerr << b << " ";);
+	((T *) regVec[0].tmp)[o] += b;
       }
+      DEBUG("reduction", std::cerr << "\n";);
     }
 
-    DEBUG("reduction", std::cerr << "final: ";);
+    // Final res: localBuffer[e] += regVec[e] - nbDevices * localBuffer[e]
     unsigned tmpOffset = 0;
     for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
       size_t myoffset = regVec[0].region.mList[id].lb;
@@ -869,9 +933,8 @@ namespace libsplit {
       assert(mycb % elemSize == 0);
       for (size_t o=0; elemSize * o < mycb; o++) {
 	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr = ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
-	  *ptr * regVec.size();
-	DEBUG("reduction", std::cerr << *ptr << " ";);
+	*ptr += ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
+	  nbDevices * (*ptr);
       }
       tmpOffset += mycb;
     }
@@ -1131,6 +1194,133 @@ namespace libsplit {
 	  break;
       case ArgumentAnalysis::DOUBLE:
 	  doMinReduction<double>(m, regVec);
+	  break;
+      };
+
+      // Update valid data
+      for (unsigned d=0; d<m->mNbBuffers; d++)
+	m->devicesValidData[d].difference(regVec[0].region);
+      m->hostValidData.myUnion(regVec[0].region);
+
+      // Free tmp buffers
+      for (unsigned i=0; i<regVec.size(); ++i)
+	free(regVec[i].tmp);
+    }
+  }
+
+  template<typename T>
+  void doMergeReduction(MemoryHandle *m, std::vector<DeviceBufferRegion> &regVec) {
+    std::cerr << "Error: merge disabled !\n";
+    assert(false);
+    unsigned nbDevices = regVec.size();
+    size_t total_size = regVec[0].region.total();
+    size_t elemSize = sizeof(T);
+    assert(total_size % elemSize == 0);
+
+    {
+      unsigned tmpOffset = 0;
+      for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
+    	size_t myoffset = regVec[0].region.mList[id].lb;
+    	size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+    	assert(mycb % elemSize == 0);
+    	for (size_t o=0; elemSize * o < mycb; o++) {
+    	  T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
+    	  std::cerr << myoffset + o * elemSize << " ";
+    	  std::cerr << *ptr << " ";
+	  bool found = false;
+    	  for (unsigned i=0; i<nbDevices; i++) {
+    	    std::cerr << ((T *) ((char *) regVec[i].tmp + tmpOffset))[o] << " ";
+	    if (*ptr == ((T *) ((char *) regVec[i].tmp + tmpOffset))[o])
+	      found = true;
+    	  }
+
+	  assert(found);
+    	}
+    	tmpOffset += mycb;
+      }
+    }
+
+    // Sum of elements from all devices in regVec[0]
+    for (size_t o = 0; elemSize * o < total_size; o++) {
+      for (unsigned i=1; i<nbDevices; i++) {
+	T b = ((T *) regVec[i].tmp)[o];
+	((T *) regVec[0].tmp)[o] += b;
+      }
+    }
+
+    // Final res: localBuffer[e] + regVec[e] - nbDevices * localBuffer[e]
+    unsigned tmpOffset = 0;
+    for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
+      size_t myoffset = regVec[0].region.mList[id].lb;
+      size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+      assert(mycb % elemSize == 0);
+      for (size_t o=0; elemSize * o < mycb; o++) {
+	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
+	*ptr += ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
+	  nbDevices * (*ptr);
+      }
+      tmpOffset += mycb;
+    }
+
+    return;
+  }
+
+  void
+  Driver::performHostMerge(KernelHandle *k,
+			   const std::vector<DeviceBufferRegion> &
+			   transferList) {
+    std::cerr << "Error: merge disabled !\n";
+    assert(false);
+    if (transferList.empty())
+      return;
+
+    std::set<MemoryHandle *> memHandles;
+    std::map<MemoryHandle *, std::vector<DeviceBufferRegion> > mem2RegMap;
+
+    for (unsigned i=0; i<transferList.size(); ++i) {
+      memHandles.insert(transferList[i].m);
+      mem2RegMap[transferList[i].m].push_back(transferList[i]);
+    }
+
+    for (MemoryHandle *m : memHandles) {
+      std::vector<DeviceBufferRegion> regVec = mem2RegMap[m];
+      assert(regVec.size() > 0);
+
+      // Get argument type
+      ArgumentAnalysis::TYPE type = k->getBufferType(m);
+
+      // Perform atomic sum reduction
+      switch(type) {
+      case ArgumentAnalysis::BOOL:
+      case ArgumentAnalysis::UNKNOWN:
+	assert(false);
+      case ArgumentAnalysis::CHAR:
+	break;
+      case ArgumentAnalysis::UCHAR:
+	break;
+      case ArgumentAnalysis::SHORT:
+	  doMergeReduction<short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::USHORT:
+	  doMergeReduction<unsigned short>(m, regVec);
+	  break;
+      case ArgumentAnalysis::INT:
+	  doMergeReduction<int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::UINT:
+	  doMergeReduction<unsigned int>(m, regVec);
+	  break;
+      case ArgumentAnalysis::LONG:
+	  doMergeReduction<long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::ULONG:
+	  doMergeReduction<unsigned long>(m, regVec);
+	  break;
+      case ArgumentAnalysis::FLOAT:
+	  doMergeReduction<float>(m, regVec);
+	  break;
+      case ArgumentAnalysis::DOUBLE:
+	  doMergeReduction<double>(m, regVec);
 	  break;
       };
 

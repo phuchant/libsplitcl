@@ -59,7 +59,12 @@ namespace libsplit {
       dataRequired.difference(*toReadDevice[d]);
     }
 
-    assert(dataRequired.mList.empty());
+    if (!dataRequired.mList.empty()) {
+      std::cerr << "missing: ";
+      dataRequired.debug();
+      std::cerr << "\n";
+      assert(false);
+    }
 
     for (unsigned d=0; d<m->mNbBuffers; d++) {
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -325,12 +330,27 @@ namespace libsplit {
 					     std::vector<DeviceBufferRegion> &D2HTransferList) {
     for (unsigned i=0; i<regions.size(); i++) {
       MemoryHandle *m = regions[i].m;
+
+      assert(regions[i].lb <= regions[i].hb);
+
       // Restrict region to buffer size
-      if (regions[i].lb < 0)
-	regions[i].lb = 0;
+      if (regions[i].lb < 0) {
+      	regions[i].lb = 0;
+	DEBUG("warnings", std::cerr << "warning, indir out of bounds (lb<0) !\n";);
+      }
+      if (regions[i].hb < 0) {
+      	regions[i].hb = 0;
+	DEBUG("warnings", std::cerr << "warning, indir out of bounds (hb<0) !\n";);
+      }
+      if (regions[i].lb + regions[i].cb -1 >= m->mSize) {
+	regions[i].lb = m->mSize - regions[i].cb;
+	DEBUG("warnings", std::cerr << "warning, indir out of bounds! (lb>size)\n";);
+      }
       if (regions[i].hb + regions[i].cb -1 >= m->mSize) {
 	regions[i].hb = m->mSize - regions[i].cb;
+	DEBUG("warnings",std::cerr << "warning, indir out of bounds! (hb>size)\n";);
       }
+
 
       size_t lb = regions[i].lb;
       size_t hb = regions[i].hb;
@@ -382,6 +402,8 @@ namespace libsplit {
 				  std::vector<DeviceBufferRegion> &
 				  dataWritten,
 				  std::vector<DeviceBufferRegion> &
+				  dataWrittenMerge,
+				  std::vector<DeviceBufferRegion> &
 				  dataWrittenOr,
 				  std::vector<DeviceBufferRegion> &
 				  dataWrittenAtomicSum,
@@ -400,7 +422,9 @@ namespace libsplit {
 				  std::vector<DeviceBufferRegion> &
 				  AtomicMinD2HTransferList,
 				  std::vector<DeviceBufferRegion> &
-				  AtomicMaxD2HTransferList) {
+				  AtomicMaxD2HTransferList,
+				  std::vector<DeviceBufferRegion> &
+				  MergeD2HTransferList) {
 
     // If data written is undefined, we consider that the whole buffer is
     // written.
@@ -410,6 +434,17 @@ namespace libsplit {
 	dataWritten[i].region.clearList();
 	size_t cb = m->mSize;
 	dataWritten[i].region.add(Interval(0, cb-1));
+      }
+    }
+
+    // If data written merge is undefined, we consider that the whole buffer is
+    // written.
+    for (unsigned i=0; i<dataWrittenMerge.size(); i++) {
+      MemoryHandle *m = dataWrittenMerge[i].m;
+      if (dataWrittenMerge[i].region.isUndefined()) {
+	dataWrittenMerge[i].region.clearList();
+	size_t cb = m->mSize;
+	dataWrittenMerge[i].region.add(Interval(0, cb-1));
       }
     }
 
@@ -443,6 +478,13 @@ namespace libsplit {
     for (unsigned i=0; i<dataWrittenAtomicMax.size(); i++) {
       MemoryHandle *m = dataWrittenAtomicMax[i].m;
       atomicMaxHostRequiredData[m].myUnion(dataWrittenAtomicMax[i].region);
+    }
+
+    // Compute a map of the written merge region for each memory handle.
+    std::map<MemoryHandle *, ListInterval> mergeHostRequiredData;
+    for (unsigned i=0; i<dataWrittenMerge.size(); i++) {
+      MemoryHandle *m = dataWrittenMerge[i].m;
+      mergeHostRequiredData[m].myUnion(dataWrittenMerge[i].region);
     }
 
     // Compute D2H and H2D Transfers for data required by subkernels
@@ -502,6 +544,13 @@ namespace libsplit {
 
       hostMissing->myUnion(*atomicMaxHostMissing);
       delete atomicMaxHostMissing;
+
+      ListInterval *mergeHostMissing =
+	ListInterval::difference(mergeHostRequiredData[m],
+				 m->hostValidData);
+
+      hostMissing->myUnion(*mergeHostMissing);
+      delete mergeHostMissing;
 
       if (hostMissing->total() == 0) {
 	delete hostMissing;
@@ -577,6 +626,16 @@ namespace libsplit {
       DeviceBufferRegion region(m, d, dataWrittenOr[i].region,
 				malloc(dataWrittenOr[i].region.total()));
       OrD2HTransferList.push_back(region);
+    }
+
+    // Compute Transfers for data written merge
+    for (unsigned i=0; i<dataWrittenMerge.size(); i++) {
+      MemoryHandle *m = dataWrittenMerge[i].m;
+      unsigned d = dataWrittenMerge[i].devId;
+
+      DeviceBufferRegion region(m, d, dataWrittenMerge[i].region,
+				malloc(dataWrittenMerge[i].region.total()));
+      MergeD2HTransferList.push_back(region);
     }
   }
 };
