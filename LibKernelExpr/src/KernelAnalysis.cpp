@@ -259,12 +259,23 @@ KernelAnalysis::setSubkernelIndirectionsValues(unsigned n,
 					       const
 					       std::vector<IndirectionValue> &
 					       values) {
+  std::vector<int> toErase;
+
   for (unsigned i=0; i<subKernelIndirectionValues[n].size(); i++) {
-    delete subKernelIndirectionValues[n][i].lb;
-    delete subKernelIndirectionValues[n][i].hb;
+    for (unsigned j=0; j<values.size(); j++) {
+      if (subKernelIndirectionValues[n][i].id == values[j].id) {
+	toErase.push_back(i);
+	delete subKernelIndirectionValues[n][i].lb;
+	delete subKernelIndirectionValues[n][i].hb;
+      }
+    }
   }
 
-  subKernelIndirectionValues[n] = values;
+  for (unsigned i=0; i<toErase.size(); i++)
+    subKernelIndirectionValues[n].erase(subKernelIndirectionValues[n].begin() + toErase[i]);
+
+  subKernelIndirectionValues[n].insert(subKernelIndirectionValues[n].end(),
+				       values.begin(), values.end());
 }
 
 bool
