@@ -31,15 +31,15 @@ struct ArgIndirectionRegionExpr {
 // Returned by KernelAnalysis to libsplit.
 struct ArgIndirectionRegion {
   ArgIndirectionRegion(unsigned id, unsigned pos, IndirectionType ty,
-		       size_t cb, size_t lb, size_t hb);
+		       size_t cb, long lb, long hb);
   ~ArgIndirectionRegion();
 
   unsigned id;
   unsigned pos;
   IndirectionType ty;
   size_t cb;
-  size_t lb;
-  size_t hb;
+  long lb;
+  long hb;
 };
 
 // Indirection value to inject.

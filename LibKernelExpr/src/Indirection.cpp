@@ -15,7 +15,7 @@ ArgIndirectionRegionExpr::~ArgIndirectionRegionExpr() {
 
 ArgIndirectionRegion::ArgIndirectionRegion(unsigned id, unsigned pos,
 					   IndirectionType ty,
-					   size_t cb, size_t lb, size_t hb)
+					   size_t cb, long lb, long hb)
   : id(id), pos(pos), ty(ty), cb(cb), lb(lb), hb(hb) {}
 
 ArgIndirectionRegion::~ArgIndirectionRegion() {}
