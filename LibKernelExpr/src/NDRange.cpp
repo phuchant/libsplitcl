@@ -45,7 +45,7 @@ NDRange::NDRange(unsigned work_dim,
 
 NDRange::NDRange(const NDRange &ndRange)
   : work_dim(ndRange.work_dim) {
-  for (unsigned i=0; 3; i++) {
+  for (unsigned i=0; i<3; i++) {
     m_orig_global_work_size[i] = ndRange.m_orig_global_work_size[i];
     m_global_work_size[i] = ndRange.m_global_work_size[i];
     m_offset[i] = ndRange.m_offset[i];
