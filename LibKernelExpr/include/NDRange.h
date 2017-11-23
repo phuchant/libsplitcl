@@ -17,6 +17,8 @@ public:
 	  const size_t *local_work_size);
   NDRange(const NDRange &ndRange);
 
+  NDRange & operator=(const NDRange &ndRange);
+
   ~NDRange();
 
   unsigned get_orig_global_size(unsigned dimindx) const;
@@ -30,15 +32,17 @@ public:
 	       unsigned denominator, std::vector<NDRange> *ndRanges) const;
   int splitDim(unsigned dimindx, int size_dscr, double *granu_dscr,
 	       std::vector<NDRange> *ndRanges) const;
+  void shiftLeft(unsigned dim, int nbWgs);
+  void shiftRight(unsigned dim, int nbWgs);
 
   void dump() const;
 
 private:
   unsigned work_dim;
-  size_t *m_orig_global_work_size;
-  size_t *m_global_work_size;
-  size_t *m_offset;
-  size_t *m_local_work_size;
+  size_t m_orig_global_work_size[3];
+  size_t m_global_work_size[3];
+  size_t m_offset[3];
+  size_t m_local_work_size[3];
 };
 
 #endif /* NDRANGE_H */

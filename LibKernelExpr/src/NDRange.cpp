@@ -9,22 +9,17 @@ NDRange::NDRange(unsigned work_dim,
 		 const size_t *global_work_offset,
 		 const size_t *local_work_size)
   : work_dim(work_dim) {
-  m_orig_global_work_size = new size_t[work_dim];
-  m_global_work_size = new size_t[work_dim];
-  m_local_work_size = new size_t[work_dim];
-
   for (unsigned i=0; i<work_dim; i++) {
     m_orig_global_work_size[i] = global_work_size[i];
     m_global_work_size[i] = global_work_size[i];
     m_local_work_size[i] = local_work_size[i];
   }
 
-  m_offset = new size_t[work_dim];
   if (global_work_offset) {
     for (unsigned i=0; i<work_dim; i++)
       m_offset[i] = global_work_offset[i];
   } else {
-    memset(m_offset, 0, work_dim * sizeof(size_t));
+    memset(m_offset, 0, 3 * sizeof(size_t));
   }
 }
 
@@ -34,33 +29,23 @@ NDRange::NDRange(unsigned work_dim,
 		 const size_t *global_work_offset,
 		 const size_t *local_work_size)
   : work_dim(work_dim) {
-  m_orig_global_work_size = new size_t[work_dim];
-  m_global_work_size = new size_t[work_dim];
-  m_local_work_size = new size_t[work_dim];
-
   for (unsigned i=0; i<work_dim; i++) {
     m_orig_global_work_size[i] = orig_global_work_size[i];
     m_global_work_size[i] = global_work_size[i];
     m_local_work_size[i] = local_work_size[i];
   }
 
-  m_offset = new size_t[work_dim];
   if (global_work_offset) {
     for (unsigned i=0; i<work_dim; i++)
       m_offset[i] = global_work_offset[i];
   } else {
-    memset(m_offset, 0, work_dim * sizeof(size_t));
+    memset(m_offset, 0, 3 * sizeof(size_t));
   }
 }
 
 NDRange::NDRange(const NDRange &ndRange)
   : work_dim(ndRange.work_dim) {
-  m_orig_global_work_size = new size_t[work_dim];
-  m_global_work_size = new size_t[work_dim];
-  m_local_work_size = new size_t[work_dim];
-  m_offset = new size_t[work_dim];
-
-  for (unsigned i=0; i<work_dim; i++) {
+  for (unsigned i=0; 3; i++) {
     m_orig_global_work_size[i] = ndRange.m_orig_global_work_size[i];
     m_global_work_size[i] = ndRange.m_global_work_size[i];
     m_offset[i] = ndRange.m_offset[i];
@@ -68,12 +53,20 @@ NDRange::NDRange(const NDRange &ndRange)
   }
 }
 
-NDRange::~NDRange() {
-  delete[] m_orig_global_work_size;
-  delete[] m_global_work_size;
-  delete[] m_local_work_size;
-  delete[] m_offset;
+NDRange &
+NDRange::operator=(const NDRange &ndRange) {
+  work_dim = ndRange.work_dim;
+  for (unsigned i=0; i<3; i++) {
+    m_orig_global_work_size[i] = ndRange.m_orig_global_work_size[i];
+    m_global_work_size[i] = ndRange.m_global_work_size[i];
+    m_offset[i] = ndRange.m_offset[i];
+    m_local_work_size[i] = ndRange.m_local_work_size[i];
+  }
+
+  return *this;
 }
+
+NDRange::~NDRange() {}
 
 unsigned
 NDRange::get_orig_global_size(unsigned dimindx) const {
@@ -186,6 +179,27 @@ NDRange::splitDim(unsigned dimindx, int size_gr, double *granu_dscr,
 			      m_offset[dimindx]);
 
   return 1;
+}
+
+void
+NDRange::shiftLeft(unsigned dim, int nbWgs) {
+  ssize_t shiftLength = m_local_work_size[dim] * nbWgs;
+  ssize_t new_global_size = m_global_work_size[dim] + shiftLength;
+  ssize_t new_offset = m_offset[dim] - shiftLength;
+  assert(new_global_size > 0);
+  assert(new_offset >= 0);
+  assert((size_t) new_offset + new_global_size <= m_orig_global_work_size[dim]);
+  m_global_work_size[dim] = new_global_size;
+  m_offset[dim] = new_offset;
+}
+
+void
+NDRange::shiftRight(unsigned dim, int nbWgs) {
+  ssize_t shiftLength = m_local_work_size[dim] * nbWgs;
+  ssize_t new_global_size = m_global_work_size[dim] + shiftLength;
+  assert(new_global_size > 0);
+  assert(m_offset[dim] + new_global_size <= m_orig_global_work_size[dim]);
+  m_global_work_size[dim] = new_global_size;
 }
 
 void
