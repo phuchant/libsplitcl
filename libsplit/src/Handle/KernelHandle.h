@@ -65,6 +65,7 @@ namespace libsplit {
     const std::vector<IndexExprValue *> &getArgsValues() const;
     MemoryHandle *getGlobalArgHandle(unsigned i);
     ArgumentAnalysis::TYPE getBufferType(MemoryHandle *m);
+    unsigned getArgPosFromBuffer(MemoryHandle *m);
 
     const char *getName() const;
 

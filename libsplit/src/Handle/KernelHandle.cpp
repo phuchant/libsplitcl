@@ -422,4 +422,16 @@ namespace libsplit {
     return mName;
   }
 
+  unsigned
+  KernelHandle::getArgPosFromBuffer(MemoryHandle *m) {
+    for (unsigned i=0; i<mNbGlobalArgs; i++) {
+      if (getGlobalArgHandle(i) == m) {
+	return globalArg2PosMap[i];
+      }
+    }
+
+    assert(false);
+    return 0;
+  }
+
 };

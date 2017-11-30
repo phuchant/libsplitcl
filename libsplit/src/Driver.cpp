@@ -45,12 +45,14 @@ namespace libsplit {
     }
   }
 
-  static void debugRegions(std::vector<DeviceBufferRegion> &dataRequired,
+  static void debugRegions(KernelHandle *k,
+			   std::vector<DeviceBufferRegion> &dataRequired,
 			   std::vector<DeviceBufferRegion> &dataWritten,
 			   std::vector<DeviceBufferRegion> &dataWrittenAtomicSum) {
     for (unsigned i=0; i<dataRequired.size(); i++) {
       std::cerr << "data required on dev " << dataRequired[i].devId << " :";
       std::cerr << "m=" << dataRequired[i].m << " ";
+      std::cerr << "pos= " << k->getArgPosFromBuffer(dataRequired[i].m) << " ";
       if (dataRequired[i].region.isUndefined())
 	std::cerr << "(undefined) ";
       dataRequired[i].region.debug();
@@ -59,6 +61,7 @@ namespace libsplit {
     for (unsigned i=0; i<dataWritten.size(); i++) {
       std::cerr << "data written on dev " << dataWritten[i].devId << " :";
       std::cerr << "m=" << dataWritten[i].m << " ";
+      std::cerr << "pos= " << k->getArgPosFromBuffer(dataWritten[i].m) << " ";
       if (dataWritten[i].region.isUndefined())
 	std::cerr << "(undefined) ";
       dataWritten[i].region.debug();
@@ -66,6 +69,7 @@ namespace libsplit {
     }
     for (unsigned i=0; i<dataWrittenAtomicSum.size(); i++) {
       std::cerr << "m=" << dataWrittenAtomicSum[i].m << " ";
+      std::cerr << "pos= " << k->getArgPosFromBuffer(dataWrittenAtomicSum[i].m) << " ";
       if (dataWrittenAtomicSum[i].region.isUndefined())
 	std::cerr << "(undefined) ";
 
@@ -396,7 +400,7 @@ namespace libsplit {
 
     double t2 = get_time();
 
-    DEBUG("regions", debugRegions(dataRequired, dataWritten, dataWrittenAtomicSum));
+    DEBUG("regions", debugRegions(k, dataRequired, dataWritten, dataWrittenAtomicSum));
 
     DEBUG("granu",
     std::cerr << k->getName() << ": ";
