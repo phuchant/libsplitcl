@@ -924,7 +924,7 @@ namespace libsplit {
     for (size_t i = 0; i < numElem; ++i) {
       for (unsigned d=1; d<nbDevices; d++) {
 	T elem = ((T *) regVec[d].tmp)[i];
-	((T *) regVec[0].tmp)[d] += elem;
+	((T *) regVec[0].tmp)[i] += elem;
       }
     }
 
