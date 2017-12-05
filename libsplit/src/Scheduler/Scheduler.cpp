@@ -447,6 +447,12 @@ namespace libsplit {
 				   SI->dataWrittenAtomicMin,
 				   SI->dataWrittenAtomicMax);
 
+	    DEBUG("shiftmax",
+		  static unsigned shiftingMax = 0;
+		  shiftingMax = shiftingMax > SI->shiftingWgs ? shiftingMax : SI->shiftingWgs;
+		  std::cerr << "shiftingMax = " << shiftingMax << "\n";
+		  );
+
 	    return true;
 	  } else {
 	    SI->shiftingDevice = 0;
