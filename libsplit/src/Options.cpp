@@ -37,6 +37,8 @@ namespace libsplit {
   bool optEnableIndirections = false;
   bool optDelayedWrite = true;
   char *optFakeSources = nullptr;
+  unsigned optShiftInit = 1;
+  unsigned optShiftStep = 1;
 
   struct option {
     const char *name;
@@ -71,6 +73,8 @@ namespace libsplit {
   static void enableindirOption(char *env);
   static void delayedWriteOption(char *env);
   static void fakeSourcesOption(char *env);
+  static void shiftInitOption(char *env);
+  static void shiftStepOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -125,6 +129,10 @@ namespace libsplit {
      delayedWriteOption},
     {"FAKESOURCES", "Use a fake OpenCL source for kernel analysis.", false,
      fakeSourcesOption},
+    {"SHIFTINIT", "Initial number of workgroups shifted.", false,
+     shiftInitOption},
+    {"SHIFTSTEP", "Shift step.", false,
+     shiftStepOption},
 
   };
 
@@ -365,6 +373,20 @@ namespace libsplit {
     optFakeSources = (char *) malloc(strlen(env) + 1);
     strcpy(optFakeSources, env);
     assert(access(optFakeSources, R_OK) == 0);
+  }
+
+  static void shiftInitOption(char *env) {
+    if (!env)
+      return;
+
+    optShiftInit = atoi(env);
+  }
+
+  static void shiftStepOption(char *env) {
+    if (!env)
+      return;
+
+    optShiftStep = atoi(env);
   }
 
   void parseEnvOptions()

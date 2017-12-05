@@ -448,7 +448,7 @@ namespace libsplit {
 	    return true;
 	  } else {
 	    SI->shiftingDevice = 0;
-	    SI->shiftingWgs++;
+	    SI->shiftingWgs += optShiftStep;
 	    SI->needToInstantiateAnalysis = true;
 
 	    SI->shiftDataRequired.clear(); SI->shiftDataRequired.resize(nbDevices);
@@ -489,7 +489,7 @@ namespace libsplit {
 	  assert(!SI->shiftingPartition);
 	  SI->shiftingPartition = true;
 	  SI->shiftingDevice = 0;
-	  SI->shiftingWgs = 1;
+	  SI->shiftingWgs = optShiftInit;
 	  SI->shiftedSubNDRanges = SI->requiredSubNDRanges;
 	  SI->nbMergeArgs = k->getAnalysis()->getNbMergeArguments();
 	  SI->mergeArg2GlobalPos.clear();

@@ -28,6 +28,8 @@ namespace libsplit {
   extern bool optEnableIndirections;
   extern bool optDelayedWrite;
   extern char *optFakeSources;
+  extern unsigned optShiftInit;
+  extern unsigned optShiftStep;
 
   void parseEnvOptions();
 
