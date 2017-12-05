@@ -336,6 +336,8 @@ namespace libsplit {
       // Perform analysis with current partition
       ArgumentAnalysis::status st = k->getAnalysis()->performAnalysis();
 
+      DEBUG("dynanalysis", k->getAnalysis()->debug(););
+
       // Single device, we don't care about the analysis status.
       if (nbSplit == 1) {
 	fillSubkernelInfoSingle(k,
@@ -398,7 +400,7 @@ namespace libsplit {
 	if (SI->shiftingDevice == nbDevices - 1) {
 	  bool shiftDone = true;
 
-	  DEBUG("shift",
+	  DEBUG("shifted",
 		std::cerr << "shifted workgroups = " << SI->shiftingWgs << "\n";
 	  	for (unsigned i=0; i<nbDevices; i++) {
 	  	  std::cerr << "shift ndRange dev " << i << ": ";
