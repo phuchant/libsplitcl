@@ -916,17 +916,16 @@ namespace libsplit {
     unsigned nbDevices = regVec.size();
     size_t total_size = regVec[0].region.total();
     size_t elemSize = sizeof(T);
+    size_t numElem = total_size / elemSize;
     assert(total_size % elemSize == 0);
 
     // Sum of elements from all devices in regVec[0]
-    for (size_t o = 0; elemSize * o < total_size; o++) {
-      DEBUG("reduction", std::cerr << "atomic sum " << o << " : " << ((T *) regVec[0].tmp)[o] << " ";);
-      for (unsigned i=1; i<nbDevices; i++) {
-	T b = ((T *) regVec[i].tmp)[o];
-	DEBUG("reduction",std::cerr << b << " ";);
-	((T *) regVec[0].tmp)[o] += b;
+#pragma omp parallel for
+    for (size_t i = 0; i < numElem; ++i) {
+      for (unsigned d=1; d<nbDevices; d++) {
+	T elem = ((T *) regVec[d].tmp)[i];
+	((T *) regVec[0].tmp)[d] += elem;
       }
-      DEBUG("reduction", std::cerr << "\n";);
     }
 
     // Final res: localBuffer[e] += regVec[e] - nbDevices * localBuffer[e]
@@ -934,16 +933,17 @@ namespace libsplit {
     for (unsigned id=0; id<regVec[0].region.mList.size(); ++id) {
       size_t myoffset = regVec[0].region.mList[id].lb;
       size_t mycb = regVec[0].region.mList[id].hb - myoffset + 1;
+      size_t numElem = mycb / elemSize;
       assert(mycb % elemSize == 0);
-      for (size_t o=0; elemSize * o < mycb; o++) {
-	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[o];
-	*ptr += ((T *) ((char *) regVec[0].tmp + tmpOffset))[o] -
+
+#pragma omp parallel for
+      for (size_t i=0; i < numElem; ++i) {
+	T *ptr = &((T *) ((char *) m->mLocalBuffer + myoffset))[i];
+	*ptr += ((T *) ((char *) regVec[0].tmp + tmpOffset))[i] -
 	  nbDevices * (*ptr);
       }
       tmpOffset += mycb;
     }
-
-    return;
   }
 
   void
