@@ -452,6 +452,8 @@ namespace libsplit {
 		  shiftingMax = shiftingMax > SI->shiftingWgs ? shiftingMax : SI->shiftingWgs;
 		  std::cerr << "shiftingMax = " << shiftingMax << "\n";
 		  );
+	    DEBUG("currentshift",
+		  std::cerr << "shift: " << SI->shiftingWgs << "\n";);
 
 	    return true;
 	  } else {
