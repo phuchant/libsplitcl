@@ -37,8 +37,8 @@ namespace libsplit {
   bool optEnableIndirections = false;
   bool optDelayedWrite = true;
   char *optFakeSources = nullptr;
-  unsigned optShiftInit = 1;
-  unsigned optShiftStep = 1;
+  unsigned optShiftInit = 0;
+  unsigned optShiftStep = 0;
 
   struct option {
     const char *name;
