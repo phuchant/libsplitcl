@@ -130,6 +130,9 @@ namespace libsplit {
       for (unsigned i=0; i<m->mNbBuffers; i++)
 	m->devicesValidData[i].add(inter);
 
+      for (unsigned d=0; d<m->mNbBuffers; d++)
+	m->mContext->getQueueNo(d)->finish();
+
       return;
     }
 
