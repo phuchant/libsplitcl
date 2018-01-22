@@ -898,6 +898,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       readSubkernelsRegions[i].add(Interval(lb, hb));
@@ -916,6 +917,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       writtenSubkernelsRegions[i].add(Interval(lb, hb));
@@ -934,6 +936,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       writtenOrSubkernelsRegions[i].add(Interval(lb, hb));
@@ -952,6 +955,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       writtenAtomicSumSubkernelsRegions[i].add(Interval(lb, hb));
@@ -970,6 +974,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       writtenAtomicMinSubkernelsRegions[i].add(Interval(lb, hb));
@@ -988,6 +993,7 @@ ArgumentAnalysis::computeRegions() {
       }
 
       lb = lb < 0 ? 0 : lb;
+      hb = hb < 0 ? 0 : hb;
       assert(lb <= hb);
 
       writtenAtomicMaxSubkernelsRegions[i].add(Interval(lb, hb));
