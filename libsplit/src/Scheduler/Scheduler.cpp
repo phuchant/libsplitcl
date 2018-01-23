@@ -429,6 +429,30 @@ namespace libsplit {
 	    delete difference;
 	  }
 
+
+	  /* Fix a bug in SOTL when shifting.
+	   *
+	   * The valid data written cannot overlap between devices.
+	   */
+	  if (shiftDone && !strcmp(k->getName(), "box_sort")) {
+	    for (unsigned a=0; a<SI->nbMergeArgs; a++) {
+	      unsigned globalPos = SI->mergeArg2GlobalPos[a];
+
+	      for (unsigned i=0; i<nbDevices; i++) {
+		for (unsigned j=i+1; j<nbDevices; j++) {
+		  if (i == j)
+		    continue;
+		  ListInterval *intersection =
+		    ListInterval::intersection(SI->shiftDataWritten[i][globalPos],
+					       SI->shiftDataWritten[j][globalPos]);
+		  if (intersection->total() > 0)
+		    SI->shiftDataWritten[i][globalPos].difference(*intersection);
+		  delete intersection;
+		}
+	      }
+	    }
+	  }
+
 	  if (shiftDone) {
 	    SI->partitionUnchanged = false;
 	    SI->shiftingPartition = false;
