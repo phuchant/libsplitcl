@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#define MAXDEVICES 10
+
 namespace libsplit {
 
   extern std::vector<unsigned> optDeviceSelection;
@@ -30,6 +32,7 @@ namespace libsplit {
   extern char *optFakeSources;
   extern unsigned optShiftInit;
   extern unsigned optShiftStep;
+  extern char *optBuildOptionDev[MAXDEVICES];
 
   void parseEnvOptions();
 

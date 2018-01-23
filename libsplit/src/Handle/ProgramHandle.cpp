@@ -84,8 +84,24 @@ namespace libsplit {
 
     // Build programs
     for (unsigned i=0; i<nbPrograms; i++) {
-      cl_int err = real_clBuildProgram(programs[i], 0, NULL, options,
+
+      char *alt_option = nullptr;
+      if (options && optBuildOptionDev[i]) {
+	size_t length = strlen(options) + strlen(optBuildOptionDev[i]) + 2;
+	alt_option = (char *) malloc(length);
+	sprintf(alt_option, "%s %s", options, optBuildOptionDev[i]);
+	DEBUG("programhandle",
+	      std::cerr << "alternative build options for device " << i << ": "
+	      << alt_option << "\n";);
+      }
+
+      cl_int err = real_clBuildProgram(programs[i], 0, NULL,
+				       alt_option ? alt_option : options,
 				       pfn_notify, user_data);
+
+      if (alt_option)
+	free(alt_option);
+
       if (err != CL_SUCCESS) {
 	size_t len;
 	real_clGetProgramBuildInfo(programs[i],

@@ -39,6 +39,9 @@ namespace libsplit {
   char *optFakeSources = nullptr;
   unsigned optShiftInit = 0;
   unsigned optShiftStep = 0;
+  char *optBuildOptionDev[MAXDEVICES] = {nullptr, nullptr, nullptr, nullptr,
+					 nullptr, nullptr, nullptr, nullptr,
+					 nullptr, nullptr};
 
   struct option {
     const char *name;
@@ -75,6 +78,7 @@ namespace libsplit {
   static void fakeSourcesOption(char *env);
   static void shiftInitOption(char *env);
   static void shiftStepOption(char *env);
+  static void buildOptionDevOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -133,6 +137,8 @@ namespace libsplit {
      shiftInitOption},
     {"SHIFTSTEP", "Shift step.", false,
      shiftStepOption},
+    {"BUILDOPTION<devId>", "Build option for device i.", false,
+     buildOptionDevOption},
 
   };
 
@@ -185,6 +191,10 @@ namespace libsplit {
     unsigned size = optDeviceSelection.size();
     if (size % 2 != 0) {
       std::cerr << "Error: bad environment variable DEVICES\n";
+      exit(EXIT_FAILURE);
+    }
+    if (size / 2 > MAXDEVICES) {
+      std::cerr << "Error: Maximum " << MAXDEVICES << " devices allowed !\n";
       exit(EXIT_FAILURE);
     }
   }
@@ -387,6 +397,17 @@ namespace libsplit {
       return;
 
     optShiftStep = atoi(env);
+  }
+
+  static void buildOptionDevOption(char *env) {
+    char opt_name[64];
+    for (unsigned i=0; i<MAXDEVICES; i++) {
+      sprintf(opt_name, "BUILDOPTION%d", i);
+      env = getenv(opt_name);
+      if (!env)
+	continue;
+      optBuildOptionDev[i] = strdup(env);
+    }
   }
 
   void parseEnvOptions()
