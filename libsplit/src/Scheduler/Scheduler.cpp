@@ -459,7 +459,7 @@ namespace libsplit {
 	  } else {
 	    SI->shiftingDevice = 0;
 	    if (optShiftStep > 0) {
-	      SI->shiftingWgs *= optShiftStep;
+	      SI->shiftingWgs += optShiftStep;
 	    } else {
 	      SI->shiftingWgs *= 2;
 	    }
@@ -511,7 +511,7 @@ namespace libsplit {
 	    unsigned nbWgs = SI->origNDRange->get_global_size(splitDim) /
 	      SI->origNDRange->get_local_size(splitDim);
 	    SI->shiftingWgs = nbWgs / 100;
-	    assert(SI->shiftingWgs > 0);
+	    SI->shiftingWgs = SI->shiftingWgs > 0 ? SI->shiftingWgs : 1;
 	    assert(SI->shiftingWgs > 0);
 	  }
 
