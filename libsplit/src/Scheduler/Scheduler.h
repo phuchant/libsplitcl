@@ -97,7 +97,10 @@ namespace libsplit {
 				  bool *needToInstantiateAnalysis) = 0;
 
 
-    void updateTimers(SubKernelSchedInfo *SI);
+    void (Scheduler::*updateTimers)(SubKernelSchedInfo *);
+    void updateTimersV1(SubKernelSchedInfo *SI);
+    void updateTimersV2(SubKernelSchedInfo *SI);
+
     void printTimers(SubKernelSchedInfo *SI);
     void printPartition(SubKernelSchedInfo *SI);
     virtual void updatePerfDescr(SubKernelSchedInfo *SI);
