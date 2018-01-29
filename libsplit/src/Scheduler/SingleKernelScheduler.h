@@ -7,8 +7,7 @@
 namespace libsplit {
   class SingleKernelScheduler : public Scheduler {
   public:
-    SingleKernelScheduler(BufferManager *buffManager, unsigned nbDevices)
-      : Scheduler(buffManager, nbDevices) {}
+    SingleKernelScheduler(BufferManager *buffManager, unsigned nbDevices);
 
     virtual ~SingleKernelScheduler() {}
 
@@ -24,6 +23,10 @@ namespace libsplit {
 				  unsigned kerId,
 				  bool *needOtherExecToComplete,
 				  bool *needToInstantiateAnalysis) = 0;
+    double (SingleKernelScheduler::*getSubkernelPerf)(SubKernelSchedInfo *,
+						      unsigned);
+    double getSubkernelPerfWithComm(SubKernelSchedInfo *SI, unsigned d);
+    double getSubkernelPerfWithoutComm(SubKernelSchedInfo *SI, unsigned d);
   };
 
 };

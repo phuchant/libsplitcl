@@ -64,7 +64,7 @@ namespace libsplit {
    // Compute Fx
    double fi[nbDevices];
    for (unsigned i=0; i<nbDevices; i++)
-     fi[i] = SI->kernel_perf_dscr[i*3+2] / BM->x[i];
+     fi[i] = (this->*getSubkernelPerf)(SI, i) / BM->x[i];
 
    double alpha = 0;
    for (unsigned i=0; i<nbDevices; i++)
