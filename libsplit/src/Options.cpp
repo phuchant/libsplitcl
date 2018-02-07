@@ -42,7 +42,6 @@ namespace libsplit {
   char *optBuildOptionDev[MAXDEVICES] = {nullptr, nullptr, nullptr, nullptr,
 					 nullptr, nullptr, nullptr, nullptr,
 					 nullptr, nullptr};
-  unsigned optProfilerVersion = 1;
 
   struct option {
     const char *name;
@@ -80,7 +79,6 @@ namespace libsplit {
   static void shiftInitOption(char *env);
   static void shiftStepOption(char *env);
   static void buildOptionDevOption(char *env);
-  static void profilerVersionOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -141,8 +139,6 @@ namespace libsplit {
      shiftStepOption},
     {"BUILDOPTION<devId>", "Build option for device i.", false,
      buildOptionDevOption},
-    {"PROFILERVERSION", "Profiler version (1 or 2).", false,
-     profilerVersionOption},
 
   };
 
@@ -412,15 +408,6 @@ namespace libsplit {
 	continue;
       optBuildOptionDev[i] = strdup(env);
     }
-  }
-
-  static void profilerVersionOption(char *env) {
-    if (!env)
-      return;
-
-    optProfilerVersion = (unsigned) atoi(env);
-    if (optProfilerVersion != 1 && optProfilerVersion != 2)
-      optProfilerVersion = 1;
   }
 
   void parseEnvOptions()

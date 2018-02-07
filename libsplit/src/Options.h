@@ -33,7 +33,6 @@ namespace libsplit {
   extern unsigned optShiftInit;
   extern unsigned optShiftStep;
   extern char *optBuildOptionDev[MAXDEVICES];
-  extern unsigned optProfilerVersion;
 
   void parseEnvOptions();
 

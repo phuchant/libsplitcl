@@ -519,7 +519,6 @@ namespace libsplit {
 	  transferList[i].region.mList[j].lb + 1;
 
 	Event event;
-	events.push_back(event);
 
 	DEBUG("transfers",
 	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
@@ -530,14 +529,12 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
 			   0, NULL,
-			   &events[events.size()-1]);
+			   &event);
+	scheduler->setD2HEvent(m->lastWriter, kerId, d, event);
       }
 
       // 2) update valid data
       m->hostValidData.myUnion(transferList[i].region);
-
-      // 3) pass transfers events to the scheduler
-      scheduler->setD2HEvents(kerId, d, events);
     }
 
     DEBUG("transfers", std::cerr << "end D2H\n");
@@ -588,7 +585,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -600,7 +596,6 @@ namespace libsplit {
 	  transferList[i].region.mList[j].lb + 1;
 
 	Event event;
-	events.push_back(event);
 
 	DEBUG("transfers",
 	      std::cerr << "writing [" << offset << "," << offset+cb-1
@@ -611,14 +606,12 @@ namespace libsplit {
 			    offset, cb,
 			    (char *) m->mLocalBuffer + offset,
 			    0, NULL,
-			    &events[events.size()-1]);
+			    &event);
+	scheduler->setH2DEvent(m->lastWriter, kerId, d, event);
       }
 
       // 2) update valid data
       m->devicesValidData[d].myUnion(transferList[i].region);
-
-      // 3) pass transfers events to the scheduler
-      scheduler->setH2DEvents(kerId, d, events);
     }
 
     DEBUG("transfers", std::cerr << "end H2D\n");
@@ -671,7 +664,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);

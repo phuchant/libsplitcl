@@ -1,4 +1,3 @@
-
 #include <Handle/KernelHandle.h>
 #include <Options.h>
 #include <Scheduler/Scheduler.h>
@@ -11,12 +10,7 @@ namespace libsplit {
 
 
   Scheduler::Scheduler(BufferManager *buffManager, unsigned nbDevices) :
-    buffManager(buffManager), nbDevices(nbDevices), count(0) {
-    if (optProfilerVersion == 1)
-      updateTimers = &Scheduler::updateTimersV1;
-    else
-      updateTimers = &Scheduler::updateTimersV2;
-  }
+    buffManager(buffManager), nbDevices(nbDevices), count(0) {}
 
   Scheduler::~Scheduler() {}
 
@@ -112,7 +106,7 @@ namespace libsplit {
 	SI->needToInstantiateAnalysis = true;
       } else {
 	// Update timers.
-	(this->*updateTimers)(SI);
+	updateTimers(SI);
 
 	// Update perf descriptor.
 	updatePerfDescr(SI);
@@ -635,23 +629,23 @@ namespace libsplit {
   }
 
   void
-  Scheduler::setH2DEvents(unsigned kerId,
-			  unsigned devId,
-			  std::vector<Event> &events) {
-    assert(kerID2InfoMap.find(kerId) != kerID2InfoMap.end());
-    SubKernelSchedInfo *SI = kerID2InfoMap[kerId];
-    SI->H2DEvents[devId].insert(SI->H2DEvents[devId].end(),
-				events.begin(), events.end());
+  Scheduler::setH2DEvent(unsigned srcId,
+			 unsigned dstId,
+			 unsigned devId,
+			 Event event) {
+    assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
+    SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
+    SI->src2H2DEvents[devId][srcId].push_back(event);
   }
 
   void
-  Scheduler::setD2HEvents(unsigned kerId,
-			  unsigned devId,
-			  std::vector<Event> &events) {
-    assert(kerID2InfoMap.find(kerId) != kerID2InfoMap.end());
-    SubKernelSchedInfo *SI = kerID2InfoMap[kerId];
-    SI->D2HEvents[devId].insert(SI->D2HEvents[devId].end(),
-				events.begin(), events.end());
+  Scheduler::setD2HEvent(unsigned srcId,
+			 unsigned dstId,
+			 unsigned devId,
+			 Event event) {
+    assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
+    SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
+    SI->src2D2HEvents[devId][srcId].push_back(event);
   }
 
 
@@ -662,6 +656,13 @@ namespace libsplit {
 		<< SI->H2DTimes[d] << " D2H="
 		<< SI->D2HTimes[d] << " kernel="
 		<< SI->kernelTimes[d] << "\n";
+
+      for (auto IT : SI->src2H2DTimes[d])
+	std::cerr << "H2D" << d << " from k" << IT.first
+		  << ": " << IT.second << "\n";
+      for (auto IT : SI->src2D2HTimes[d])
+	std::cerr << "D" << d << "2H from k" << IT.first
+		  << ": " << IT.second << "\n";
     }
   }
 
@@ -674,46 +675,66 @@ namespace libsplit {
   }
 
   void
-  Scheduler::updateTimersV1(SubKernelSchedInfo *SI) {
+  Scheduler::updateTimers(SubKernelSchedInfo *SI) {
     for (unsigned d=0; d<nbDevices; d++) {
       SI->H2DTimes[d] = 0;
       SI->D2HTimes[d] = 0;
       SI->kernelTimes[d] = 0;
 
       // H2D timers
-      for (unsigned i=0; i<SI->H2DEvents[d].size(); ++i) {
-      	cl_ulong start, end;
-      	cl_int err;
-      	err = real_clGetEventProfilingInfo(SI->H2DEvents[d][i]->event,
-      					   CL_PROFILING_COMMAND_START,
-      					   sizeof(start), &start, NULL);
-      	clCheck(err, __FILE__, __LINE__);
-      	err = real_clGetEventProfilingInfo(SI->H2DEvents[d][i]->event,
-      					   CL_PROFILING_COMMAND_END,
-      					   sizeof(end), &end, NULL);
-      	clCheck(err, __FILE__, __LINE__);
-      	SI->H2DEvents[d][i]->release();
-      	SI->H2DTimes[d] += (end - start) * 1e-6;
+      for (auto IT : SI->src2H2DEvents[d]) {
+	for (unsigned i=0; i<IT.second.size(); ++i) {
+	  cl_ulong start, end;
+	  cl_int err;
+	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
+					     CL_PROFILING_COMMAND_START,
+					     sizeof(start), &start, NULL);
+	  clCheck(err, __FILE__, __LINE__);
+	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
+					     CL_PROFILING_COMMAND_END,
+					     sizeof(end), &end, NULL);
+	  clCheck(err, __FILE__, __LINE__);
+	  IT.second[i]->release();
+
+	  double t = (end - start) * 1e-6;
+	  SI->H2DTimes[d] += t;
+
+	  int src = IT.first;
+	  if (SI->src2H2DTimes[d].find(src) == SI->src2H2DTimes[d].end())
+	    SI->src2H2DTimes[d][src] = t;
+	  else
+	    SI->src2H2DTimes[d][src] += t;
+	}
+
+
       }
+      SI->src2H2DEvents[d].clear();
 
       // D2H timers
-      for (unsigned i=0; i<SI->D2HEvents[d].size(); ++i) {
-      	cl_ulong start, end;
-      	cl_int err;
-      	err = real_clGetEventProfilingInfo(SI->D2HEvents[d][i]->event,
-      					   CL_PROFILING_COMMAND_START,
-      					   sizeof(start), &start, NULL);
-      	clCheck(err, __FILE__, __LINE__);
-      	err = real_clGetEventProfilingInfo(SI->D2HEvents[d][i]->event,
-      					   CL_PROFILING_COMMAND_END,
-      					   sizeof(end), &end, NULL);
-      	clCheck(err, __FILE__, __LINE__);
-      	SI->D2HEvents[d][i]->release();
-      	SI->D2HTimes[d] += (end - start) * 1e-6;
-      }
+      for (auto IT : SI->src2D2HEvents[d]) {
+	for (unsigned i=0; i<IT.second.size(); ++i) {
+	  cl_ulong start, end;
+	  cl_int err;
+	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
+					     CL_PROFILING_COMMAND_START,
+					     sizeof(start), &start, NULL);
+	  clCheck(err, __FILE__, __LINE__);
+	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
+					     CL_PROFILING_COMMAND_END,
+					     sizeof(end), &end, NULL);
+	  clCheck(err, __FILE__, __LINE__);
+	  IT.second[i]->release();
+	  double t = (end - start) * 1e-6;
+	  SI->D2HTimes[d] += t;
 
-      SI->D2HEvents[d].clear();
-      SI->H2DEvents[d].clear();
+	  int src = IT.first;
+	  if (SI->src2D2HTimes[d].find(src) == SI->src2D2HTimes[d].end())
+	    SI->src2D2HTimes[d][src] = t;
+	  else
+	    SI->src2D2HTimes[d][src] += t;
+	}
+      }
+      SI->src2D2HEvents[d].clear();
     }
 
     // Subkernels timers
@@ -723,75 +744,6 @@ namespace libsplit {
       unsigned dev = SI->subkernels[i]->device;
       err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,
 					 CL_PROFILING_COMMAND_START,
-					 sizeof(start), &start, NULL);
-      clCheck(err, __FILE__, __LINE__);
-      err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,
-					 CL_PROFILING_COMMAND_END,
-					 sizeof(end), &end, NULL);
-      clCheck(err, __FILE__, __LINE__);
-      SI->subkernels[i]->event->release();
-      SI->kernelTimes[dev] += (end - start) * 1e-6;
-    }
-
-    DEBUG("timers", printTimers(SI));
-  }
-
-  void
-  Scheduler::updateTimersV2(SubKernelSchedInfo *SI) {
-    for (unsigned d=0; d<nbDevices; d++) {
-      SI->H2DTimes[d] = 0;
-      SI->D2HTimes[d] = 0;
-      SI->kernelTimes[d] = 0;
-
-      // H2D timers
-      if (SI->H2DEvents[d].size() > 0) {
-	cl_ulong start, end;
-	cl_int err;
-	unsigned nb_events = SI->H2DEvents[d].size();
-	err = real_clGetEventProfilingInfo(SI->H2DEvents[d][0]->event,
-					   CL_PROFILING_COMMAND_SUBMIT,
-					   sizeof(start), &start, NULL);
-	clCheck(err, __FILE__, __LINE__);
-	err = real_clGetEventProfilingInfo(SI->H2DEvents[d][nb_events-1]
-					   ->event,
-					   CL_PROFILING_COMMAND_END,
-					   sizeof(end), &end, NULL);
-	clCheck(err, __FILE__, __LINE__);
-	for (unsigned i=0; i<nb_events; ++i)
-	  SI->H2DEvents[d][i]->release();
-	SI->H2DTimes[d] = (end - start) * 1e-6;
-      }
-
-      // D2H timers
-      if (SI->D2HEvents[d].size() > 0) {
-	cl_ulong start, end;
-	cl_int err;
-	unsigned nb_events = SI->D2HEvents[d].size();
-	err = real_clGetEventProfilingInfo(SI->D2HEvents[d][0]->event,
-					   CL_PROFILING_COMMAND_SUBMIT,
-					   sizeof(start), &start, NULL);
-	clCheck(err, __FILE__, __LINE__);
-	err = real_clGetEventProfilingInfo(SI->D2HEvents[d][nb_events-1]
-					   ->event,
-					   CL_PROFILING_COMMAND_END,
-					   sizeof(end), &end, NULL);
-	clCheck(err, __FILE__, __LINE__);
-	for (unsigned i=0; i<nb_events; ++i)
-	  SI->D2HEvents[d][i]->release();
-	SI->D2HTimes[d] = (end - start) * 1e-6;
-      }
-
-      SI->D2HEvents[d].clear();
-      SI->H2DEvents[d].clear();
-    }
-
-    // Subkernels timers
-    for (unsigned i=0; i<SI->subkernels.size(); i++) {
-      cl_ulong start, end;
-      cl_int err;
-      unsigned dev = SI->subkernels[i]->device;
-      err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,
-					 CL_PROFILING_COMMAND_SUBMIT,
 					 sizeof(start), &start, NULL);
       clCheck(err, __FILE__, __LINE__);
       err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,

@@ -63,13 +63,15 @@ namespace libsplit {
 			      std::vector<DeviceBufferRegion> &dataWrittenAtomicMax, /* OUT */
 			      unsigned *id);
 
-    virtual void setH2DEvents(unsigned kerId,
-			      unsigned devId,
-			      std::vector<Event> &events);
+    virtual void setH2DEvent(unsigned srcId,
+			     unsigned dstId,
+			     unsigned devId,
+			     Event event);
 
-    virtual void setD2HEvents(unsigned kerID,
+    virtual void setD2HEvent(unsigned srcId,
+			      unsigned dstId,
 			      unsigned devId,
-			      std::vector<Event> &events);
+			      Event event);
 
   protected:
     BufferManager *buffManager;
@@ -97,10 +99,7 @@ namespace libsplit {
 				  bool *needToInstantiateAnalysis) = 0;
 
 
-    void (Scheduler::*updateTimers)(SubKernelSchedInfo *);
-    void updateTimersV1(SubKernelSchedInfo *SI);
-    void updateTimersV2(SubKernelSchedInfo *SI);
-
+    void updateTimers(SubKernelSchedInfo *SI);
     void printTimers(SubKernelSchedInfo *SI);
     void printPartition(SubKernelSchedInfo *SI);
     virtual void updatePerfDescr(SubKernelSchedInfo *SI);
@@ -183,8 +182,11 @@ namespace libsplit {
 	D2HTimes = new double[nbDevices];
 	kernelTimes = new double[nbDevices];
 
-	H2DEvents = new std::vector<Event> [nbDevices];
-	D2HEvents = new std::vector<Event> [nbDevices];
+	src2H2DEvents = new std::map<int, std::vector<Event> >[nbDevices];
+	src2D2HEvents = new std::map<int, std::vector<Event> >[nbDevices];
+
+	src2H2DTimes = new std::map<int, double>[nbDevices];
+	src2D2HTimes = new std::map<int, double>[nbDevices];
 
 	iterno = 0;
       }
@@ -195,8 +197,10 @@ namespace libsplit {
 	delete[] H2DTimes;
 	delete[] D2HTimes;
 	delete[] kernelTimes;
-	delete[] H2DEvents;
-	delete[] D2HEvents;
+	delete[] src2H2DEvents;
+	delete[] src2D2HEvents;
+	delete[] src2H2DTimes;
+	delete[] src2D2HTimes;
       }
 
       bool hasInitPartition;
@@ -228,13 +232,15 @@ namespace libsplit {
       std::vector<SubKernelExecInfo *> subkernels;
 
       // transfers events
-      std::vector<Event> *H2DEvents;
-      std::vector<Event> *D2HEvents;
+      std::map<int, std::vector<Event> > *src2H2DEvents;
+      std::map<int, std::vector<Event> > *src2D2HEvents;
 
       // timers
       double *H2DTimes;
       double *D2HTimes;
       double *kernelTimes;
+      std::map<int, double> *src2H2DTimes;
+      std::map<int, double> *src2D2HTimes;
 
       // shifting
       unsigned shiftingPartition;
