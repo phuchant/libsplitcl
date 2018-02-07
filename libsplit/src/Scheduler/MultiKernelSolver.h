@@ -16,6 +16,10 @@ namespace libsplit {
     void setKernelPerf(int kerId, const double *perf);
     void setD2HConstraint(int kerId, int devId, const double *coefs);
     void setH2DConstraint(int kerId, int devId, const double *coefs);
+    void setKernelsD2HConstraint(int kerId, int src, int devId,
+				 const double *coefs);
+    void setKernelsH2DConstraint(int kerId, int src, int devId,
+				 const double *coefs);
 
     // Compute the D2H constraint for device dev.
     // Returns true if the point Di2H_time / granu_diff should be taken into
@@ -43,8 +47,8 @@ namespace libsplit {
     int nbKernels;
     double **kernelGr;
     double **kernelPerf;
-    double ***D2HConstraints;
-    double ***H2DConstraints;
+    double ****kernelsD2HConstraints;
+    double ****kernelsH2DConstraints;
 
     // GLPK
     glp_prob *lp;
@@ -58,8 +62,10 @@ namespace libsplit {
     int get_keri_devj_rowIdx(int i, int j) const;
     int get_gr_keri_devj_rowIdx(int i, int j) const;
     int get_gr_keri_rowIdx(int i) const;
-    int get_keri_Dj2H_rowIdx(int i, int j) const;
-    int get_keri_H2Dj_rowIdx(int i, int j) const;
+
+    int get_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
+    int get_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+
     int get_T_D2H_keri_colIdx(int i) const;
     int get_T_H2D_keri_colIdx(int i) const;
     int get_T_keri_colIdx(int i) const;
@@ -69,6 +75,7 @@ namespace libsplit {
 
     void createGlpProb();
     void updateGlpMatrix();
+    void dumpProb();
   };
 
 };

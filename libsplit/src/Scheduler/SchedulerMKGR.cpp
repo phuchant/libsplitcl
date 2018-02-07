@@ -20,15 +20,12 @@ namespace libsplit {
     real_cycle_granu_dscr = new double[cycleLength * nbDevices];
     cycle_kernel_perf = new double[cycleLength * nbDevices];
 
-    D2HFunctionSampling = new std::map<double, double> *[cycleLength];
-    H2DFunctionSampling = new std::map<double, double> *[cycleLength];
-    for (unsigned i=0; i<cycleLength; i++) {
-      D2HFunctionSampling[i] = new std::map<double, double>[nbDevices];
-      H2DFunctionSampling[i] = new std::map<double, double>[nbDevices];
-    }
-
-    D2HCoef = new double[cycleLength * nbDevices]();
-    H2DCoef = new double[cycleLength * nbDevices]();
+    kernelsD2HCoefs = new double[cycleLength * cycleLength * nbDevices]();
+    kernelsH2DCoefs = new double[cycleLength * cycleLength * nbDevices]();
+    kernelsD2HSampling =
+      new std::map<double, double>[cycleLength * cycleLength * nbDevices];
+    kernelsH2DSampling =
+      new std::map<double, double>[cycleLength * cycleLength * nbDevices];
   }
 
   SchedulerMKGR::~SchedulerMKGR() {
@@ -38,15 +35,10 @@ namespace libsplit {
     delete[] real_cycle_granu_dscr;
     delete[] cycle_kernel_perf;
 
-    for (unsigned i=0; i<cycleLength; i++) {
-      delete[] D2HFunctionSampling[i];
-      delete[] H2DFunctionSampling[i];
-    }
-    delete[] D2HFunctionSampling;
-    delete[] H2DFunctionSampling;
-
-    delete[] D2HCoef;
-    delete[] H2DCoef;
+    delete[] kernelsD2HCoefs;
+    delete[] kernelsH2DCoefs;
+    delete[] kernelsD2HSampling;
+    delete[] kernelsH2DSampling;
   }
 
   void
@@ -64,7 +56,6 @@ namespace libsplit {
     kerID2SchedInfoMap[kerId] = SI;
   }
 
-
   void
   SchedulerMKGR::getNextPartition(SubKernelSchedInfo *SI,
 				  unsigned kerId,
@@ -74,8 +65,20 @@ namespace libsplit {
     *needOtherExecToComplete = false;
     *needToInstantiateAnalysis = false;
 
-    if (getCycleIter() % 2 != 0)
+    if (getCycleIter() % 2 != 0) {
+      if (kerId == 0) {
+	// Clear timers
+	for (unsigned k=0; k<cycleLength; k++) {
+	  SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
+	  for (unsigned d=0; d<nbDevices; d++) {
+	    KSI->src2H2DTimes[d].clear();
+	    KSI->src2D2HTimes[d].clear();
+	  }
+	}
+      }
+
       return;
+    }
 
     *needToInstantiateAnalysis = true;
 
@@ -87,7 +90,17 @@ namespace libsplit {
 
       // Update communication constraint coefficients and set communication
       // constraint to the solver.
-      updateCommConstraints();
+      updateKernelsCommConstraints();
+
+      // Clear timers
+      for (unsigned k=0; k<cycleLength; k++) {
+      	SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
+      	for (unsigned d=0; d<nbDevices; d++) {
+      	  KSI->src2H2DTimes[d].clear();
+      	  KSI->src2D2HTimes[d].clear();
+      	}
+      }
+
 
       // Set kernel performance and granularities to the solver.
       setCycleKernelPerformance();
@@ -156,112 +169,197 @@ namespace libsplit {
   }
 
   void
-  SchedulerMKGR::updateCommConstraints() {
+  SchedulerMKGR::updateKernelsCommConstraints() {
+    // Update Sampling
+
     // For each kernel in the cycle
     for (unsigned k=0; k<cycleLength; k++) {
-      unsigned kprev = (k + cycleLength - 1) % cycleLength;
+      SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
 
-      double *prev_gr = &real_cycle_granu_dscr[kprev * nbDevices];
-      double *cur_gr = &real_cycle_granu_dscr[k * nbDevices];
-
-      double prev_prefix_gr[nbDevices]; double cur_prefix_gr[nbDevices];
-      prefix_sum(prev_gr, prev_prefix_gr, nbDevices);
-      prefix_sum(cur_gr, cur_prefix_gr, nbDevices);
-
-      // D2H Constraints
+      // For each D2H comm measured
       for (unsigned d=0; d<nbDevices; d++) {
-	int *constraint = NULL;
-	double solvConstraint[2*nbDevices];
+	for (auto IT : KSI->src2D2HTimes[d]) {
+	  int srcId = IT.first;
+	  if (srcId == -1 || srcId == (int) k)
+	    continue;
 
-	if (solver->getD2HConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
-				     cur_prefix_gr, &constraint)) {
-	  // Add point to D2H Function + linear regression
-	  unsigned prevSamplingSize = D2HFunctionSampling[k][d].size();
+	  double *prev_gr = &real_cycle_granu_dscr[srcId * nbDevices];
+	  double *cur_gr = &real_cycle_granu_dscr[k * nbDevices];
 
-	  // Sample a new point.
-	  double x = 0.0;
-	  for (unsigned i=0; i<nbDevices; i++)
-	    x += constraint[i] * prev_gr[i];
-	  for (unsigned i=0; i<nbDevices; i++)
-	    x += constraint[nbDevices + i] * cur_gr[i];
+	  double prev_prefix_gr[nbDevices]; double cur_prefix_gr[nbDevices];
+	  prefix_sum(prev_gr, prev_prefix_gr, nbDevices);
+	  prefix_sum(cur_gr, cur_prefix_gr, nbDevices);
 
-	  double y = kerID2SchedInfoMap[k]->D2HTimes[d];
-	  D2HFunctionSampling[k][d].insert(std::pair<double, double>(x, y));
+	  int *constraint = NULL;
 
-	  unsigned newSamplingSize = D2HFunctionSampling[k][d].size();
+	  if (solver->getD2HConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
+				       cur_prefix_gr, &constraint)) {
+	    int samplingID = k * (cycleLength * nbDevices) +
+	      srcId * nbDevices + d;
 
-	  // Recompute comm constraint with a linear regression if there is at
-	  // least two points sampled and a new one was added.
-	  if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
-	    double X[newSamplingSize], Y[newSamplingSize];
-	    unsigned vecId = 0;
-	    for (auto I = D2HFunctionSampling[k][d].begin(),
-		   E = D2HFunctionSampling[k][d].end(); I != E; ++I) {
-	      X[vecId] = I->first; Y[vecId] = I->second;
-	      vecId++;
+	    // Add point to D2H Function + linear regression
+	    unsigned prevSamplingSize = kernelsD2HSampling[samplingID].size();
+
+	    // Sample a new point.
+	    double x = 0.0;
+	    for (unsigned i=0; i<nbDevices; i++)
+	      x += constraint[i] * prev_gr[i];
+	    for (unsigned i=0; i<nbDevices; i++)
+	      x += constraint[nbDevices + i] * cur_gr[i];
+
+	    double y = IT.second;
+
+	    kernelsD2HSampling[samplingID].
+	      insert(std::pair<double, double>(x, y));
+
+	    unsigned newSamplingSize = kernelsD2HSampling[samplingID].size();
+
+	    // Recompute comm constraint with a linear regression if there is at
+	    // least two points sampled and a new one was added.
+	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
+	      double X[newSamplingSize], Y[newSamplingSize];
+	      unsigned vecId = 0;
+	      for (auto I = kernelsD2HSampling[samplingID].begin(),
+		     E = kernelsD2HSampling[samplingID].end(); I != E; ++I) {
+		X[vecId] = I->first; Y[vecId] = I->second;
+		vecId++;
+	      }
+	      double c0, c1, cov00, cov01, cov11, sumsq;
+	      gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
+			     &cov11, &sumsq);
+	      kernelsD2HCoefs[samplingID] = c1;
+
+	      D2HDependencies[k][srcId].insert(d);
 	    }
-	    double c0, c1, cov00, cov01, cov11, sumsq;
-	    gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
-			   &cov11, &sumsq);
-	    D2HCoef[k*nbDevices+d] = c1;
 	  }
-	}
 
-	// Set D2H Constraint to solver
-	double coef = D2HCoef[k*nbDevices+d];
-	for (unsigned i=0; i<2*nbDevices; i++)
-	  solvConstraint[i] = constraint[i] * coef;
-	solver->setD2HConstraint(k, d, solvConstraint);
-	free(constraint);
+	  free(constraint);
+	}
       }
 
-      // H2D Constraints
+      // For each H2D comm measured
       for (unsigned d=0; d<nbDevices; d++) {
-	int *constraint = NULL;
-	double solvConstraint[2*nbDevices];
+	for (auto IT : KSI->src2H2DTimes[d]) {
+	  int srcId = IT.first;
+	  if (srcId == -1 || srcId == (int) k)
+	    continue;
 
-	if (solver->getH2DConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
-				     cur_prefix_gr, &constraint)) {
-	  // Add point to H2D Function + linear regression
-	  unsigned prevSamplingSize = H2DFunctionSampling[k][d].size();
+	  double *prev_gr = &real_cycle_granu_dscr[srcId * nbDevices];
+	  double *cur_gr = &real_cycle_granu_dscr[k * nbDevices];
 
-	  // Sample a new point.
-	  double x = 0.0;
-	  for (unsigned i=0; i<nbDevices; i++)
-	    x += constraint[i] * prev_gr[i];
-	  for (unsigned i=0; i<nbDevices; i++)
-	    x += constraint[nbDevices + i] * cur_gr[i];
+	  double prev_prefix_gr[nbDevices]; double cur_prefix_gr[nbDevices];
+	  prefix_sum(prev_gr, prev_prefix_gr, nbDevices);
+	  prefix_sum(cur_gr, cur_prefix_gr, nbDevices);
 
-	  double y = kerID2SchedInfoMap[k]->H2DTimes[d];
-	  H2DFunctionSampling[k][d].insert(std::pair<double, double>(x, y));
+	  int *constraint = NULL;
 
-	  unsigned newSamplingSize = H2DFunctionSampling[k][d].size();
+	  if (solver->getH2DConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
+				       cur_prefix_gr, &constraint)) {
+	    int samplingID = k * (cycleLength * nbDevices) +
+	      srcId * nbDevices + d;
 
-	  // Recompute comm constraint with a linear regression if there is at
-	  // least two points sampled and a new one was added.
-	  if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
-	    double X[newSamplingSize], Y[newSamplingSize];
-	    unsigned vecId = 0;
-	    for (auto I = H2DFunctionSampling[k][d].begin(),
-		   E = H2DFunctionSampling[k][d].end(); I != E; ++I) {
-	      X[vecId] = I->first; Y[vecId] = I->second;
-	      vecId++;
+	    // Add point to H2D Function + linear regression
+	    unsigned prevSamplingSize = kernelsH2DSampling[samplingID].size();
+
+	    // Sample a new point.
+	    double x = 0.0;
+	    for (unsigned i=0; i<nbDevices; i++)
+	      x += constraint[i] * prev_gr[i];
+	    for (unsigned i=0; i<nbDevices; i++)
+	      x += constraint[nbDevices + i] * cur_gr[i];
+
+	    double y = IT.second;
+
+	    kernelsH2DSampling[samplingID].
+	      insert(std::pair<double, double>(x, y));
+
+	    unsigned newSamplingSize = kernelsH2DSampling[samplingID].size();
+
+	    // Recompute comm constraint with a linear regression if there is at
+	    // least two points sampled and a new one was added.
+	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
+	      double X[newSamplingSize], Y[newSamplingSize];
+	      unsigned vecId = 0;
+	      for (auto I = kernelsH2DSampling[samplingID].begin(),
+		     E = kernelsH2DSampling[samplingID].end(); I != E; ++I) {
+		X[vecId] = I->first; Y[vecId] = I->second;
+		vecId++;
+	      }
+	      double c0, c1, cov00, cov01, cov11, sumsq;
+	      gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
+			     &cov11, &sumsq);
+	      kernelsH2DCoefs[samplingID] = c1;
+
+	      H2DDependencies[k][srcId].insert(d);
 	    }
-	    double c0, c1, cov00, cov01, cov11, sumsq;
-	    gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
-			   &cov11, &sumsq);
-	    H2DCoef[k*nbDevices+d] = c1;
+
+	    free(constraint);
 	  }
 	}
 
-	// Set H2D Constraint to solver
-	double coef = H2DCoef[k*nbDevices+d];
-	for (unsigned i=0; i<2*nbDevices; i++)
-	  solvConstraint[i] = constraint[i] * coef;
-	solver->setH2DConstraint(k, d, solvConstraint);
-	free(constraint);
       }
     }
+
+    for (auto IT : D2HDependencies) {
+      for (auto IT2 : IT.second) {
+	for (unsigned d : IT2.second) {
+	  int samplingId = IT.first * (cycleLength * nbDevices) +
+	    IT2.first * nbDevices + d;
+	  int dst = IT.first;
+	  int src = IT2.first;
+
+	  double *prev_gr = &real_cycle_granu_dscr[src * nbDevices];
+	  double *cur_gr = &real_cycle_granu_dscr[dst * nbDevices];
+
+	  double prev_prefix_gr[nbDevices]; double cur_prefix_gr[nbDevices];
+	  prefix_sum(prev_gr, prev_prefix_gr, nbDevices);
+	  prefix_sum(cur_gr, cur_prefix_gr, nbDevices);
+
+	  int *constraint = NULL;
+	  double solvConstraint[2*nbDevices];
+
+	  solver->getD2HConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
+				   cur_prefix_gr, &constraint);
+
+	  double coef = kernelsD2HCoefs[samplingId];
+	  for (unsigned i=0; i<2*nbDevices; i++)
+	    solvConstraint[i] = constraint[i] * coef;
+	  solver->setKernelsD2HConstraint(dst, src, d, solvConstraint);
+	  free(constraint);
+	}
+      }
+    }
+    for (auto IT : H2DDependencies) {
+      for (auto IT2 : IT.second) {
+	for (unsigned d : IT2.second) {
+	  int samplingId = IT.first * (cycleLength * nbDevices) +
+	    IT2.first * nbDevices + d;
+
+	  int dst = IT.first;
+	  int src = IT2.first;
+
+	  double *prev_gr = &real_cycle_granu_dscr[src * nbDevices];
+	  double *cur_gr = &real_cycle_granu_dscr[dst * nbDevices];
+
+	  double prev_prefix_gr[nbDevices]; double cur_prefix_gr[nbDevices];
+	  prefix_sum(prev_gr, prev_prefix_gr, nbDevices);
+	  prefix_sum(cur_gr, cur_prefix_gr, nbDevices);
+
+	  int *constraint = NULL;
+	  double solvConstraint[2*nbDevices];
+
+	  solver->getD2HConstraint(d, prev_gr, cur_gr, prev_prefix_gr,
+				   cur_prefix_gr, &constraint);
+
+	  double coef = kernelsD2HCoefs[samplingId];
+	  for (unsigned i=0; i<2*nbDevices; i++)
+	    solvConstraint[i] = constraint[i] * coef;
+	  solver->setKernelsD2HConstraint(dst, src, d, solvConstraint);
+	  free(constraint);
+	}
+      }
+    }
+
   }
 
   void

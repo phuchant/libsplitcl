@@ -4,6 +4,7 @@
 #include <Scheduler/MultiKernelSolver.h>
 #include <Scheduler/MultiKernelScheduler.h>
 
+#include <set>
 
 namespace libsplit {
 
@@ -31,18 +32,25 @@ namespace libsplit {
     double *cycle_kernel_perf; // cycleLength * nbDevices
 
     std::map<unsigned, SubKernelSchedInfo *> kerID2SchedInfoMap;
-    std::map<double, double> **D2HFunctionSampling; // cycleLength * nbDevices
-    std::map<double, double> **H2DFunctionSampling; // cycleLength * nbDevices
 
-    double *D2HCoef; // cycleLength * nbDevices;
-    double *H2DCoef; // cycleLength * nbDevices;
+    // Constraint coefficients
+    double *kernelsD2HCoefs; // cycleLength * cycleLength * nbDevices (dst to src to dev)
+    double *kernelsH2DCoefs; // cycleLength * cycleLength * nbDevices (dst to src to dev)
+
+    // Constraint function sampling
+    std::map<double, double> *kernelsD2HSampling; // cycleLength * cycleLength * nbDevice (dst to src to dev)
+    std::map<double, double> *kernelsH2DSampling; // cycleLength * cycleLength * nbDevices (dst to src to dev)
+
+    // Kernel dependencies
+    std::map<unsigned, std::map<unsigned, std::set<unsigned> > > D2HDependencies; // dst to src to dev
+    std::map<unsigned, std::map<unsigned, std::set<unsigned> > > H2DDependencies; // dst to src to dev
 
     unsigned getCycleIter() const;
     void getRealCycleGranuDscr();
     void getCycleKernelPerf();
-    void updateCommConstraints();
     void setCycleKernelPerformance();
     void setCycleKernelGranuDscr();
+    void updateKernelsCommConstraints();
   };
 
 };
