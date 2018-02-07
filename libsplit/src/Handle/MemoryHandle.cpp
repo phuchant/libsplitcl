@@ -19,6 +19,8 @@ namespace libsplit {
     // Retain context
     mContext->retain();
 
+    lastWriter = -1;
+
     isRO = flags & CL_MEM_READ_ONLY;
 
     if (optNoMemcpy)

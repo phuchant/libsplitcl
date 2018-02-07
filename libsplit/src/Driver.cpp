@@ -448,7 +448,7 @@ namespace libsplit {
     // No nead for a barrier given the fact that we use in order queues.
     // Barrier
 
-    enqueueSubKernels(k, subkernels, dataWritten);
+    enqueueSubKernels(k, kerId, subkernels, dataWritten);
 
     if (OrD2HTransfers.size() > 0)
       startOrD2HTransfers(kerId, OrD2HTransfers);
@@ -825,6 +825,7 @@ namespace libsplit {
 
   void
   Driver::enqueueSubKernels(KernelHandle *k,
+			    unsigned kerId,
 			    std::vector<SubKernelExecInfo *> &subkernels,
 			    const std::vector<DeviceBufferRegion> &dataWritten)
   {
@@ -849,6 +850,7 @@ namespace libsplit {
     // 2) update valid data
     for (unsigned i=0; i<dataWritten.size(); i++) {
       MemoryHandle *m = dataWritten[i].m;
+      m->lastWriter = kerId;
       unsigned dev = dataWritten[i].devId;
       unsigned nbDevices = m->mNbBuffers;
       m->hostValidData.difference(dataWritten[i].region);

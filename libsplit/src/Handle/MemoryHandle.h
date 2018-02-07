@@ -41,6 +41,8 @@ namespace libsplit {
     // Valid regions for each devices and for the host buffer.
     ListInterval *devicesValidData;
     ListInterval hostValidData;
+
+    int lastWriter;
   };
 
 };

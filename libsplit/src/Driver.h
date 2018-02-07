@@ -108,6 +108,7 @@ namespace libsplit {
 				&transferList);
 
     void enqueueSubKernels(KernelHandle *k,
+			   unsigned kerId,
 			   std::vector<SubKernelExecInfo *> &subkernels,
 			   const std::vector<DeviceBufferRegion> &dataWritten);
 

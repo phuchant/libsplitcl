@@ -305,8 +305,6 @@ namespace libsplit {
   void
   BufferManager::fill(MemoryHandle *m, const void *pattern, size_t pattern_size,
 		      size_t offset, size_t size) {
-    Event events[m->mNbBuffers];
-
     // EnqueueFillBuffer for all devices.
     for (unsigned d=0; d<m->mNbBuffers; d++) {
       DeviceQueue *queue = m->mContext->getQueueNo(d);
