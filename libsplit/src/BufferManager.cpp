@@ -510,20 +510,17 @@ namespace libsplit {
       delete restrictRegion;
 
       // Compute the data missing on the device (H2D transfer).
-      ListInterval *missing = ListInterval::difference(dataRequired[i].region,
+      ListInterval *deviceMissing = ListInterval::difference(dataRequired[i].region,
 						       m->devicesValidData[d]);
 
-      if (missing->total() == 0) {
-	delete missing;
+      if (deviceMissing->total() == 0) {
+	delete deviceMissing;
 	continue;
       }
 
-      H2DTransferList.push_back(DeviceBufferRegion(m, d, *missing));
-
       // Compute the data missing on the host.
       ListInterval *hostMissing =
-	ListInterval::difference(*missing, m->hostValidData);
-      delete missing;
+	ListInterval::difference(*deviceMissing, m->hostValidData);
 
       ListInterval *atomicSumHostMissing =
 	ListInterval::difference(atomicSumHostRequiredData[m],
@@ -554,6 +551,8 @@ namespace libsplit {
       delete mergeHostMissing;
 
       if (hostMissing->total() == 0) {
+	H2DTransferList.push_back(DeviceBufferRegion(m, d, *deviceMissing));
+	delete deviceMissing;
 	delete hostMissing;
 	continue;
       }
@@ -578,7 +577,12 @@ namespace libsplit {
 	  break;
       }
 
-      // assert(hostMissing->total() == 0);
+      // Do not send to the device data that is not valid on the host.
+      deviceMissing->difference(*hostMissing);
+      if (deviceMissing->total() > 0)
+	H2DTransferList.push_back(DeviceBufferRegion(m, d, *deviceMissing));
+
+      delete deviceMissing;
       delete hostMissing;
     }
 
