@@ -42,6 +42,7 @@ namespace libsplit {
   char *optBuildOptionDev[MAXDEVICES] = {nullptr, nullptr, nullptr, nullptr,
 					 nullptr, nullptr, nullptr, nullptr,
 					 nullptr, nullptr};
+  bool optPinnedMem = true;
 
   struct option {
     const char *name;
@@ -79,6 +80,7 @@ namespace libsplit {
   static void shiftInitOption(char *env);
   static void shiftStepOption(char *env);
   static void buildOptionDevOption(char *env);
+  static void pinnedMemOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -139,6 +141,8 @@ namespace libsplit {
      shiftStepOption},
     {"BUILDOPTION<devId>", "Build option for device i.", false,
      buildOptionDevOption},
+    {"PINNEDMEM", "Use pinned memory.", false,
+     pinnedMemOption},
 
   };
 
@@ -408,6 +412,12 @@ namespace libsplit {
 	continue;
       optBuildOptionDev[i] = strdup(env);
     }
+  }
+
+  static void pinnedMemOption(char *env) {
+    if (!env)
+      return;
+    optPinnedMem = atoi(env);
   }
 
   void parseEnvOptions()

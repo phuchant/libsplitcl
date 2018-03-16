@@ -2,6 +2,7 @@
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
 #include <Options.h>
+#include <Queue/DeviceQueue.h>
 
 #include <cstring>
 #include <iostream>
@@ -55,7 +56,20 @@ namespace libsplit {
       mLocalBuffer = mHostPtr;
       mMaxUsedSize = size;
     } else {
-      mLocalBuffer = calloc(1, size);
+      if (optPinnedMem) {
+	cl_mem dummyBuffer
+	  = real_clCreateBuffer(context->getContext(0), CL_MEM_ALLOC_HOST_PTR, size, NULL,
+				&err);
+	clCheck(err, __FILE__, __LINE__);
+	mLocalBuffer = real_clEnqueueMapBuffer(context->getQueueNo(0)->cl_queue,
+					       dummyBuffer,
+					       CL_TRUE,
+					       CL_MAP_WRITE_INVALIDATE_REGION,
+					       0, size, 0, NULL, NULL, &err);
+	clCheck(err, __FILE__, __LINE__);
+      } else {
+	mLocalBuffer = calloc(1, size);
+      }
     }
 
     if (flags & CL_MEM_COPY_HOST_PTR) {
