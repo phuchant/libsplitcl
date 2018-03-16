@@ -303,11 +303,12 @@ namespace libsplit {
       bufferMgr->computeIndirectionTransfers(indirectionRegions, D2HTransfers);
 
       if (indirectionRegions.size() > 0) {
-	startD2HTransfers(D2HTransfers);
+	std::set<unsigned> devToWait;
+	startD2HTransfers(D2HTransfers, devToWait);
 
 	// Barrier
 	ContextHandle *context = k->getContext();
-	for (unsigned i=0; i<context->getNbDevices(); i++) {
+	for (unsigned i : devToWait) {
 	  context->getQueueNo(i)->finish();
 	}
 
@@ -430,17 +431,20 @@ namespace libsplit {
     ContextHandle *context = k->getContext();
 
     if (D2HTransfers.size() > 0) {
-      startD2HTransfers(kerId, D2HTransfers);
+      std::set<unsigned> devToWait;
+      startD2HTransfers(kerId, D2HTransfers, devToWait);
 
       // Barrier
-      for (unsigned i=0; i<context->getNbDevices(); i++) {
+      for (unsigned i : devToWait) {
 	context->getQueueNo(i)->finish();
       }
     }
 
 
-    if (H2DTransfers.size() > 0)
-      startH2DTransfers(kerId, H2DTransfers);
+    if (H2DTransfers.size() > 0) {
+      std::set<unsigned> devToWait;
+      startH2DTransfers(kerId, H2DTransfers, devToWait);
+    }
 
 
     double t4 = get_time();
@@ -464,10 +468,6 @@ namespace libsplit {
 
     double t5 = get_time();
 
-    // Barrier
-    for (unsigned i=0; i<context->getNbDevices(); i++) {
-      context->getQueueNo(i)->finish();
-    }
 
     double t6 = get_time();
 
@@ -501,15 +501,16 @@ namespace libsplit {
   void
   Driver::startD2HTransfers(unsigned kerId,
 			    const std::vector<DeviceBufferRegion>
-			    &transferList) {
+			    &transferList,
+			    std::set<unsigned> &devToWait) {
     DEBUG("transfers",
 	  std::cerr << "start D2H\n");
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
+      devToWait.insert(d);
       DeviceQueue *queue = m->mContext->getQueueNo(d);
 
       // 1) enqueue transfers
@@ -542,7 +543,7 @@ namespace libsplit {
 
   void
   Driver::startD2HTransfers(const std::vector<DeviceBufferRegion>
-			    &transferList) {
+			    &transferList, std::set<unsigned> & devToWait) {
     DEBUG("transfers",
 	  std::cerr << "start D2H\n");
 
@@ -580,7 +581,7 @@ namespace libsplit {
   void
   Driver::startH2DTransfers(unsigned kerId,
 			    const std::vector<DeviceBufferRegion>
-			    &transferList) {
+			    &transferList, std::set<unsigned> &devToWait) {
     DEBUG("transfers", std::cerr << "start H2D\n");
 
     // For each device
@@ -588,6 +589,7 @@ namespace libsplit {
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
+      devToWait.insert(d);
 
       // 1) enqueue transfers
       for (unsigned j=0; j<transferList[i].region.mList.size(); j++) {
@@ -666,6 +668,7 @@ namespace libsplit {
     for (unsigned i=0; i<transferList.size(); ++i) {
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
+      devToWait.insert(d);
       DeviceQueue *queue = m->mContext->getQueueNo(d);
 
       // 1) enqueue transfers

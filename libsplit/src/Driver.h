@@ -5,6 +5,8 @@
 #include <Handle/KernelHandle.h>
 #include <Handle/MemoryHandle.h>
 
+#include <set>
+
 namespace libsplit {
 
   class Scheduler;
@@ -87,10 +89,13 @@ namespace libsplit {
     BufferManager *bufferMgr;
 
     void startD2HTransfers(unsigned kerId,
-			   const std::vector<DeviceBufferRegion> &transferList);
-    void startD2HTransfers(const std::vector<DeviceBufferRegion> &transferList);
+			   const std::vector<DeviceBufferRegion> &transferList,
+			   std::set<unsigned> &devToWait);
+    void startD2HTransfers(const std::vector<DeviceBufferRegion> &transferList,
+			   std::set<unsigned> &devToWait);
     void startH2DTransfers(unsigned kerId,
-			   const std::vector<DeviceBufferRegion> &transferList);
+			   const std::vector<DeviceBufferRegion> &transferList,
+			   std::set<unsigned> &devToWait);
     void startOrD2HTransfers(unsigned kerId,
 			     const std::vector<DeviceBufferRegion>
 			     &transferList);

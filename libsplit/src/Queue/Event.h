@@ -33,10 +33,23 @@ namespace libsplit {
       pthread_mutex_lock(&mutex_submitted);
       if (!submitted)
 	pthread_cond_wait(&cond_submitted, &mutex_submitted);
-      pthread_mutex_unlock(&mutex_submitted);
 
-      cl_int err = clWaitForEvents(1, &event);
-      clCheck(err, __FILE__, __LINE__);
+
+      cl_int status;
+
+      // Hack
+      do {
+	cl_int err = real_clWaitForEvents(1, &event);
+	clCheck(err, __FILE__, __LINE__);
+
+	err = real_clGetEventInfo(event,
+				  CL_EVENT_COMMAND_EXECUTION_STATUS,
+				  sizeof(status),
+				  &status, NULL);
+	clCheck(err, __FILE__, __LINE__);
+      } while (status != CL_COMPLETE);
+
+      pthread_mutex_unlock(&mutex_submitted);
     }
 
     cl_event event;

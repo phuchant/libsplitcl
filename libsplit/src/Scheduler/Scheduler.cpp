@@ -686,13 +686,16 @@ namespace libsplit {
 	for (unsigned i=0; i<IT.second.size(); ++i) {
 	  cl_ulong start, end;
 	  cl_int err;
+
+	  IT.second[i]->wait();
+
 	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
-					     CL_PROFILING_COMMAND_START,
-					     sizeof(start), &start, NULL);
+	  				     CL_PROFILING_COMMAND_START,
+	  				     sizeof(start), &start, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
-					     CL_PROFILING_COMMAND_END,
-					     sizeof(end), &end, NULL);
+	  				     CL_PROFILING_COMMAND_END,
+	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  IT.second[i]->release();
 
@@ -715,13 +718,16 @@ namespace libsplit {
 	for (unsigned i=0; i<IT.second.size(); ++i) {
 	  cl_ulong start, end;
 	  cl_int err;
+
+	  IT.second[i]->wait();
+
 	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
-					     CL_PROFILING_COMMAND_START,
-					     sizeof(start), &start, NULL);
+	  				     CL_PROFILING_COMMAND_START,
+	  				     sizeof(start), &start, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  err = real_clGetEventProfilingInfo(IT.second[i]->event,
-					     CL_PROFILING_COMMAND_END,
-					     sizeof(end), &end, NULL);
+	  				     CL_PROFILING_COMMAND_END,
+	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  IT.second[i]->release();
 	  double t = (end - start) * 1e-6;
@@ -742,13 +748,14 @@ namespace libsplit {
       cl_ulong start, end;
       cl_int err;
       unsigned dev = SI->subkernels[i]->device;
+      SI->subkernels[i]->event->wait();
       err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,
-					 CL_PROFILING_COMMAND_START,
-					 sizeof(start), &start, NULL);
+      					 CL_PROFILING_COMMAND_START,
+      					 sizeof(start), &start, NULL);
       clCheck(err, __FILE__, __LINE__);
       err = real_clGetEventProfilingInfo(SI->subkernels[i]->event->event,
-					 CL_PROFILING_COMMAND_END,
-					 sizeof(end), &end, NULL);
+      					 CL_PROFILING_COMMAND_END,
+      					 sizeof(end), &end, NULL);
       clCheck(err, __FILE__, __LINE__);
       SI->subkernels[i]->event->release();
       SI->kernelTimes[dev] += (end - start) * 1e-6;
