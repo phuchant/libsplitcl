@@ -34,8 +34,8 @@ namespace libsplit {
   std::vector<double> optDComm;
   bool optLockFreeQueue = false;
   int optSampleSteps = 0;
-  bool optEnableIndirections = false;
-  bool optDelayedWrite = true;
+  bool optEnableIndirections = true;
+  bool optDelayedWrite = false;
   char *optFakeSources = nullptr;
   unsigned optShiftInit = 0;
   unsigned optShiftStep = 0;
