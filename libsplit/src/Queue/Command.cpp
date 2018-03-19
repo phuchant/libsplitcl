@@ -63,7 +63,7 @@ namespace libsplit {
 
     err = real_clEnqueueWriteBuffer(queue->cl_queue,
 				    buffer,
-				    CL_TRUE /* non blocking */,
+				    CL_FALSE /* non blocking */,
 				    offset,
 				    cb,
 				    ptr,
@@ -97,7 +97,7 @@ namespace libsplit {
 
     err = real_clEnqueueReadBuffer(queue->cl_queue,
 				   buffer,
-				   CL_TRUE /* non blocking */,
+				   CL_FALSE /* non blocking */,
 				   offset,
 				   cb,
 				   (void *) ptr,
