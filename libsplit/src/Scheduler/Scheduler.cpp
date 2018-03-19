@@ -118,6 +118,23 @@ namespace libsplit {
     }
   }
 
+  void
+  Scheduler::SubKernelSchedInfo::printTimers() const {
+    for (unsigned d=0; d<nbDevices; d++) {
+      std::cerr << "dev " << d << " H2D="
+		<< H2DTimes[d] << " D2H="
+		<< D2HTimes[d] << " kernel="
+		<< kernelTimes[d] << "\n";
+
+      for (auto IT : src2H2DTimes[d])
+	std::cerr << "H2D" << d << " from k" << IT.first
+		  << ": " << IT.second << "\n";
+      for (auto IT : src2D2HTimes[d])
+	std::cerr << "D" << d << "2H from k" << IT.first
+		  << ": " << IT.second << "\n";
+    }
+  }
+
   Scheduler::Scheduler(BufferManager *buffManager, unsigned nbDevices) :
     buffManager(buffManager), nbDevices(nbDevices), count(0) {}
 
