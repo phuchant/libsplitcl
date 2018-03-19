@@ -70,6 +70,7 @@ namespace libsplit {
 	// Clear timers
 	for (unsigned k=0; k<cycleLength; k++) {
 	  SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
+	  KSI->clearEvents();
 	  for (unsigned d=0; d<nbDevices; d++) {
 	    KSI->src2H2DTimes[d].clear();
 	    KSI->src2D2HTimes[d].clear();
@@ -83,6 +84,13 @@ namespace libsplit {
     *needToInstantiateAnalysis = true;
 
     if (kerId == 0) {
+      for (unsigned k=0; k<cycleLength; k++) {
+	SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
+	KSI->updateTimers();
+	KSI->updatePerfDescr();
+      }
+
+
       // Get real cycle granu descriptor
       getRealCycleGranuDscr();
       // Get cycle kernel perf

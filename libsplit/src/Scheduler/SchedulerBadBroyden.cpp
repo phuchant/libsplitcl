@@ -1,5 +1,6 @@
 #include <Scheduler/SchedulerBadBroyden.h>
 #include <Utils/Algebra.h>
+#include <Utils/Debug.h>
 
 #include <cassert>
 
@@ -47,8 +48,21 @@ namespace libsplit {
     unsigned nbSplits = SI->real_size_gr / 3;
     BroydenMatrix *BM = kernel2MatrixMap[SI];
 
-   if (nbSplits < nbDevices)
+    if (nbSplits < nbDevices) {
+    DEBUG("timers",
+	  SI->updateTimers();
+	  SI->updatePerfDescr();
+	  SI->printTimers());
+
+      SI->clearEvents();
      return;
+    }
+
+    SI->updateTimers();
+    SI->updatePerfDescr();
+
+    DEBUG("timers",
+	  SI->printTimers());
 
    // Set real x;
    for (unsigned i=0; i<nbDevices; i++) {

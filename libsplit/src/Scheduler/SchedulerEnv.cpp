@@ -1,6 +1,7 @@
 #include <Handle/KernelHandle.h>
 #include <Scheduler/SchedulerEnv.h>
 #include <Options.h>
+#include <Utils/Debug.h>
 
 namespace libsplit {
 
@@ -105,6 +106,14 @@ namespace libsplit {
 
     *needOtherExecutionToComplete = false;
     *needToInstantiateAnalysis = false;
+
+
+
+    DEBUG("timers",
+	  SI->updateTimers();
+	  SI->updatePerfDescr();
+	  SI->printTimers());
+    SI->clearEvents();
   }
 
 };

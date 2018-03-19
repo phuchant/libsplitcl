@@ -99,10 +99,7 @@ namespace libsplit {
 				  bool *needToInstantiateAnalysis) = 0;
 
 
-    void updateTimers(SubKernelSchedInfo *SI);
-    void printTimers(SubKernelSchedInfo *SI);
     void printPartition(SubKernelSchedInfo *SI);
-    virtual void updatePerfDescr(SubKernelSchedInfo *SI);
 
     // Compute the array of dimension id from the one with
     // the maximum number of splits.
@@ -170,6 +167,7 @@ namespace libsplit {
 	needOtherExecToComplete(false),
 	needToInstantiateAnalysis(true),
 	currentDim(0),
+	nbDevices(nbDevices),
 	shiftingPartition(false),
 	nbMergeArgs(0),
 	origNDRange(nullptr) {
@@ -203,6 +201,11 @@ namespace libsplit {
 	delete[] src2D2HTimes;
       }
 
+      void updateTimers();
+      void clearEvents();
+      void updatePerfDescr();
+      void printTimers() const;
+
       bool hasInitPartition;
       bool hasPartition;
       bool partitionUnchanged;
@@ -211,6 +214,8 @@ namespace libsplit {
 
       unsigned currentDim;
       unsigned dimOrder[3];
+
+      unsigned nbDevices;
 
       // granularity descriptor
       int req_size_gr;

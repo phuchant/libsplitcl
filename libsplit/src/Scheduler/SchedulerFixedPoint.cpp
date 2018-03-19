@@ -49,6 +49,13 @@ namespace libsplit {
     unsigned nbSplits = SI->real_size_gr / 3;
     FixedPointMatrix *BM = kernel2MatrixMap[SI];
 
+    SI->updateTimers();
+    SI->updatePerfDescr();
+
+    DEBUG("timers",
+	  SI->printTimers());
+
+
    // Set real x;
    for (unsigned i=0; i<nbSplits; i++) {
      BM->x[i] = SI->kernel_perf_dscr[i*3+1];
