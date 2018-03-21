@@ -55,6 +55,7 @@ namespace libsplit {
 	  SI->printTimers());
 
       SI->clearEvents();
+      SI->clearTimers();
      return;
     }
 
@@ -63,6 +64,8 @@ namespace libsplit {
 
     DEBUG("timers",
 	  SI->printTimers());
+
+    SI->clearTimers();
 
    // Set real x;
    for (unsigned i=0; i<nbDevices; i++) {

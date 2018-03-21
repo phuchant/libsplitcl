@@ -107,6 +107,14 @@ namespace libsplit {
   }
 
   void
+  Scheduler::SubKernelSchedInfo::clearTimers() {
+    for (unsigned d=0; d<nbDevices; d++) {
+      src2H2DTimes[d].clear();
+      src2D2HTimes[d].clear();
+    }
+  }
+
+  void
   Scheduler::SubKernelSchedInfo::updatePerfDescr() {
     size_perf_dscr = real_size_gr;
     int nbSplits = real_size_gr / 3;

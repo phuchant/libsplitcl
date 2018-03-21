@@ -1,4 +1,5 @@
 #include <Scheduler/SchedulerMKGR.h>
+#include <Utils/Debug.h>
 
 #include <cstring>
 
@@ -88,6 +89,9 @@ namespace libsplit {
 	SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
 	KSI->updateTimers();
 	KSI->updatePerfDescr();
+
+	DEBUG("timers",
+	      KSI->printTimers(););
       }
 
 

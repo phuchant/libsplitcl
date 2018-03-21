@@ -114,6 +114,7 @@ namespace libsplit {
 	  SI->updatePerfDescr();
 	  SI->printTimers());
     SI->clearEvents();
+    SI->clearTimers();
   }
 
 };

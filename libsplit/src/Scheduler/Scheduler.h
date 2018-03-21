@@ -203,6 +203,7 @@ namespace libsplit {
 
       void updateTimers();
       void clearEvents();
+      void clearTimers();
       void updatePerfDescr();
       void printTimers() const;
 
