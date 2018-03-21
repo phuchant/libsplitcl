@@ -97,7 +97,8 @@ namespace libsplit {
     {"DONTSPLIT", "When set to 1 no kernel is split.", false, dontsplitOption},
     {"NBSKIPITER", "Number of iterations to skip before splitting the kernel.",
      false, nbskipiterOption},
-    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR, SAMPLE)",
+    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR, " \
+     "MKSTATIC, SAMPLE)",
      false, schedOption},
     {"NOMEMCPY", "(not safe)", false, nomemcpyOption},
     {"PARTITION", "Kernel partition of the following form : " \
@@ -237,6 +238,8 @@ namespace libsplit {
 	optScheduler = Scheduler::FIXEDPOINT;
       } else if (!strcmp(env, "MKGR")) {
 	optScheduler = Scheduler::MKGR;
+      } else if (!strcmp(env, "MKSTATIC")) {
+	optScheduler = Scheduler::MKSTATIC;
       } else if (!strcmp(env, "SAMPLE")) {
 	optScheduler = Scheduler::SAMPLE;
       } else {
@@ -434,9 +437,10 @@ namespace libsplit {
       o.action(env);
     }
 
-    if (optScheduler == Scheduler::MKGR && optCycleLength == 0) {
-      std::cerr << "Error: option CYCLELENGTH must be set when using MKGR " \
-	"scheduler.\n";
+    if ((optScheduler == Scheduler::MKGR ||
+	 optScheduler == Scheduler::MKSTATIC) && optCycleLength == 0) {
+      std::cerr << "Error: option CYCLELENGTH must be set when using MKGR or " \
+	"MKSTATIC scheduler.\n";
       exit(EXIT_FAILURE);
     }
 

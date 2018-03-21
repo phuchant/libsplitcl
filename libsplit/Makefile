@@ -57,6 +57,7 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Scheduler/SchedulerEnv.cpp \
 	src/Scheduler/SchedulerFixedPoint.cpp \
 	src/Scheduler/SchedulerMKGR.cpp \
+	src/Scheduler/SchedulerMKStatic.cpp \
 	src/Scheduler/SchedulerSample.cpp \
 	src/Scheduler/SingleKernelScheduler.cpp \
 	src/Utils/Algebra.cpp \

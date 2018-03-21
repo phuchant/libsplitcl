@@ -6,6 +6,7 @@
 #include <Scheduler/SchedulerEnv.h>
 #include <Scheduler/SchedulerFixedPoint.h>
 #include <Scheduler/SchedulerMKGR.h>
+#include <Scheduler/SchedulerMKStatic.h>
 #include <Scheduler/SchedulerSample.h>
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
@@ -95,6 +96,9 @@ namespace libsplit {
       break;
     case Scheduler::MKGR:
       scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+      break;
+    case Scheduler::MKSTATIC:
+      scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
       break;
     case Scheduler::SAMPLE:
       scheduler = new SchedulerSample(bufferMgr, nbDevices);
@@ -468,6 +472,12 @@ namespace libsplit {
 
     double t5 = get_time();
 
+    // Barrier with MKSTATIC scheduler for each cycle iteration.
+    if (optScheduler == Scheduler::MKSTATIC && kerId == optCycleLength-1) {
+
+      for (unsigned i=0; i<context->getNbDevices(); i++)
+	context->getQueueNo(i)->finish();
+    }
 
     double t6 = get_time();
 
@@ -551,6 +561,7 @@ namespace libsplit {
     for (unsigned i=0; i<transferList.size(); ++i) {
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
+      devToWait.insert(d);
       DeviceQueue *queue = m->mContext->getQueueNo(d);
 
       // 1) enqueue transfers
@@ -668,7 +679,6 @@ namespace libsplit {
     for (unsigned i=0; i<transferList.size(); ++i) {
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
-      devToWait.insert(d);
       DeviceQueue *queue = m->mContext->getQueueNo(d);
 
       // 1) enqueue transfers

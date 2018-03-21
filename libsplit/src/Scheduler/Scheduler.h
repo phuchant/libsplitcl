@@ -31,6 +31,7 @@ namespace libsplit {
       ENV,
       FIXEDPOINT,
       MKGR,
+      MKSTATIC,
       SAMPLE,
     };
 
