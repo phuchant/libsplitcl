@@ -169,9 +169,6 @@ namespace libsplit {
 
     clCheck(err, __FILE__, __LINE__);
 
-    err = clFlush(queue->cl_queue);
-    clCheck(err, __FILE__, __LINE__);
-
     event->setSubmitted();
   }
 
