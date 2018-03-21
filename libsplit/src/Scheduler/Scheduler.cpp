@@ -303,7 +303,7 @@ namespace libsplit {
     }
 
     // Analysis needs to be instantiated every time if the kernel has indirections.
-    if (k->getAnalysis()->hasIndirection()) {
+    if (k->getAnalysis()->hasIndirection() && optEnableIndirections) {
       SI->needToInstantiateAnalysis = true;
     }
 
