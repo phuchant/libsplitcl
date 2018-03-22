@@ -68,15 +68,35 @@ namespace libsplit {
 
     if (getCycleIter() % 2 != 0) {
       if (kerId == 0) {
+	double totalCyclePerDevice[nbDevices] = {0};
+
 	// Clear timers
 	for (unsigned k=0; k<cycleLength; k++) {
 	  SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
+	  DEBUG("timers",
+		KSI->updateTimers();
+		KSI->updatePerfDescr();
+		// KSI->printTimers();
+		for (unsigned d=0; d<nbDevices; d++) {
+		  totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
+		    KSI->kernelTimes[d];
+		}
+		);
+
+
 	  KSI->clearEvents();
 	  for (unsigned d=0; d<nbDevices; d++) {
 	    KSI->src2H2DTimes[d].clear();
 	    KSI->src2D2HTimes[d].clear();
 	  }
 	}
+
+	DEBUG("timers",
+	    for (unsigned d=0; d<nbDevices; d++) {
+	      std::cerr << "total iter time on device " << d << ": "
+			<< totalCyclePerDevice[d] << "\n";
+	    }
+	    );
       }
 
       return;
@@ -85,14 +105,28 @@ namespace libsplit {
     *needToInstantiateAnalysis = true;
 
     if (kerId == 0) {
+      double totalCyclePerDevice[nbDevices] = {0};
+
       for (unsigned k=0; k<cycleLength; k++) {
 	SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
 	KSI->updateTimers();
 	KSI->updatePerfDescr();
 
 	DEBUG("timers",
-	      KSI->printTimers(););
+	      for (unsigned d=0; d<nbDevices; d++) {
+		totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
+		  KSI->kernelTimes[d];
+	      }
+	      //KSI->printTimers();
+	      );
       }
+
+      DEBUG("timers",
+	    for (unsigned d=0; d<nbDevices; d++) {
+	      std::cerr << "total iter time on device " << d << ": "
+			<< totalCyclePerDevice[d] << "\n";
+	    }
+	    );
 
 
       // Get real cycle granu descriptor
