@@ -410,7 +410,9 @@ namespace libsplit {
     DEBUG("granu",
     std::cerr << k->getName() << ": ";
 	  for (SubKernelExecInfo *ki : subkernels)
-	    std::cerr << "<" << ki->device << "," << ki->global_work_size[ki->splitdim] << "> ";
+	    std::cerr << "<" << ki->device << ","
+		      << (float) ki->global_work_size[ki->splitdim] /
+	      global_work_size[ki->splitdim] *100 << " %> ";
 	  std::cerr << "\n";);
 
     bufferMgr->computeTransfers(dataRequired,

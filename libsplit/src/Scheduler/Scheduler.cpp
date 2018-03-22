@@ -158,6 +158,90 @@ namespace libsplit {
 
   Scheduler::~Scheduler() {}
 
+  void
+  Scheduler::getShiftedPartition(std::vector<NDRange> *shiftedPartition,
+				 const NDRange &origNDRange,
+				 const NDRange &ndRange,
+				 unsigned splitDim,
+				 unsigned requiredShift,
+				 unsigned *shiftedDeviceIdInPartition) {
+    unsigned work_dim = ndRange.get_work_dim();
+    size_t global_work_size[work_dim];
+    size_t global_work_offset[work_dim];
+    size_t local_work_size[work_dim];
+    for (unsigned i=0; i<work_dim; i++) {
+      global_work_size[i] = ndRange.get_global_size(i);
+      global_work_offset[i] = ndRange.getOffset(i);
+      local_work_size[i] = ndRange.get_local_size(i);
+    }
+
+
+    int NDRangeLB = origNDRange.getOffset(splitDim);
+    int NDRangeHB = NDRangeLB + origNDRange.get_global_size(splitDim) - 1;
+
+    int oldLB = ndRange.getOffset(splitDim);
+    int oldHB = oldLB + ndRange.get_global_size(splitDim) - 1;
+
+    int lsize = origNDRange.get_local_size(splitDim);
+
+    int newLB = oldLB - requiredShift * lsize;
+    int newHB = oldHB + requiredShift * lsize;
+
+    newLB = newLB < NDRangeLB ? NDRangeLB : newLB;
+    newHB = newHB > NDRangeHB ? NDRangeHB : newHB;
+
+    *shiftedDeviceIdInPartition = 0;
+
+    ssize_t offset; ssize_t size;
+
+    if (newLB > NDRangeLB) {
+      *shiftedDeviceIdInPartition = 1;
+
+      offset = NDRangeLB;
+      size = newLB -1 - NDRangeLB + 1;
+      assert(offset >= 0);
+      assert(offset % lsize == 0);
+      assert(size > 0);
+      global_work_offset[splitDim] = offset;
+      global_work_size[splitDim] = size;
+      shiftedPartition->push_back(NDRange(work_dim,
+					  global_work_size,
+					  global_work_offset,
+					  local_work_size));
+    }
+
+    offset = newLB;
+    size= newHB -newLB + 1;
+    assert(offset >= 0);
+    assert(offset % lsize == 0);
+    assert(size > 0);
+    global_work_offset[splitDim] = offset;
+    global_work_size[splitDim] = size;
+    shiftedPartition->push_back(NDRange(work_dim,
+					global_work_size,
+					global_work_offset,
+					local_work_size));
+
+    if (newHB < NDRangeHB) {
+      offset = newHB+1;
+      size= newHB -newLB;
+      assert(offset >= 0);
+      assert(offset % lsize == 0);
+      assert(size > 0);
+      global_work_offset[splitDim] = offset;
+      global_work_size[splitDim] = size;
+      shiftedPartition->push_back(NDRange(work_dim,
+					  global_work_size,
+					  global_work_offset,
+					  local_work_size));
+    }
+
+    for (unsigned i=1; i<shiftedPartition->size(); i++) {
+      assert((*shiftedPartition)[i].getOffset(splitDim) == 
+	     (*shiftedPartition)[i-1].getOffset(splitDim) +
+	     (*shiftedPartition)[i-1].get_global_size(splitDim));
+    }
+  }
 
   bool
   Scheduler::paramHaveChanged(const SubKernelSchedInfo *SI,
@@ -323,38 +407,27 @@ namespace libsplit {
     // Shifting
     if (!SI->partitionUnchanged && SI->shiftingPartition) {
       SI->partitionUnchanged = true;
-
       // Shift sub ndranges
       unsigned shiftingDevice = SI->shiftingDevice;
-      unsigned shiftingWgs = SI->shiftingWgs;
       NDRange *origNDRange = SI->origNDRange;
-      std::vector<NDRange> subNDRanges = SI->requiredSubNDRanges;
-      unsigned nbDevices = subNDRanges.size();
-      assert(nbDevices >= 2);
-      if (shiftingDevice == 0) {
-	subNDRanges[shiftingDevice].shiftRight(SI->currentDim, shiftingWgs);
-	subNDRanges[shiftingDevice+1].shiftLeft(SI->currentDim, -shiftingWgs);
-      } else if (shiftingDevice == nbDevices-1) {
-	subNDRanges[shiftingDevice].shiftLeft(SI->currentDim, shiftingWgs);
-	subNDRanges[shiftingDevice-1].shiftRight(SI->currentDim, -shiftingWgs);
-      } else {
-	subNDRanges[shiftingDevice].shiftLeft(SI->currentDim, shiftingWgs);
-	subNDRanges[shiftingDevice].shiftRight(SI->currentDim, shiftingWgs);
-	subNDRanges[shiftingDevice-1].shiftRight(SI->currentDim, -shiftingWgs);
-	subNDRanges[shiftingDevice+1].shiftLeft(SI->currentDim, -shiftingWgs);
-      }
+      std::vector<NDRange> shiftedPartition;
+      unsigned shiftedDeviceIdInPartition;
+      getShiftedPartition(&shiftedPartition,
+			  *origNDRange,
+      			  SI->requiredSubNDRanges[shiftingDevice],
+			  SI->dimOrder[SI->currentDim],
+			  SI->shiftingWgs,
+      			  &shiftedDeviceIdInPartition);
 
-      DEBUG("shift",
-	    std::cerr << "shifting dev " << shiftingDevice << "\n";
-	    for (unsigned i=0; i<nbDevices; i++) {
-	      std::cerr << "dev " << i << ":\n";
-	      subNDRanges[i].dump();
-	    });
+      // Save current device ID in shifted partition
+      SI->shiftedDeviceIdInPartition = shiftedDeviceIdInPartition;
+
       // Save current device shifted NDRange
-      SI->shiftedSubNDRanges[shiftingDevice] = subNDRanges[shiftingDevice];
+      SI->shiftedSubNDRanges[shiftingDevice] =
+	shiftedPartition[shiftedDeviceIdInPartition];
 
       // Set partition
-      k->getAnalysis()->setPartition(*origNDRange, subNDRanges,
+      k->getAnalysis()->setPartition(*origNDRange, shiftedPartition,
 				     k->getArgsValues());
     }
 
@@ -442,7 +515,6 @@ namespace libsplit {
 
     // Instantiate analysis if needed.
     if (SI->needToInstantiateAnalysis) {
-
       // Set indirections values to analysis.
       unsigned nbSplit = SI->real_size_gr / 3;
       if (regions.size() > 0) {
@@ -476,7 +548,7 @@ namespace libsplit {
       DEBUG("dynanalysis", k->getAnalysis()->debug(););
 
       // Single device, we don't care about the analysis status.
-      if (nbSplit == 1) {
+      if (nbSplit == 1 && ! SI->shiftingPartition) {
 	fillSubkernelInfoSingle(k,
 				SI->real_granu_dscr, &SI->real_size_gr,
 				SI->dimOrder[SI->currentDim], SI->subkernels,
@@ -506,27 +578,28 @@ namespace libsplit {
 
 	// Save shifted device analyse
 	unsigned shiftingDevice = SI->shiftingDevice;
+	unsigned shiftingID = SI->shiftedDeviceIdInPartition;
 	KernelAnalysis *analysis = k->getAnalysis();
 	unsigned nbGlobals = analysis->getNbGlobalArguments();
 	for (unsigned a=0; a<nbGlobals; a++) {
 	  SI->shiftDataRequired[shiftingDevice][a] =
-	    analysis->getArgReadSubkernelRegion(a, shiftingDevice);
+	    analysis->getArgReadSubkernelRegion(a, shiftingID);
 	  if (!analysis->argReadBoundsComputed(a))
 	    SI->shiftDataRequired[shiftingDevice][a].setUndefined();
-	  SI->shiftDataWritten[shiftingDevice][a] =
-	    analysis->getArgWrittenSubkernelRegion(a, shiftingDevice);
+	  SI->shiftDataWritten[shiftingDevice][a].myUnion(
+							  analysis->getArgWrittenSubkernelRegion(a, shiftingID));
 	  SI->shiftDataWrittenOr[shiftingDevice][a] =
-	    analysis->getArgWrittenOrSubkernelRegion(a, shiftingDevice);
+	    analysis->getArgWrittenOrSubkernelRegion(a, shiftingID);
 	  SI->shiftDataWrittenAtomicSum[shiftingDevice][a] =
-	    analysis->getArgWrittenAtomicSumSubkernelRegion(a, shiftingDevice);
+	    analysis->getArgWrittenAtomicSumSubkernelRegion(a, shiftingID);
 	  if (!analysis->argWrittenAtomicSumBoundsComputed(a)) {
 	    SI->shiftDataRequired[shiftingDevice][a].setUndefined();
 	    SI->shiftDataWrittenAtomicSum[shiftingDevice][a].setUndefined();
 	  }
 	  SI->shiftDataWrittenAtomicMin[shiftingDevice][a] =
-	    analysis->getArgWrittenAtomicMinSubkernelRegion(a, shiftingDevice);
+	    analysis->getArgWrittenAtomicMinSubkernelRegion(a, shiftingID);
 	  SI->shiftDataWrittenAtomicMax[shiftingDevice][a] =
-	    analysis->getArgWrittenAtomicMaxSubkernelRegion(a, shiftingDevice);
+	    analysis->getArgWrittenAtomicMaxSubkernelRegion(a, shiftingID);
 	}
 
 	unsigned nbDevices = SI->real_size_gr / 3;
@@ -538,7 +611,10 @@ namespace libsplit {
 	  bool shiftDone = true;
 
 	  DEBUG("shifted",
-		std::cerr << "shifted workgroups = " << SI->shiftingWgs << "\n";
+		std::cerr << "shifted workgroups = " << SI->shiftingWgs 
+		<< " shifted ids "
+		<< SI->shiftingWgs * SI->origNDRange->get_local_size(SI->dimOrder[SI->currentDim]) 
+		<< "\n";
 	  	for (unsigned i=0; i<nbDevices; i++) {
 	  	  std::cerr << "shift ndRange dev " << i << ": ";
 	  	  SI->shiftedSubNDRanges[i].dump();
@@ -591,6 +667,14 @@ namespace libsplit {
 	  }
 
 	  if (shiftDone) {
+
+	    DEBUG("shiftingpercent",
+		  int splitDim = SI->dimOrder[SI->currentDim];
+		  int nbWgs = SI->origNDRange->get_global_size(splitDim) /
+		  SI->origNDRange->get_local_size(splitDim);
+		  std::cerr << "shifting percent : "
+		  << (((double) SI->shiftingWgs) / nbWgs) * 100 << "\n";
+		  );
 	    SI->partitionUnchanged = false;
 	    SI->shiftingPartition = false;
 	    fillSubkernelInfoShift(k,
@@ -628,7 +712,6 @@ namespace libsplit {
 	    SI->needToInstantiateAnalysis = true;
 
 	    SI->shiftDataRequired.clear(); SI->shiftDataRequired.resize(nbDevices);
-	    SI->shiftDataWritten.clear(); SI->shiftDataWritten.resize(nbDevices);
 	    SI->shiftDataWrittenOr.clear(); SI->shiftDataWrittenOr.resize(nbDevices);
 	    SI->shiftDataWrittenAtomicSum.clear(); SI->shiftDataWrittenAtomicSum.resize(nbDevices);
 	    SI->shiftDataWrittenAtomicMin.clear(); SI->shiftDataWrittenAtomicMin.resize(nbDevices);
@@ -636,7 +719,6 @@ namespace libsplit {
 	    unsigned nbGlobals = analysis->getNbGlobalArguments();
 	    for (unsigned i=0; i<nbDevices; i++) {
 	      SI->shiftDataRequired[i].resize(nbGlobals);
-	      SI->shiftDataWritten[i].resize(nbGlobals);
 	      SI->shiftDataWrittenOr[i].resize(nbGlobals);
 	      SI->shiftDataWrittenAtomicSum[i].resize(nbGlobals);
 	      SI->shiftDataWrittenAtomicMin[i].resize(nbGlobals);
@@ -747,8 +829,6 @@ namespace libsplit {
     // Get schedinfo
     SubKernelSchedInfo *SI = kerID2InfoMap[*id];
     SI->hasPartition = false;
-
-    DEBUG("granu", printPartition(SI));
 
     // Set output.
     for (unsigned i=0; i<SI->subkernels.size(); i++)
@@ -1027,6 +1107,12 @@ namespace libsplit {
       subkernel->numgroups = num_groups;
       subkernel->splitdim = splitDim;
       subkernels.push_back(subkernel);
+
+      // Update granu dscr
+      double updatedGranu =
+	((double) subkernel->global_work_size[splitDim]) /
+	origNDRange.get_global_size(splitDim);
+      granu_dscr[i*3+2] = updatedGranu;
     }
 
     // Fill dataRequired and dataWritten vectors

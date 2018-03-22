@@ -156,6 +156,14 @@ namespace libsplit {
 			size_t global_work_size, size_t local_work_size);
 
     static
+    void getShiftedPartition(std::vector<NDRange> *shiftedPartition,
+			     const NDRange &origNDRange,
+			     const NDRange &ndRange,
+			     unsigned splitDim,
+			     unsigned requiredShift,
+			     unsigned *shiftedDeviceIdInPartition);
+
+    static
     bool paramHaveChanged(const SubKernelSchedInfo *SI,
 			    const KernelHandle *k);
     static
@@ -252,6 +260,7 @@ namespace libsplit {
       // shifting
       unsigned shiftingPartition;
       unsigned shiftingDevice;
+      unsigned shiftedDeviceIdInPartition;
       unsigned shiftingWgs;
       unsigned nbMergeArgs;
       std::map<unsigned, unsigned> mergeArg2GlobalPos;
