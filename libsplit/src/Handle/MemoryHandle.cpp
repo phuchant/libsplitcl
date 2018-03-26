@@ -57,11 +57,30 @@ namespace libsplit {
       mMaxUsedSize = size;
     } else {
       if (optPinnedMem) {
+	int firstGpuID = -1;
+
+	for (unsigned i=0; i<context->getNbDevices(); i++) {
+	  cl_device_id dev = context->getDevice(i);
+	  cl_device_type dev_type;
+	  cl_int err = real_clGetDeviceInfo(dev, CL_DEVICE_TYPE,
+					    sizeof(dev_type),
+					    &dev_type,
+					    NULL);
+	  clCheck(err, __FILE__, __LINE__);
+	  if (dev_type == CL_DEVICE_TYPE_GPU) {
+	    firstGpuID = i;
+	    break;
+	  }
+	}
+	assert(firstGpuID != -1);
+
 	cl_mem dummyBuffer
-	  = real_clCreateBuffer(context->getContext(0), CL_MEM_ALLOC_HOST_PTR, size, NULL,
+	  = real_clCreateBuffer(context->getContext(firstGpuID),
+				CL_MEM_ALLOC_HOST_PTR, size, NULL,
 				&err);
 	clCheck(err, __FILE__, __LINE__);
-	mLocalBuffer = real_clEnqueueMapBuffer(context->getQueueNo(0)->cl_queue,
+	mLocalBuffer = real_clEnqueueMapBuffer(context->getQueueNo(firstGpuID)
+					       ->cl_queue,
 					       dummyBuffer,
 					       CL_TRUE,
 					       CL_MAP_WRITE_INVALIDATE_REGION,
