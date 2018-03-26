@@ -25,7 +25,7 @@ namespace libsplit {
   int optLogMaxIter = -1;
   std::vector<unsigned> optPartition;
   std::vector<double> optGranudscr;
-  unsigned optSkip = 0;
+  unsigned optSkipKernels = 0;
   bool optNoComm = false;
   bool optBest = false;
   bool optStop = false;
@@ -109,8 +109,8 @@ namespace libsplit {
      false, partitionsOption},
     {"GRANUDSCR", "Kernel partition of the follwing form: <dev, nb, granu, ... >",
      false, granudscrOption},
-    {"SKIP", "Start with Uniform splitting and  use the given partition after " \
-     "SKIP iterations.", false, skipOption},
+    {"SKIPKERNELS", "Start with Uniform splitting and  use the given partition after " \
+     "SKIP kernels.", false, skipOption},
     {"NOCOMM", "Do not take into account communication time to compute the " \
      "granularity.", false, nocommOption},
     {"BEST", "Stop scheduler after reaching the \"best\" granularity.", false,
@@ -293,7 +293,7 @@ namespace libsplit {
     if (!env)
       return;
 
-    optSkip = atoi(env);
+    optSkipKernels = atoi(env);
   }
 
   static void nocommOption(char *env) {

@@ -84,28 +84,32 @@ namespace libsplit {
     bufferMgr = new BufferManager(optDelayedWrite);
     unsigned nbDevices = optDeviceSelection.size() / 2;
 
-    switch(optScheduler) {
-    case Scheduler::BADBROYDEN:
-      scheduler = new SchedulerBadBroyden(bufferMgr, nbDevices);
-      break;
-    case Scheduler::BROYDEN:
-      scheduler = new SchedulerBroyden(bufferMgr, nbDevices);
-      break;
-    case Scheduler::FIXEDPOINT:
-      scheduler = new SchedulerFixedPoint(bufferMgr, nbDevices);
-      break;
-    case Scheduler::MKGR:
-      scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
-      break;
-    case Scheduler::MKSTATIC:
-      scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
-      break;
-    case Scheduler::SAMPLE:
-      scheduler = new SchedulerSample(bufferMgr, nbDevices);
-      break;
-    default:
+    if (optSkipKernels > 0) {
       scheduler = new SchedulerEnv(bufferMgr, nbDevices);
-    };
+    } else {
+      switch(optScheduler) {
+      case Scheduler::BADBROYDEN:
+	scheduler = new SchedulerBadBroyden(bufferMgr, nbDevices);
+	break;
+      case Scheduler::BROYDEN:
+	scheduler = new SchedulerBroyden(bufferMgr, nbDevices);
+	break;
+      case Scheduler::FIXEDPOINT:
+	scheduler = new SchedulerFixedPoint(bufferMgr, nbDevices);
+	break;
+      case Scheduler::MKGR:
+	scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+	break;
+      case Scheduler::MKSTATIC:
+	scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
+	break;
+      case Scheduler::SAMPLE:
+	scheduler = new SchedulerSample(bufferMgr, nbDevices);
+	break;
+      default:
+	scheduler = new SchedulerEnv(bufferMgr, nbDevices);
+      };
+    }
   }
 
   Driver::~Driver() {
@@ -258,6 +262,39 @@ namespace libsplit {
 			       cl_uint num_events_in_wait_list,
 			       const cl_event *event_wait_list,
 			       cl_event *event) {
+
+    // Option skipKernels
+    {
+      static unsigned kernelNo = 0;
+      if (optSkipKernels > 0 && optSkipKernels == kernelNo) {
+	delete scheduler;
+	unsigned nbDevices = optDeviceSelection.size() / 2;
+	switch(optScheduler) {
+	case Scheduler::BADBROYDEN:
+	  scheduler = new SchedulerBadBroyden(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::BROYDEN:
+	  scheduler = new SchedulerBroyden(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::FIXEDPOINT:
+	  scheduler = new SchedulerFixedPoint(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::MKGR:
+	  scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::MKSTATIC:
+	  scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::SAMPLE:
+	  scheduler = new SchedulerSample(bufferMgr, nbDevices);
+	  break;
+	default:
+	  scheduler = new SchedulerEnv(bufferMgr, nbDevices);
+	};
+      }
+      kernelNo++;
+    }
+
     double t1 = get_time();
     if (local_work_size == NULL) {
       std::cerr << "Error, local_work_size NULL not handled !\n";

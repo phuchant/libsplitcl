@@ -18,7 +18,7 @@ namespace libsplit {
   extern std::vector<unsigned> optPartition;
   extern std::vector<unsigned> optPartitions;
   extern std::vector<double> optGranudscr;
-  extern unsigned optSkip;
+  extern unsigned optSkipKernels;
   extern bool optNoComm;
   extern bool optBest;
   extern bool optStop;
