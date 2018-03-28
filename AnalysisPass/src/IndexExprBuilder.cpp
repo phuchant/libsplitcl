@@ -204,7 +204,8 @@ IndexExprBuilder::buildExpr(Value *value) {
 	if (!called)
 	  return new IndexExprUnknown("indirect call");
 
-	if (called->getName().equals("_Z3maxjj")) {
+	if (called->getName().equals("_Z3maxjj") ||
+	    called->getName().equals("_Z3maxii")) {
 	  IndexExpr *ops[2];
 	  ops[0] = buildExpr(call->getOperand(0));
 	  ops[1] = buildExpr(call->getOperand(1));
