@@ -4,6 +4,7 @@
 #include <Options.h>
 #include <Queue/DeviceQueue.h>
 
+#include <cassert>
 #include <cstring>
 #include <iostream>
 
