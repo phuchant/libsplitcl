@@ -34,6 +34,7 @@ namespace libsplit {
   extern unsigned optShiftStep;
   extern char *optBuildOptionDev[MAXDEVICES];
   extern bool optPinnedMem;
+  extern bool optMKGRNoComm;
 
   void parseEnvOptions();
 

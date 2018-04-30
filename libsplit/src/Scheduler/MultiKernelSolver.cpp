@@ -1,3 +1,4 @@
+#include <Options.h>
 #include <Scheduler/MultiKernelSolver.h>
 #include <Utils/Debug.h>
 
@@ -87,6 +88,8 @@ namespace libsplit {
 					     const double *coefs)
   {
     assert(kerId != src);
+    if (optMKGRNoComm)
+      return;
     memcpy(kernelsD2HConstraints[kerId][src][devId], coefs, 2*nbDevices*sizeof(double));
   }
 
@@ -95,6 +98,8 @@ namespace libsplit {
 					     const double *coefs)
   {
     assert(kerId != src);
+    if (optMKGRNoComm)
+      return;
     memcpy(kernelsH2DConstraints[kerId][src][devId], coefs, 2*nbDevices*sizeof(double));
   }
 

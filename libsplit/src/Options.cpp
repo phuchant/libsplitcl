@@ -43,6 +43,7 @@ namespace libsplit {
 					 nullptr, nullptr, nullptr, nullptr,
 					 nullptr, nullptr};
   bool optPinnedMem = true;
+  bool optMKGRNoComm = false;
 
   struct option {
     const char *name;
@@ -81,6 +82,7 @@ namespace libsplit {
   static void shiftStepOption(char *env);
   static void buildOptionDevOption(char *env);
   static void pinnedMemOption(char *env);
+  static void mkgrNoCommOption(char *env);
 
   static option opts[] = {
     {"HELP", "Display available options.", false, helpOption},
@@ -144,6 +146,8 @@ namespace libsplit {
      buildOptionDevOption},
     {"PINNEDMEM", "Use pinned memory.", false,
      pinnedMemOption},
+    {"MKGRNOCOMM", "Ignore comm constraints with MKGR scheduler.", false,
+     mkgrNoCommOption},
 
   };
 
@@ -421,6 +425,12 @@ namespace libsplit {
     if (!env)
       return;
     optPinnedMem = atoi(env);
+  }
+
+  static void mkgrNoCommOption(char *env) {
+    if (!env)
+      return;
+    optMKGRNoComm = atoi(env);
   }
 
   void parseEnvOptions()
