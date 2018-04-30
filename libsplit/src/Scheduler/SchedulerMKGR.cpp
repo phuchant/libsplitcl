@@ -7,6 +7,8 @@ extern "C" {
 #include <gsl/gsl_fit.h>
 }
 
+#define EPSILON 1e-6
+
 namespace libsplit {
 
   SchedulerMKGR::SchedulerMKGR(BufferManager *buffManager, unsigned nbDevices)
@@ -255,6 +257,14 @@ namespace libsplit {
 
 	    double y = IT.second;
 
+	    for (auto I = kernelsD2HSampling[samplingID].begin();
+	    	 I != kernelsD2HSampling[samplingID].end(); ) {
+	      if (fabs(I->first - x) < EPSILON)
+	    	I = kernelsD2HSampling[samplingID].erase(I);
+	      else
+	    	++I;
+	    }
+
 	    kernelsD2HSampling[samplingID].
 	      insert(std::pair<double, double>(x, y));
 
@@ -262,7 +272,7 @@ namespace libsplit {
 
 	    // Recompute comm constraint with a linear regression if there is at
 	    // least two points sampled and a new one was added.
-	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
+	    if (newSamplingSize >= 2) {
 	      double X[newSamplingSize], Y[newSamplingSize];
 	      unsigned vecId = 0;
 	      for (auto I = kernelsD2HSampling[samplingID].begin(),
@@ -316,6 +326,15 @@ namespace libsplit {
 
 	    double y = IT.second;
 
+	    for (auto I = kernelsH2DSampling[samplingID].begin();
+	    	 I != kernelsH2DSampling[samplingID].end(); ) {
+	      if (fabs(I->first - x) < EPSILON)
+	    	I = kernelsH2DSampling[samplingID].erase(I);
+	      else
+	    	++I;
+	    }
+
+
 	    kernelsH2DSampling[samplingID].
 	      insert(std::pair<double, double>(x, y));
 
@@ -323,7 +342,7 @@ namespace libsplit {
 
 	    // Recompute comm constraint with a linear regression if there is at
 	    // least two points sampled and a new one was added.
-	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
+	    if (newSamplingSize >= 2) {
 	      double X[newSamplingSize], Y[newSamplingSize];
 	      unsigned vecId = 0;
 	      for (auto I = kernelsH2DSampling[samplingID].begin(),
