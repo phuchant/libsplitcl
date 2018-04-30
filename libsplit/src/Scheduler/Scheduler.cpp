@@ -380,16 +380,18 @@ namespace libsplit {
 	SI->dimOrder[0] = 1; SI->dimOrder[1] = 0;
       }
       SI->currentDim = 0;
-
-      // Copy requested granularity to real granularity.
-      std::copy(SI->req_granu_dscr, SI->req_granu_dscr+SI->req_size_gr,
-		SI->real_granu_dscr);
-      SI->real_size_gr = SI->req_size_gr;
     }
 
     // Analysis needs to be instantiated every time if the kernel has indirections.
     if (k->getAnalysis()->hasIndirection() && optEnableIndirections) {
       SI->needToInstantiateAnalysis = true;
+    }
+
+    if (SI->needToInstantiateAnalysis && !SI->partitionUnchanged) {
+      // Copy requested granularity to real granularity.
+      std::copy(SI->req_granu_dscr, SI->req_granu_dscr+SI->req_size_gr,
+		SI->real_granu_dscr);
+      SI->real_size_gr = SI->req_size_gr;
     }
 
     if (!SI->needToInstantiateAnalysis)
