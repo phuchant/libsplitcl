@@ -4,6 +4,7 @@
 #include <Utils/Debug.h>
 
 #include <cassert>
+#include <cmath>
 #include <cstring>
 
 namespace libsplit {
@@ -1281,11 +1282,10 @@ namespace libsplit {
 
     // Adapt granularity depending on the minimum granularity (global/local).
     for (int i=0; i<nbSplits; i++) {
-      granu_dscr[i*3+2] *= global_work_size;
-      granu_dscr[i*3+2] /= local_work_size;
-      granu_dscr[i*3+2] = ((int) granu_dscr[i*3+2]) * local_work_size;
-      granu_dscr[i*3+2] /= global_work_size;
-      granu_dscr[i*3+2] = granu_dscr[i*3+2] < 0 ? 0 : granu_dscr[i*3+2];
+      int nbWgs = global_work_size / local_work_size;
+      granu_dscr[i*3+2] *= nbWgs;
+      granu_dscr[i*3+2] = round(granu_dscr[i*3+2]);
+      granu_dscr[i*3+2] /= nbWgs;
     }
 
     // Adapt granularity depending on the number of work groups.
