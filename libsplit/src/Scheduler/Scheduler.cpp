@@ -1,7 +1,9 @@
+#include <Globals.h>
 #include <Handle/KernelHandle.h>
 #include <Options.h>
 #include <Scheduler/Scheduler.h>
 #include <Utils/Debug.h>
+#include <Utils/Timeline.h>
 
 #include <cassert>
 #include <cmath>
@@ -35,6 +37,8 @@ namespace libsplit {
 	  clCheck(err, __FILE__, __LINE__);
 	  IT.second[i]->release();
 
+	  timeline->pushH2DEvent(start, end, d);
+
 	  double t = (end - start) * 1e-6;
 	  H2DTimes[d] += t;
 
@@ -66,6 +70,7 @@ namespace libsplit {
 	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  IT.second[i]->release();
+	  timeline->pushD2HEvent(start, end, d);
 	  double t = (end - start) * 1e-6;
 	  D2HTimes[d] += t;
 
@@ -93,6 +98,8 @@ namespace libsplit {
       					 CL_PROFILING_COMMAND_END,
       					 sizeof(end), &end, NULL);
       clCheck(err, __FILE__, __LINE__);
+      std::string kernelName(this->handle->getName());
+      timeline->pushKernelEvent(start, end, kernelName, dev);
       subkernels[i]->event->release();
       kernelTimes[dev] += (end - start) * 1e-6;
     }
@@ -308,7 +315,7 @@ namespace libsplit {
 
     // Create schedinfo if it doesn't exists yet.
     if (kerID2InfoMap.find(id) == kerID2InfoMap.end()) {
-      SI = new SubKernelSchedInfo(nbDevices);
+      SI = new SubKernelSchedInfo(k, nbDevices);
       SI->last_work_dim = work_dim;
       for (cl_uint i=0; i<work_dim; i++) {
 	SI->last_global_work_offset[i] = (global_work_offset ?

@@ -170,8 +170,8 @@ namespace libsplit {
     void updateParamValues(SubKernelSchedInfo *SI, const KernelHandle *k);
 
     struct SubKernelSchedInfo {
-      SubKernelSchedInfo(unsigned nbDevices)
-      : hasInitPartition(false), hasPartition(false),
+      SubKernelSchedInfo(KernelHandle *handle, unsigned nbDevices)
+      : handle(handle), hasInitPartition(false), hasPartition(false),
 	partitionUnchanged(false),
 	needOtherExecToComplete(false),
 	needToInstantiateAnalysis(true),
@@ -215,6 +215,8 @@ namespace libsplit {
       void clearTimers();
       void updatePerfDescr();
       void printTimers() const;
+
+      KernelHandle *handle;
 
       bool hasInitPartition;
       bool hasPartition;

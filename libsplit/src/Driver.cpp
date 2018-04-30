@@ -12,6 +12,7 @@
 #include <Utils/Utils.h>
 #include <Driver.h>
 #include <Options.h>
+#include <Globals.h>
 
 #include <set>
 
@@ -133,6 +134,15 @@ namespace libsplit {
     bufferMgr->read(m, blocking, offset, size, ptr);
 
     createFakeEvent(event, queue);
+
+    bool timelineDumped = false;
+    if (!timelineDumped) {
+      timelineDumped = true;
+      std::string fileout("timeline.nvvp");
+      timeline->writeTrace(fileout);
+      fileout = "partitions.dat";
+      timeline->writePartitions(fileout);
+    }
   }
 
   void

@@ -63,6 +63,7 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Utils/Algebra.cpp \
 	src/Utils/Debug.cpp \
 	src/Utils/Logger.cpp \
+	src/Utils/Timeline.cpp \
 	src/Utils/Utils.cpp \
 	src/BufferManager.cpp \
 	src/Driver.cpp \

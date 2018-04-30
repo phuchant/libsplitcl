@@ -4,4 +4,5 @@
 namespace libsplit {
   Driver *driver = NULL;
   ContextHandle *contextHandle = NULL;
+  Timeline *timeline = NULL;
 };

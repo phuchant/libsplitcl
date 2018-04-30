@@ -4,6 +4,8 @@
 #include <Options.h>
 #include <Init.h>
 
+#include <iostream>
+
 namespace libsplit {
   bool hasBeenInitialized = false;
 
@@ -15,6 +17,7 @@ namespace libsplit {
     getOpenCLFunctions();
     parseEnvOptions();
     driver = new Driver();
+    timeline = new Timeline(optDeviceSelection.size() / 2);
   }
 
 };
