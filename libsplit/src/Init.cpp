@@ -1,4 +1,5 @@
 #include <Dispatch/OpenCLFunctions.h>
+#include <EventFactory.h>
 #include <BufferManager.h>
 #include <Globals.h>
 #include <Options.h>
@@ -17,6 +18,7 @@ namespace libsplit {
     getOpenCLFunctions();
     parseEnvOptions();
     driver = new Driver();
+    eventFactory = new EventFactory();
     timeline = new Timeline(optDeviceSelection.size() / 2);
   }
 
