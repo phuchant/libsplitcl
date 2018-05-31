@@ -17,7 +17,6 @@ LDFLAGS  = -ldl \
 	-Wl,-rpath,$(KERNELEXPR_LIB_PATH) -L$(KERNELEXPR_LIB_PATH) -lkernelexpr \
 	-lm -lpthread \
 	-L$(GLPK_LIB_PATH) -lglpk \
-	-Wl,--whole-archive $(MKGR_LIB_PATH)/libmkgr.a -Wl,--no-whole-archive \
 	-lgsl
 
 ifeq ($(USE_HWLOC),1)
