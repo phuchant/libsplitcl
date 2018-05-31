@@ -84,6 +84,7 @@ namespace libsplit {
     struct SubKernelSchedInfo;
     std::map<unsigned, SubKernelSchedInfo *> kerID2InfoMap;
     unsigned count;
+    const int GRANU2INTFACTOR = 1000000;
 
     // This function defines the mapping between a kernel and its
     // SubKernelSchedInfo structure and has to be provided by the scheduler
@@ -187,6 +188,7 @@ namespace libsplit {
 	req_size_gr = real_size_gr = size_perf_dscr = nbDevices*3;
 	req_granu_dscr = new double[req_size_gr];
 	real_granu_dscr = new double[real_size_gr];
+	granu_intervals = new ListInterval[nbDevices];
 	kernel_perf_dscr = new double[size_perf_dscr];
 
 	H2DTimes = new double[nbDevices];
@@ -204,6 +206,7 @@ namespace libsplit {
       ~SubKernelSchedInfo() {
 	delete[] req_granu_dscr;
 	delete[] real_granu_dscr;
+	delete[] granu_intervals;
 	delete[] kernel_perf_dscr;
 	delete[] H2DTimes;
 	delete[] D2HTimes;
@@ -238,6 +241,7 @@ namespace libsplit {
       double *req_granu_dscr; //  <dev, nb, granu, ... >
       int real_size_gr;
       double *real_granu_dscr; //  <dev, nb, granu, ... >
+      ListInterval *granu_intervals;
 
       // perf descriptor
       int size_perf_dscr;

@@ -848,6 +848,23 @@ namespace libsplit {
     dataWrittenAtomicMax = SI->dataWrittenAtomicMax;
     *needOtherExecutionToComplete = SI->needOtherExecToComplete;
 
+    // Compute granu intervals
+    for (unsigned d=0; d<SI->nbDevices; d++) {
+      SI->granu_intervals[d].clear();
+    }
+    unsigned splitDim = SI->dimOrder[SI->currentDim];
+    size_t origNDRange = SI->origNDRange->get_global_size(splitDim);
+    for (SubKernelExecInfo *SE : subkernels) {
+      double granu_cb = (double) SE->global_work_size[splitDim] / origNDRange;
+      double granu_offset = (double) SE->global_work_offset[splitDim] / origNDRange;
+      size_t cb = granu_cb * GRANU2INTFACTOR;
+      size_t offset = granu_offset * GRANU2INTFACTOR;
+      if (cb > 0) {
+	SI->granu_intervals[SE->device].add(Interval(offset, offset+cb-1));
+	assert(offset+cb-1 < (unsigned) GRANU2INTFACTOR);
+      }
+    }
+
     double partition[nbDevices+1] = {0};
     partition[0] = *id;
     for (int i=0; i<SI->real_size_gr/3; i++)
