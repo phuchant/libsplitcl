@@ -62,7 +62,7 @@ cl_int
 clReleaseMemObject(cl_mem memobj)
 {
   MemoryHandle *m = reinterpret_cast<MemoryHandle *>(memobj);
-  m->retain();
+  m->release();
   return CL_SUCCESS;
 }
 
