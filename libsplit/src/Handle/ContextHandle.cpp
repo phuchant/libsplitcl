@@ -59,6 +59,17 @@ namespace libsplit {
     timeline->writeTrace(fileout);
     fileout = "partitions.dat";
     timeline->writePartitions(fileout);
+    timeline->writeD2HTransfers();
+    timeline->writeH2DTransfers();
+    timeline->writeH2DTransfersSampling();
+    timeline->writeD2HTransfersSampling();
+    timeline->writeH2DPoints();
+    timeline->writeD2HPoints();
+    timeline->writeD2HPointsByDevice();
+    timeline->writeH2DPointsByDevice();
+    timeline->writeH2DThroughput();
+    timeline->writeD2HThroughput();
+    driver->shutdown();
   }
 
   cl_context

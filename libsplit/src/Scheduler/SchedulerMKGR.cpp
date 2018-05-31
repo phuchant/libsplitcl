@@ -1,5 +1,10 @@
+#include <EventFactory.h>
+#include <Queue/DeviceQueue.h>
+#include <Globals.h>
 #include <Scheduler/SchedulerMKGR.h>
 #include <Utils/Debug.h>
+
+#include <iostream>
 
 #include <cstring>
 
@@ -25,6 +30,7 @@ namespace libsplit {
 
     kernelsD2HCoefs = new double[cycleLength * cycleLength * nbDevices]();
     kernelsH2DCoefs = new double[cycleLength * cycleLength * nbDevices]();
+
     kernelsD2HSampling =
       new std::map<double, double>[cycleLength * cycleLength * nbDevices];
     kernelsH2DSampling =
@@ -72,13 +78,14 @@ namespace libsplit {
       if (kerId == 0) {
 	double totalCyclePerDevice[nbDevices] = {0};
 
+
 	// Clear timers
 	for (unsigned k=0; k<cycleLength; k++) {
 	  SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
 	  DEBUG("timers",
 		KSI->updateTimers();
 		KSI->updatePerfDescr();
-		// KSI->printTimers();
+		KSI->printTimers();
 		for (unsigned d=0; d<nbDevices; d++) {
 		  totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		    KSI->kernelTimes[d];
@@ -91,8 +98,10 @@ namespace libsplit {
 	    KSI->src2H2DTimes[d].clear();
 	    KSI->src2D2HTimes[d].clear();
 	  }
-	}
 
+	  KSI->buffersRequired.clear();
+	}
+        eventFactory->freeEvents();
 	DEBUG("timers",
 	    for (unsigned d=0; d<nbDevices; d++) {
 	      std::cerr << "total iter time on device " << d << ": "
@@ -119,10 +128,10 @@ namespace libsplit {
 		totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		  KSI->kernelTimes[d];
 	      }
-	      //KSI->printTimers();
+	      KSI->printTimers();
 	      );
       }
-
+      eventFactory->freeEvents();
       DEBUG("timers",
 	    for (unsigned d=0; d<nbDevices; d++) {
 	      std::cerr << "total iter time on device " << d << ": "
@@ -147,6 +156,8 @@ namespace libsplit {
       	  KSI->src2H2DTimes[d].clear();
       	  KSI->src2D2HTimes[d].clear();
       	}
+
+	KSI->buffersRequired.clear();
       }
 
 
@@ -226,6 +237,8 @@ namespace libsplit {
 
       // For each D2H comm measured
       for (unsigned d=0; d<nbDevices; d++) {
+
+	// Timers
 	for (auto IT : KSI->src2D2HTimes[d]) {
 	  int srcId = IT.first;
 	  if (srcId == -1 || srcId == (int) k)
@@ -272,7 +285,7 @@ namespace libsplit {
 
 	    // Recompute comm constraint with a linear regression if there is at
 	    // least two points sampled and a new one was added.
-	    if (newSamplingSize >= 2) {
+	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
 	      double X[newSamplingSize], Y[newSamplingSize];
 	      unsigned vecId = 0;
 	      for (auto I = kernelsD2HSampling[samplingID].begin(),
@@ -283,6 +296,7 @@ namespace libsplit {
 	      double c0, c1, cov00, cov01, cov11, sumsq;
 	      gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
 			     &cov11, &sumsq);
+	      // assert(c1 > 0);
 	      kernelsD2HCoefs[samplingID] = c1;
 
 	      D2HDependencies[k][srcId].insert(d);
@@ -295,6 +309,8 @@ namespace libsplit {
 
       // For each H2D comm measured
       for (unsigned d=0; d<nbDevices; d++) {
+
+	// Timers
 	for (auto IT : KSI->src2H2DTimes[d]) {
 	  int srcId = IT.first;
 	  if (srcId == -1 || srcId == (int) k)
@@ -342,7 +358,7 @@ namespace libsplit {
 
 	    // Recompute comm constraint with a linear regression if there is at
 	    // least two points sampled and a new one was added.
-	    if (newSamplingSize >= 2) {
+	    if (newSamplingSize >= 2 && newSamplingSize > prevSamplingSize) {
 	      double X[newSamplingSize], Y[newSamplingSize];
 	      unsigned vecId = 0;
 	      for (auto I = kernelsH2DSampling[samplingID].begin(),
@@ -354,6 +370,7 @@ namespace libsplit {
 	      gsl_fit_linear(X, 1, Y, 1, newSamplingSize, &c0, &c1, &cov00, &cov01,
 			     &cov11, &sumsq);
 	      kernelsH2DCoefs[samplingID] = c1;
+	      // assert(c1 > 0);
 
 	      H2DDependencies[k][srcId].insert(d);
 	    }
@@ -361,7 +378,6 @@ namespace libsplit {
 	    free(constraint);
 	  }
 	}
-
       }
     }
 

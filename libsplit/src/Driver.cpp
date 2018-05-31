@@ -637,7 +637,7 @@ namespace libsplit {
 			   (char *) m->mLocalBuffer + offset,
 			   event);
 	timeline->pushD2HEvent(event, queue->dev_id);
-	scheduler->setD2HEvent(m->lastWriter, kerId, d, event);
+	scheduler->setD2HEvent(m->lastWriter, kerId, d, cb, event);
       }
 
       // 2) update valid data
@@ -707,14 +707,13 @@ namespace libsplit {
 	DEBUG("transfers",
 	      std::cerr << "writing [" << offset << "," << offset+cb-1
 	      << "] to dev " << d << " on buffer " << m->id << "\n");
-
 	Event *event = eventFactory->getNewEvent();
 	queue->enqueueWrite(m->mBuffers[d],
 			    offset, cb,
 			    (char *) m->mLocalBuffer + offset,
 			    event);
+	scheduler->setH2DEvent(m->lastWriter, kerId, d, cb, event);
 	timeline->pushH2DEvent(event, queue->dev_id);
-	scheduler->setH2DEvent(m->lastWriter, kerId, d, event);
       }
 
       // 2) update valid data
@@ -732,7 +731,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -809,7 +807,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -848,7 +845,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -891,7 +887,6 @@ namespace libsplit {
 
     // For each device
     for (unsigned i=0; i<transferList.size(); ++i) {
-      std::vector<Event> events;
       MemoryHandle *m = transferList[i].m;
       unsigned d = transferList[i].devId;
       DeviceQueue *queue = m->mContext->getQueueNo(d);
@@ -945,7 +940,8 @@ namespace libsplit {
 			 k->getKernelArgsForDevice(d),
 			 subkernels[i]->event);
       std::string kernelName(k->getName());
-      timeline->pushEvent(subkernels[i]->event, kernelName, queue->dev_id);
+      timeline->pushEvent(subkernels[i]->event, kernelName,
+			  queue->dev_id);
     }
 
     // 2) update valid data
@@ -1440,5 +1436,9 @@ namespace libsplit {
       for (unsigned i=0; i<regVec.size(); ++i)
 	free(regVec[i].tmp);
     }
+  }
+
+  void
+  Driver::shutdown() {
   }
 };

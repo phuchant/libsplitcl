@@ -1,7 +1,10 @@
+#include <Globals.h>
 #include <Handle/KernelHandle.h>
 #include <Scheduler/SchedulerEnv.h>
 #include <Options.h>
 #include <Utils/Debug.h>
+
+#include <iostream>
 
 namespace libsplit {
 

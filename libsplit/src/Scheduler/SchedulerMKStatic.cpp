@@ -1,5 +1,9 @@
+#include <EventFactory.h>
+#include <Globals.h>
 #include <Scheduler/SchedulerMKStatic.h>
 #include <Utils/Debug.h>
+
+#include <iostream>
 
 #include <cstring>
 
@@ -123,7 +127,8 @@ namespace libsplit {
 	DEBUG("timers",
 	      KSI->updateTimers();
 	      KSI->updatePerfDescr();
-	      // KSI->printTimers();
+	      std::cerr << "kernel " << k << "\n";
+	      KSI->printTimers();
 	      for (unsigned d=0; d<nbDevices; d++) {
 		totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		  KSI->kernelTimes[d];
@@ -144,6 +149,8 @@ namespace libsplit {
 	KSI->clearEvents();
 	KSI->clearTimers();
       }
+
+      eventFactory->freeEvents();
     }
   }
 

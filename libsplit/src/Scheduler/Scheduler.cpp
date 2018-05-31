@@ -38,6 +38,8 @@ namespace libsplit {
 	  // IT.second[i]->release();
 
 	  double t = (end - start) * 1e-6;
+	  unsigned cb = src2H2DEventsCB[d][IT.first][i];
+	  sched->pushH2DTroughputPoint(d, cb, t);
 	  H2DTimes[d] += t;
 
 	  int src = IT.first;
@@ -50,6 +52,7 @@ namespace libsplit {
 
       }
       src2H2DEvents[d].clear();
+      src2H2DEventsCB[d].clear();
 
       // D2H timers
       for (auto IT : src2D2HEvents[d]) {
@@ -70,6 +73,8 @@ namespace libsplit {
 	  // IT.second[i]->release();
 
 	  double t = (end - start) * 1e-6;
+	  unsigned cb = src2D2HEventsCB[d][IT.first][i];
+	  sched->pushD2HTroughputPoint(d, cb, t);
 	  D2HTimes[d] += t;
 
 	  int src = IT.first;
@@ -80,6 +85,7 @@ namespace libsplit {
 	}
       }
       src2D2HEvents[d].clear();
+      src2D2HEventsCB[d].clear();
     }
 
     // Subkernels timers
@@ -107,6 +113,8 @@ namespace libsplit {
       // TODO: release events
       src2H2DEvents[d].clear();
       src2D2HEvents[d].clear();
+      src2H2DEventsCB[d].clear();
+      src2D2HEventsCB[d].clear();
     }
   }
 
@@ -311,7 +319,7 @@ namespace libsplit {
 
     // Create schedinfo if it doesn't exists yet.
     if (kerID2InfoMap.find(id) == kerID2InfoMap.end()) {
-      SI = new SubKernelSchedInfo(k, nbDevices);
+      SI = new SubKernelSchedInfo(this, k, nbDevices);
       SI->last_work_dim = work_dim;
       for (cl_uint i=0; i<work_dim; i++) {
 	SI->last_global_work_offset[i] = (global_work_offset ?
@@ -870,6 +878,11 @@ namespace libsplit {
     for (int i=0; i<SI->real_size_gr/3; i++)
       partition[(int) SI->real_granu_dscr[i*3]+1] = SI->real_granu_dscr[i*3+2];
     timeline->pushPartition(partition);
+    double reqpartition[nbDevices+1] = {0};
+    reqpartition[0] = *id;
+    for (int i=0; i<SI->req_size_gr/3; i++)
+      reqpartition[(int) SI->req_granu_dscr[i*3]+1] = SI->req_granu_dscr[i*3+2];
+    timeline->pushReqPartition(reqpartition);
 
     // Increment call count.
     count++;
@@ -879,28 +892,24 @@ namespace libsplit {
   Scheduler::setH2DEvent(unsigned srcId,
 			 unsigned dstId,
 			 unsigned devId,
+			 unsigned cb,
 			 Event *event) {
     assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
     SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
     SI->src2H2DEvents[devId][srcId].push_back(event);
+    SI->src2H2DEventsCB[devId][srcId].push_back(cb);
   }
 
   void
   Scheduler::setD2HEvent(unsigned srcId,
 			 unsigned dstId,
 			 unsigned devId,
+			 unsigned cb,
 			 Event *event) {
     assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
     SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
     SI->src2D2HEvents[devId][srcId].push_back(event);
-  }
-
-  void
-  Scheduler::printPartition(SubKernelSchedInfo *SI) {
-    std::cerr << "<";
-    for (int i=0; i<SI->real_size_gr-1; i++)
-      std::cerr << SI->real_granu_dscr[i] << ",";
-    std::cerr << SI->real_granu_dscr[SI->real_size_gr-1] << ">\n";
+    SI->src2D2HEventsCB[devId][srcId].push_back(cb);
   }
 
   void
@@ -909,6 +918,14 @@ namespace libsplit {
     assert(kerID2InfoMap.find(kerId) != kerID2InfoMap.end());
     SubKernelSchedInfo *SI = kerID2InfoMap[kerId];
     SI->buffersRequired.insert(buffer);
+  }
+
+  void
+  Scheduler::printPartition(SubKernelSchedInfo *SI) {
+    std::cerr << "<";
+    for (int i=0; i<SI->real_size_gr-1; i++)
+      std::cerr << SI->real_granu_dscr[i] << ",";
+    std::cerr << SI->real_granu_dscr[SI->real_size_gr-1] << ">\n";
   }
 
   // Compute the array of dimension id from the one with
@@ -1350,5 +1367,20 @@ namespace libsplit {
 
     *size_gr = idx*3;
   }
+
+  void
+  Scheduler::pushH2DTroughputPoint(unsigned device, unsigned nbBytes,
+				   double time) {
+    H2DThroughputSamplingPerDevice[device].
+      push_back(std::make_pair(nbBytes, time));
+  }
+
+  void
+  Scheduler::pushD2HTroughputPoint(unsigned device, unsigned nbBytes,
+				   double time) {
+    D2HThroughputSamplingPerDevice[device].
+      push_back(std::make_pair(nbBytes, time));
+  }
+
 
 };

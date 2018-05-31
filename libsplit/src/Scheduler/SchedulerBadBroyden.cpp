@@ -2,6 +2,8 @@
 #include <Utils/Algebra.h>
 #include <Utils/Debug.h>
 
+#include <iostream>
+
 #include <cassert>
 
 namespace libsplit {

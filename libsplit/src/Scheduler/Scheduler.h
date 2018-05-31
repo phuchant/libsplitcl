@@ -33,6 +33,7 @@ namespace libsplit {
       ENV,
       FIXEDPOINT,
       MKGR,
+      MKGR2,
       MKSTATIC,
       SAMPLE,
     };
@@ -69,14 +70,18 @@ namespace libsplit {
     virtual void setH2DEvent(unsigned srcId,
 			     unsigned dstId,
 			     unsigned devId,
+			     unsigned cb,
 			     Event *event);
 
     virtual void setD2HEvent(unsigned srcId,
-			      unsigned dstId,
-			      unsigned devId,
-			      Event *event);
+			     unsigned dstId,
+			     unsigned devId,
+			     unsigned cb,
+			     Event *event);
 
     virtual void setBufferRequired(unsigned kerId, MemoryHandle *m);
+
+
 
   protected:
     BufferManager *buffManager;
@@ -85,6 +90,12 @@ namespace libsplit {
     std::map<unsigned, SubKernelSchedInfo *> kerID2InfoMap;
     unsigned count;
     const int GRANU2INTFACTOR = 1000000;
+
+    // Transfer throughput sampling per device
+    std::map<unsigned, std::vector<std::pair<double, double> > >
+    H2DThroughputSamplingPerDevice;
+    std::map<unsigned, std::vector<std::pair<double, double> > >
+    D2HThroughputSamplingPerDevice;
 
     // This function defines the mapping between a kernel and its
     // SubKernelSchedInfo structure and has to be provided by the scheduler
@@ -160,6 +171,9 @@ namespace libsplit {
     void adaptGranudscr(double *granu_dscr, int *size_gr,
 			size_t global_work_size, size_t local_work_size);
 
+    void pushH2DTroughputPoint(unsigned device, unsigned nbBytes, double time);
+    void pushD2HTroughputPoint(unsigned device, unsigned nbBytes, double time);
+
     static
     void getShiftedPartition(std::vector<NDRange> *shiftedPartition,
 			     const NDRange &origNDRange,
@@ -175,16 +189,18 @@ namespace libsplit {
     void updateParamValues(SubKernelSchedInfo *SI, const KernelHandle *k);
 
     struct SubKernelSchedInfo {
-      SubKernelSchedInfo(KernelHandle *handle, unsigned nbDevices)
-      : handle(handle), hasInitPartition(false), hasPartition(false),
-	partitionUnchanged(false),
-	needOtherExecToComplete(false),
-	needToInstantiateAnalysis(true),
-	currentDim(0),
-	nbDevices(nbDevices),
-	shiftingPartition(false),
-	nbMergeArgs(0),
-	origNDRange(nullptr) {
+      SubKernelSchedInfo(Scheduler *sched, KernelHandle *handle,
+			 unsigned nbDevices)
+	: sched(sched), handle(handle), hasInitPartition(false),
+	  hasPartition(false),
+	  partitionUnchanged(false),
+	  needOtherExecToComplete(false),
+	  needToInstantiateAnalysis(true),
+	  currentDim(0),
+	  nbDevices(nbDevices),
+	  shiftingPartition(false),
+	  nbMergeArgs(0),
+	  origNDRange(nullptr) {
 	req_size_gr = real_size_gr = size_perf_dscr = nbDevices*3;
 	req_granu_dscr = new double[req_size_gr];
 	real_granu_dscr = new double[real_size_gr];
@@ -197,6 +213,8 @@ namespace libsplit {
 
 	src2H2DEvents = new std::map<int, std::vector<Event *> >[nbDevices];
 	src2D2HEvents = new std::map<int, std::vector<Event *> >[nbDevices];
+	src2H2DEventsCB = new std::map<int, std::vector<unsigned> >[nbDevices];
+	src2D2HEventsCB = new std::map<int, std::vector<unsigned> >[nbDevices];
 
 	src2H2DTimes = new std::map<int, double>[nbDevices];
 	src2D2HTimes = new std::map<int, double>[nbDevices];
@@ -223,6 +241,7 @@ namespace libsplit {
       void updatePerfDescr();
       void printTimers() const;
 
+      Scheduler *sched;
       KernelHandle *handle;
 
       bool hasInitPartition;
@@ -259,6 +278,8 @@ namespace libsplit {
       // transfers events
       std::map<int, std::vector<Event *> > *src2H2DEvents;
       std::map<int, std::vector<Event *> > *src2D2HEvents;
+      std::map<int, std::vector<unsigned> > *src2H2DEventsCB;
+      std::map<int, std::vector<unsigned> > *src2D2HEventsCB;
 
       // Buffers required
       std::set<MemoryHandle *>buffersRequired;

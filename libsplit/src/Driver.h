@@ -86,6 +86,8 @@ namespace libsplit {
 			      const cl_event *event_wait_list,
 			      cl_event *event);
 
+    void shutdown();
+
   private:
     Scheduler *scheduler;
     BufferManager *bufferMgr;
