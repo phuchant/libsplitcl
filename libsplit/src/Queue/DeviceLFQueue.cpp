@@ -34,19 +34,10 @@ namespace libsplit {
 
 
   void
-  DeviceLFQueue::enqueue(Command *command, Event *event) {
-    bool blocking = command->blocking;
-
-    if (event)
-      *event = command->getEvent();
-    if (lastEvent)
-      lastEvent->release();
-    lastEvent = command->getEvent();
+  DeviceLFQueue::enqueue(Command *command) {
+    lastEvent = command->event;
 
     while (!threadQueue->Enqueue(command));
-
-    if (blocking)
-      lastEvent->wait();
   }
 
   void

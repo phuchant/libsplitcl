@@ -19,21 +19,15 @@ namespace libsplit {
     virtual ~DeviceQueue();
 
     void enqueueWrite(cl_mem buffer,
-		      cl_bool blocking,
 		      size_t offset,
 		      size_t cb,
 		      const void *ptr,
-		      unsigned wait_list_size,
-		      const Event *wait_list,
 		      Event *event);
 
     void enqueueRead(cl_mem buffer,
-		     cl_bool blocking,
 		     size_t offset,
 		     size_t cb,
 		     const void *ptr,
-		     unsigned wait_list_size,
-		     const Event *wait_list,
 		     Event *event);
 
     void enqueueExec(cl_kernel kernel,
@@ -42,8 +36,6 @@ namespace libsplit {
 		     const size_t *global_work_size,
 		     const size_t *local_work_size,
 		     KernelArgs args,
-		     unsigned wait_list_size,
-		     const Event *wait_list,
 		     Event *event);
 
     void enqueueFill(cl_mem buffer,
@@ -51,8 +43,6 @@ namespace libsplit {
 		     size_t pattern_size,
 		     size_t offset,
 		     size_t size,
-		     unsigned wait_list_size,
-		     const Event *wait_list,
 		     Event *event);
 
     void finish();
@@ -64,7 +54,7 @@ namespace libsplit {
   protected:
     DeviceQueue(cl_context context, cl_device_id dev, unsigned dev_id);
 
-    virtual void enqueue(Command *command, Event *event) = 0;
+    virtual void enqueue(Command *command) = 0;
 
     void bindThread();
     static void *threadFunc(void *args);
@@ -73,7 +63,7 @@ namespace libsplit {
     cl_device_id device;
     unsigned dev_id;
 
-    Event lastEvent;
+    Event *lastEvent;
 
     bool isCudaDevice;
     bool isAMDDevice;

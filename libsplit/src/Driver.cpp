@@ -11,6 +11,7 @@
 #include <Utils/Debug.h>
 #include <Utils/Utils.h>
 #include <Driver.h>
+#include <EventFactory.h>
 #include <Options.h>
 #include <Globals.h>
 
@@ -578,18 +579,14 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-
 	DEBUG("transfers",
 	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
-
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
-			   0, NULL,
-			   &event);
+			   event);
 	scheduler->setD2HEvent(m->lastWriter, kerId, d, event);
       }
 
@@ -623,12 +620,11 @@ namespace libsplit {
 	      std::cerr << "D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
-			   0, NULL,
-			   NULL /* These tranfers are ignored for the now */);
+			   event);
       }
 
       // 2) update valid data
@@ -657,18 +653,15 @@ namespace libsplit {
 	size_t cb = transferList[i].region.mList[j].hb -
 	  transferList[i].region.mList[j].lb + 1;
 
-	Event event;
-
 	DEBUG("transfers",
 	      std::cerr << "writing [" << offset << "," << offset+cb-1
 	      << "] to dev " << d << " on buffer " << m->id << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueWrite(m->mBuffers[d],
-			    CL_FALSE,
 			    offset, cb,
 			    (char *) m->mLocalBuffer + offset,
-			    0, NULL,
-			    &event);
+			    event);
 	scheduler->setH2DEvent(m->lastWriter, kerId, d, event);
       }
 
@@ -705,12 +698,11 @@ namespace libsplit {
 	      std::cerr << "OrD2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			   0, NULL,
-			   NULL /* Or D2H events not used for the moment. */);
+			   event);
 	tmpOffset += cb;
       }
     }
@@ -743,12 +735,11 @@ namespace libsplit {
 	      std::cerr << "AtomicSum D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			   0, NULL, NULL
-			   /* Atomic D2H events not used for the moment. */);
+			   event);
 	tmpOffset += cb;
       }
     }
@@ -782,12 +773,11 @@ namespace libsplit {
 	      std::cerr << "AtomicMin D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			   0, NULL, NULL
-			   /* Atomic D2H events not used for the moment. */);
+			   event);
 	tmpOffset += cb;
       }
     }
@@ -821,12 +811,11 @@ namespace libsplit {
 	      std::cerr << "AtomicMax D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			   0, NULL, NULL
-			   /* Atomic D2H events not used for the moment. */);
+			   event);
 	tmpOffset += cb;
       }
     }
@@ -864,12 +853,11 @@ namespace libsplit {
 	      std::cerr << "Merge D2H: reading [" << offset << "," << offset+cb-1
 	      << "] from dev " << d << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
-			   0, NULL, NULL
-			   /* Atomic D2H events not used for the moment. */);
+			   event);
 	tmpOffset += cb;
       }
     }
@@ -891,14 +879,14 @@ namespace libsplit {
       k->setNumgroupsArg(d, subkernels[i]->numgroups);
       k->setSplitdimArg(d, subkernels[i]->splitdim);
 
+      subkernels[i]->event = eventFactory->getNewEvent();
       queue->enqueueExec(k->getDeviceKernel(d),
 			 subkernels[i]->work_dim,
 			 subkernels[i]->global_work_offset,
 			 subkernels[i]->global_work_size,
 			 subkernels[i]->local_work_size,
 			 k->getKernelArgsForDevice(d),
-			 0, NULL,
-			 &subkernels[i]->event);
+			 subkernels[i]->event);
     }
 
     // 2) update valid data

@@ -42,22 +42,13 @@ namespace libsplit {
 
 
   void
-  DevicePthreadQueue::enqueue(Command *command, Event *event) {
-    bool blocking = command->blocking;
-
-    if (event)
-      *event = command->getEvent();
-    if (lastEvent)
-      lastEvent->release();
-    lastEvent = command->getEvent();
+  DevicePthreadQueue::enqueue(Command *command) {
+    lastEvent = command->event;
 
     PTHREAD_LOCK(&queueLock, NULL);
     threadQueue.push_back(command);
     pthread_cond_broadcast(&wakeupCond);
     PTHREAD_UNLOCK(&queueLock);
-
-    if (blocking)
-      lastEvent->wait();
   }
 
   void

@@ -19,7 +19,7 @@ namespace libsplit {
     size_t local_work_size[3];
     unsigned numgroups;
     unsigned splitdim;
-    Event event;
+    Event *event;
   };
 
   class Scheduler {
@@ -67,12 +67,12 @@ namespace libsplit {
     virtual void setH2DEvent(unsigned srcId,
 			     unsigned dstId,
 			     unsigned devId,
-			     Event event);
+			     Event *event);
 
     virtual void setD2HEvent(unsigned srcId,
 			      unsigned dstId,
 			      unsigned devId,
-			      Event event);
+			      Event *event);
 
   protected:
     BufferManager *buffManager;
@@ -189,8 +189,8 @@ namespace libsplit {
 	D2HTimes = new double[nbDevices];
 	kernelTimes = new double[nbDevices];
 
-	src2H2DEvents = new std::map<int, std::vector<Event> >[nbDevices];
-	src2D2HEvents = new std::map<int, std::vector<Event> >[nbDevices];
+	src2H2DEvents = new std::map<int, std::vector<Event *> >[nbDevices];
+	src2D2HEvents = new std::map<int, std::vector<Event *> >[nbDevices];
 
 	src2H2DTimes = new std::map<int, double>[nbDevices];
 	src2D2HTimes = new std::map<int, double>[nbDevices];
@@ -249,8 +249,8 @@ namespace libsplit {
       std::vector<SubKernelExecInfo *> subkernels;
 
       // transfers events
-      std::map<int, std::vector<Event> > *src2H2DEvents;
-      std::map<int, std::vector<Event> > *src2D2HEvents;
+      std::map<int, std::vector<Event *> > *src2H2DEvents;
+      std::map<int, std::vector<Event *> > *src2D2HEvents;
 
       // timers
       double *H2DTimes;

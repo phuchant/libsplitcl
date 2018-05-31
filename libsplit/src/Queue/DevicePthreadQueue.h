@@ -24,7 +24,7 @@ namespace libsplit {
     virtual void run();
 
   private:
-    virtual void enqueue(Command *command, Event *event);
+    virtual void enqueue(Command *command);
 
     std::list<Command *> threadQueue;
 

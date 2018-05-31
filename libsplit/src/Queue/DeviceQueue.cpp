@@ -57,30 +57,22 @@ namespace libsplit {
 
   void
   DeviceQueue::enqueueWrite(cl_mem buffer,
-			    cl_bool blocking,
 			    size_t offset,
 			    size_t cb,
 			    const void *ptr,
-			    unsigned wait_list_size,
-			    const Event *wait_list,
 			    Event *event) {
-    Command *c = new CommandWrite(buffer, blocking, offset, cb, ptr,
-				  wait_list_size, wait_list);
-    enqueue(c, event);
+    Command *c = new CommandWrite(buffer, offset, cb, ptr, event);
+    enqueue(c);
   }
 
   void
   DeviceQueue::enqueueRead(cl_mem buffer,
-			   cl_bool blocking,
 			   size_t offset,
 			   size_t cb,
 			   const void *ptr,
-			   unsigned wait_list_size,
-			   const Event *wait_list,
 			   Event *event) {
-    Command *c = new CommandRead(buffer, blocking, offset, cb, ptr,
-				 wait_list_size, wait_list);
-    enqueue(c, event);
+    Command *c = new CommandRead(buffer, offset, cb, ptr, event);
+    enqueue(c);
   }
 
   void
@@ -90,13 +82,11 @@ namespace libsplit {
 			   const size_t *global_work_size,
 			   const size_t *local_work_size,
 			   KernelArgs args,
-			   unsigned wait_list_size,
-			   const Event *wait_list,
 			   Event *event) {
     Command *c = new CommandExec(kernel, work_dim, global_work_offset,
 				 global_work_size, local_work_size, args,
-				 wait_list_size, wait_list);
-    enqueue(c, event);
+				 event);
+    enqueue(c);
   }
 
   void
@@ -105,12 +95,10 @@ namespace libsplit {
 			   size_t pattern_size,
 			   size_t offset,
 			   size_t size,
-			   unsigned wait_list_size,
-			   const Event *wait_list,
 			   Event *event) {
     Command *c = new CommandFill(buffer, pattern, pattern_size, offset, size,
-				 wait_list_size, wait_list);
-    enqueue(c, event);
+				 event);
+    enqueue(c);
   }
 
 

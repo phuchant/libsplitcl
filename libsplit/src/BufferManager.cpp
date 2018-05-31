@@ -1,4 +1,5 @@
 #include <BufferManager.h>
+#include <Globals.h>
 #include <Options.h>
 #include <Queue/DeviceQueue.h>
 #include <Utils/Debug.h>
@@ -78,12 +79,12 @@ namespace libsplit {
 	      std::cerr << "enqueueRead: reading [" << myoffset << "," << myoffset+mycb-1
 	      << "] from dev " << d << " for buffer " << m->id << "\n");
 
+	Event *event = eventFactory->getNewEvent();
 	queue->enqueueRead(m->mBuffers[d],
-			   CL_FALSE,
 			   myoffset,
 			   mycb,
 			   (char *) ptr + myoffset - offset,
-			   0, NULL, NULL);
+			   event);
       }
     }
 
@@ -119,8 +120,9 @@ namespace libsplit {
     if (!delayedWrite) {
       for (unsigned d=0; d<m->mNbBuffers; d++) {
 	DeviceQueue *queue = m->mContext->getQueueNo(d);
-	queue->enqueueWrite(m->mBuffers[d], CL_FALSE, offset, size, ptr,
-			    0, NULL, NULL);
+	Event *event = eventFactory->getNewEvent();
+	queue->enqueueWrite(m->mBuffers[d], offset, size, ptr,
+			    event);
       }
 
       // Update valid data.
@@ -191,12 +193,12 @@ namespace libsplit {
 		std::cerr << "enqueueCopy: reading [" << myoffset << "," << myoffset+mycb-1
 		<< "] from dev " << d << "\n");
 
+	  Event *event = eventFactory->getNewEvent();
 	  queue->enqueueRead(src->mBuffers[d],
-			     CL_FALSE,
 			     myoffset,
 			     mycb,
 			     (char *) src->mLocalBuffer + myoffset,
-			     0, NULL, NULL);
+			     event);
 	}
 
 	missing.difference(*intersection);
@@ -258,9 +260,10 @@ namespace libsplit {
 	for (unsigned i=0; i<toRead->mList.size(); i++) {
 	  size_t myoffset = toRead->mList[i].lb;
 	  size_t mycb = toRead->mList[i].hb - myoffset + 1;
-	  queue->enqueueRead(m->mBuffers[d], CL_FALSE, myoffset, mycb,
+	  Event *event = eventFactory->getNewEvent();
+	  queue->enqueueRead(m->mBuffers[d], myoffset, mycb,
 			     (char *) m->mLocalBuffer + myoffset,
-			     0, NULL, NULL);
+			     event);
 	}
 	missing->difference(*toRead);
 	delete toRead;
@@ -308,8 +311,9 @@ namespace libsplit {
     // EnqueueFillBuffer for all devices.
     for (unsigned d=0; d<m->mNbBuffers; d++) {
       DeviceQueue *queue = m->mContext->getQueueNo(d);
+      Event *event = eventFactory->getNewEvent();
       queue->enqueueFill(m->mBuffers[d], pattern, pattern_size, offset, size,
-			 0, NULL, NULL);
+			 event);
 
     }
 

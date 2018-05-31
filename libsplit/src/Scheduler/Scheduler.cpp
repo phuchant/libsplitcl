@@ -35,7 +35,7 @@ namespace libsplit {
 	  				     CL_PROFILING_COMMAND_END,
 	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
-	  IT.second[i]->release();
+	  // IT.second[i]->release();
 
 	  timeline->pushH2DEvent(start, end, d);
 
@@ -69,7 +69,7 @@ namespace libsplit {
 	  				     CL_PROFILING_COMMAND_END,
 	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
-	  IT.second[i]->release();
+	  // IT.second[i]->release();
 	  timeline->pushD2HEvent(start, end, d);
 	  double t = (end - start) * 1e-6;
 	  D2HTimes[d] += t;
@@ -100,7 +100,7 @@ namespace libsplit {
       clCheck(err, __FILE__, __LINE__);
       std::string kernelName(this->handle->getName());
       timeline->pushKernelEvent(start, end, kernelName, dev);
-      subkernels[i]->event->release();
+      // subkernels[i]->event->release();
       kernelTimes[dev] += (end - start) * 1e-6;
     }
   }
@@ -860,7 +860,7 @@ namespace libsplit {
   Scheduler::setH2DEvent(unsigned srcId,
 			 unsigned dstId,
 			 unsigned devId,
-			 Event event) {
+			 Event *event) {
     assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
     SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
     SI->src2H2DEvents[devId][srcId].push_back(event);
@@ -870,7 +870,7 @@ namespace libsplit {
   Scheduler::setD2HEvent(unsigned srcId,
 			 unsigned dstId,
 			 unsigned devId,
-			 Event event) {
+			 Event *event) {
     assert(kerID2InfoMap.find(dstId) != kerID2InfoMap.end());
     SubKernelSchedInfo *SI = kerID2InfoMap[dstId];
     SI->src2D2HEvents[devId][srcId].push_back(event);

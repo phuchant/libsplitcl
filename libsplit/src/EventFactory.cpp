@@ -8,7 +8,7 @@
 
 namespace libsplit {
   EventFactory::EventFactory() {
-    events = new cl_event[MAXEVENTS];
+    events = new Event[MAXEVENTS];
     nextEventId = 0;
   }
 
@@ -16,7 +16,7 @@ namespace libsplit {
     delete events;
   }
 
-  cl_event *
+  Event *
   EventFactory::getNewEvent() {
     assert(nextEventId < MAXEVENTS);
     return &events[nextEventId++];

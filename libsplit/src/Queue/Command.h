@@ -11,19 +11,12 @@ namespace libsplit {
 
   class Command {
   public:
-    Command(cl_bool blocking, unsigned wait_list_size, const Event *wait_list);
+    Command(Event *event);
     virtual ~Command();
-
-    Event getEvent();
     virtual void execute(DeviceQueue *queue) = 0;
-
-    cl_bool blocking;
     unsigned id;
 
-  protected:
-    Event event;
-    unsigned wait_list_size;
-    Event *wait_list;
+    Event *event;
 
   private:
     static unsigned count;
@@ -32,12 +25,10 @@ namespace libsplit {
   class CommandWrite : public Command {
   public:
     CommandWrite(cl_mem buffer,
-		 cl_bool blocking,
 		 size_t offset,
 		 size_t cb,
 		 const void *ptr,
-		 unsigned wait_list_size,
-		 const Event *wait_list);
+		 Event *event);
 
     virtual ~CommandWrite();
 
@@ -52,12 +43,10 @@ namespace libsplit {
   class CommandRead : public Command {
   public:
     CommandRead(cl_mem buffer,
-		cl_bool blocking,
 		size_t offset,
 		size_t cb,
 		const void *ptr,
-		unsigned wait_list_size,
-		const Event *wait_list);
+		Event *event);
 
     virtual ~CommandRead();
 
@@ -77,8 +66,7 @@ namespace libsplit {
 		const size_t *global_work_size,
 		const size_t *local_work_size,
 		KernelArgs &args,
-		unsigned wait_list_size,
-		const Event *wait_list);
+		Event *event);
 
     virtual ~CommandExec();
 
@@ -101,8 +89,7 @@ namespace libsplit {
 		size_t pattern_size,
 		size_t offset,
 		size_t size,
-		unsigned wait_list_size,
-		const Event *wait_list);
+		Event *event);
 
     virtual ~CommandFill();
 

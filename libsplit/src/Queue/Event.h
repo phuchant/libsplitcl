@@ -8,14 +8,14 @@
 
 namespace libsplit {
 
-  class Event_ : public Retainable {
+  class Event : public Retainable {
   public:
-    Event_() : submitted(false) {
+    Event() : submitted(false) {
       pthread_mutex_init(&mutex_submitted, NULL);
       pthread_cond_init(&cond_submitted, NULL);
     }
 
-    ~Event_() {
+    ~Event() {
       pthread_mutex_destroy(&mutex_submitted);
       pthread_cond_destroy(&cond_submitted);
     }
@@ -60,9 +60,6 @@ namespace libsplit {
     pthread_cond_t cond_submitted;
 
   };
-
-  typedef Event_ * Event;
-
 };
 
 #endif /* EVENT_H */
