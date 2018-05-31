@@ -5,6 +5,8 @@
 #include <Queue/Event.h>
 #include <IndexExpr/IndexExprValue.h>
 #include <NDRange.h>
+
+#include <set>
 #include <vector>
 
 namespace libsplit {
@@ -73,6 +75,8 @@ namespace libsplit {
 			      unsigned dstId,
 			      unsigned devId,
 			      Event *event);
+
+    virtual void setBufferRequired(unsigned kerId, MemoryHandle *m);
 
   protected:
     BufferManager *buffManager;
@@ -251,6 +255,9 @@ namespace libsplit {
       // transfers events
       std::map<int, std::vector<Event *> > *src2H2DEvents;
       std::map<int, std::vector<Event *> > *src2D2HEvents;
+
+      // Buffers required
+      std::set<MemoryHandle *>buffersRequired;
 
       // timers
       double *H2DTimes;

@@ -42,6 +42,11 @@ namespace libsplit {
     ListInterval *devicesValidData;
     ListInterval hostValidData;
 
+    // Read and Written regions for each device and for each kernel in the
+    // cycle.
+    std::map<unsigned, std::map<unsigned, ListInterval> > ker2Dev2WrittenRegion;
+    std::map<unsigned, std::map<unsigned, ListInterval> > ker2Dev2ReadRegion;
+
     int lastWriter;
   };
 

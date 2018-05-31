@@ -122,7 +122,6 @@ namespace libsplit {
   void
   Driver::enqueueDummyEvents() {
     static bool done = false;
-    cl_int err;
 
     if (done)
       return;
@@ -573,6 +572,39 @@ namespace libsplit {
     createFakeEvent(event, queue);
 
     DEBUG("drivertimers", printDriverTimers(t1, t2, t3, t4, t5, t6));
+
+    // Save R/W regions for each buffers.
+    {
+      std::set<MemoryHandle *>buffersWritten;
+      for (unsigned i=0; i<dataWritten.size(); i++)
+	buffersWritten.insert(dataWritten[i].m);
+      for (MemoryHandle *m : buffersWritten) {
+	for (unsigned d=0; d<m->mNbBuffers; d++) {
+	  m->ker2Dev2WrittenRegion[kerId][d].clear();
+	}
+      }
+      for (unsigned i=0; i<dataWritten.size(); i++) {
+	dataWritten[i].m->
+	  ker2Dev2WrittenRegion[kerId][dataWritten[i].devId].
+	  myUnion(dataWritten[i].region);
+      }
+
+      std::set<MemoryHandle *>buffersRead;
+      for (unsigned i=0; i<dataRequired.size(); i++) {
+	buffersRead.insert(dataRequired[i].m);
+	scheduler->setBufferRequired(kerId, dataRequired[i].m);
+      }
+      for (MemoryHandle *m : buffersRead) {
+	for (unsigned d=0; d<m->mNbBuffers; d++) {
+	  m->ker2Dev2ReadRegion[kerId][d].clear();
+	}
+      }
+      for (unsigned i=0; i<dataRequired.size(); i++) {
+	dataRequired[i].m->
+	  ker2Dev2ReadRegion[kerId][dataRequired[i].devId].
+	  myUnion(dataRequired[i].region);
+      }
+    }
   }
 
   void

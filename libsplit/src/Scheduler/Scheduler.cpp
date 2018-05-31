@@ -886,6 +886,14 @@ namespace libsplit {
     std::cerr << SI->real_granu_dscr[SI->real_size_gr-1] << ">\n";
   }
 
+  void
+  Scheduler::setBufferRequired(unsigned kerId,
+			       MemoryHandle *buffer) {
+    assert(kerID2InfoMap.find(kerId) != kerID2InfoMap.end());
+    SubKernelSchedInfo *SI = kerID2InfoMap[kerId];
+    SI->buffersRequired.insert(buffer);
+  }
+
   // Compute the array of dimension id from the one with
   // the maximum number of splits.
   void
