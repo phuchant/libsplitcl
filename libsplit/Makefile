@@ -5,7 +5,6 @@ CXXFLAGS = -std=c++11 -shared -fPIC -Wall -Wextra -O2 -gdwarf-3 -Isrc/ \
 	-I$(KERNELEXPR_INCLUDE_PATH) \
 	-I$(GLPK_INCLUDE_PATH) \
 	-DCLANGPATH=\"$(CLANGPATH)\" -DOPTPATH=\"$(OPTPATH)\" \
-	-I$(MKGR_INCLUDE_PATH) \
 	-DCLTRANSFORMPATH=\"$(CLTRANSFORMPATH)\" \
 	-DCLINLINEPATH=\"$(CLINLINEPATH)\" \
 	-DLLVM_LIB_DIR=\"$(LLVMLIBPATH)\" \
@@ -56,6 +55,7 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Scheduler/SchedulerEnv.cpp \
 	src/Scheduler/SchedulerFixedPoint.cpp \
 	src/Scheduler/SchedulerMKGR.cpp \
+	src/Scheduler/SchedulerMKGR2.cpp \
 	src/Scheduler/SchedulerMKStatic.cpp \
 	src/Scheduler/SchedulerSample.cpp \
 	src/Scheduler/SingleKernelScheduler.cpp \

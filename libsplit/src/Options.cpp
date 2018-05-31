@@ -99,7 +99,7 @@ namespace libsplit {
     {"DONTSPLIT", "When set to 1 no kernel is split.", false, dontsplitOption},
     {"NBSKIPITER", "Number of iterations to skip before splitting the kernel.",
      false, nbskipiterOption},
-    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR, " \
+    {"SCHED", "Scheduler (BADBROYDEN, BROYDEN, ENV, FIXEDPOINT, MKGR, MKGR2 " \
      "MKSTATIC, SAMPLE)",
      false, schedOption},
     {"NOMEMCPY", "(not safe)", false, nomemcpyOption},
@@ -242,6 +242,8 @@ namespace libsplit {
 	optScheduler = Scheduler::FIXEDPOINT;
       } else if (!strcmp(env, "MKGR")) {
 	optScheduler = Scheduler::MKGR;
+      } else if (!strcmp(env, "MKGR2")) {
+	optScheduler = Scheduler::MKGR2;
       } else if (!strcmp(env, "MKSTATIC")) {
 	optScheduler = Scheduler::MKSTATIC;
       } else if (!strcmp(env, "SAMPLE")) {

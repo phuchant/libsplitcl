@@ -6,6 +6,7 @@
 #include <Scheduler/SchedulerEnv.h>
 #include <Scheduler/SchedulerFixedPoint.h>
 #include <Scheduler/SchedulerMKGR.h>
+#include <Scheduler/SchedulerMKGR2.h>
 #include <Scheduler/SchedulerMKStatic.h>
 #include <Scheduler/SchedulerSample.h>
 #include <Utils/Debug.h>
@@ -101,6 +102,9 @@ namespace libsplit {
 	break;
       case Scheduler::MKGR:
 	scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+	break;
+      case Scheduler::MKGR2:
+	scheduler = new SchedulerMKGR2(bufferMgr, nbDevices);
 	break;
       case Scheduler::MKSTATIC:
 	scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
@@ -308,6 +312,9 @@ namespace libsplit {
 	  break;
 	case Scheduler::MKGR:
 	  scheduler = new SchedulerMKGR(bufferMgr, nbDevices);
+	  break;
+	case Scheduler::MKGR2:
+	  scheduler = new SchedulerMKGR2(bufferMgr, nbDevices);
 	  break;
 	case Scheduler::MKSTATIC:
 	  scheduler = new SchedulerMKStatic(bufferMgr, nbDevices);
@@ -1440,5 +1447,10 @@ namespace libsplit {
 
   void
   Driver::shutdown() {
+    if (optScheduler == Scheduler::MKGR2) {
+      SchedulerMKGR2 *schedMKGR2 = static_cast<SchedulerMKGR2 *>(scheduler);
+      schedMKGR2->plotD2HPoints();
+      schedMKGR2->plotH2DPoints();
+    }
   }
 };
