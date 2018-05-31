@@ -11,7 +11,7 @@
 #include <cstring>
 
 #define EPSILON 1.0e-10
-#define PARTITIONEPSILON 0.02
+#define PARTITIONEPSILON 0.001
 
 namespace libsplit {
   MultiKernelSolver::MultiKernelSolver(int nbDevices, int nbKernels)
@@ -150,7 +150,7 @@ namespace libsplit {
       (*constraint)[dev] = 1;
       (*constraint)[nbDevices + dev] = -1;
 
-      if (prev_gr[dev] + EPSILON < cur_gr[dev])
+      if (prev_gr[dev]  < cur_gr[dev])
 	return false;
 
       return true;
@@ -160,8 +160,8 @@ namespace libsplit {
     //         ----      |
     //      ----------   v
     if ( dev > 0 && dev < nbDevices-1 &&
-	 cur_prefix_gr[dev] + EPSILON < prev_prefix_gr[dev] &&
-	 prev_prefix_gr[dev+1] + EPSILON < cur_prefix_gr[dev+1]) {
+	 cur_prefix_gr[dev]  < prev_prefix_gr[dev] + EPSILON &&
+	 prev_prefix_gr[dev+1]  < cur_prefix_gr[dev+1] + EPSILON) {
       for (int i=0; i<=dev-1; i++) {
 	(*constraint)[nbDevices + i] += 1;
 	(*constraint)[i] -= 1;
@@ -182,10 +182,27 @@ namespace libsplit {
       return true;
     }
 
+    // Overlap both sides
+    // ----------
+    // ###----###
+    if ( dev > 0 && dev < nbDevices-1 &&
+	 prev_prefix_gr[dev]  < cur_prefix_gr[dev] &&
+	 cur_prefix_gr[dev+1]  < prev_prefix_gr[dev+1]) {
+      for (int i=0; i<=dev-1; i++) {
+	(*constraint)[nbDevices+i] += 1;
+	(*constraint)[i] -= 1;
+      }
+      for (int i=0; i<=dev; i++) {
+	(*constraint)[i] += 1;
+	(*constraint)[nbDevices+i] -= 1;
+      }
+      return true;
+    }
+
     // Overlap one side
     // |-------         |
     // ###|--------     v
-    if (prev_prefix_gr[dev] + EPSILON < cur_prefix_gr[dev]) {
+    if (prev_prefix_gr[dev]  < cur_prefix_gr[dev]) {
       for (int i=0; i<=dev-1; i++) {
 	(*constraint)[nbDevices+i] = 1;
 	(*constraint)[i] = -1;
@@ -193,30 +210,13 @@ namespace libsplit {
 
       return true;
     }
+
     //    |--------  |
     // |------#####  v
-    if (cur_prefix_gr[dev] + EPSILON < prev_prefix_gr[dev]) {
-      for (int i=0; i<=dev; i++) {
-	(*constraint)[i] = 1;
-	(*constraint)[nbDevices+i] = -1;
-      }
-
-      return true;
-    }
-
-
-    // Overlap both sides
-    // ----------
-    // ###----###
-    for (int i=0; i<=dev-1; i++) {
-      (*constraint)[nbDevices+i] += 1;
-      (*constraint)[i] -= 1;
-    }
     for (int i=0; i<=dev; i++) {
-      (*constraint)[i] += 1;
-      (*constraint)[nbDevices+i] -= 1;
+      (*constraint)[i] = 1;
+      (*constraint)[nbDevices+i] = -1;
     }
-
     return true;
   }
 
@@ -243,7 +243,7 @@ namespace libsplit {
       (*constraint)[nbDevices+dev] = 1;
       (*constraint)[dev] = -1;
 
-      if (cur_gr[dev] + EPSILON < prev_gr[dev])
+      if (cur_gr[dev]  < prev_gr[dev])
 	return false;
 
       return true;
@@ -254,8 +254,8 @@ namespace libsplit {
     // -------- |  (negative constraint, no com observed)
     //   ----   v
     if ( dev > 0 && dev < nbDevices-1 &&
-	 prev_prefix_gr[dev] + EPSILON < cur_prefix_gr[dev] &&
-	 cur_prefix_gr[dev+1] + EPSILON < prev_prefix_gr[dev+1]) {
+	 prev_prefix_gr[dev]  < cur_prefix_gr[dev] + EPSILON &&
+	 cur_prefix_gr[dev+1]  < prev_prefix_gr[dev+1] + EPSILON) {
       for (int i=0; i<=dev-1; i++) {
 	(*constraint)[i] += 1;
 	(*constraint)[nbDevices + i] -= 1;
@@ -275,10 +275,27 @@ namespace libsplit {
       return true;
     }
 
+    // Overlap both sides
+    // ###----###
+    // ----------
+    if ( dev > 0 && dev < nbDevices-1 &&
+	 prev_prefix_gr[dev] > cur_prefix_gr[dev]   &&
+	 cur_prefix_gr[dev+1] > prev_prefix_gr[dev+1] ) {
+      for (int i=0; i<=dev-1; i++) {
+	(*constraint)[i] += 1;
+	(*constraint)[nbDevices+i] -= 1;
+      }
+      for (int i=0; i<=dev; i++) {
+	(*constraint)[nbDevices+i] += 1;
+	(*constraint)[i] -= 1;
+      }
+      return true;
+    }
+
     // Overlap one side
     // |-------####    |
     //    |--------    v
-    if (prev_prefix_gr[dev] + EPSILON < cur_prefix_gr[dev]) {
+    if (prev_prefix_gr[dev+1] < cur_prefix_gr[dev+1] ) {
       for (int i=0; i<=dev; i++) {
 	(*constraint)[nbDevices+i] = 1;
 	(*constraint)[i] = -1;
@@ -286,31 +303,15 @@ namespace libsplit {
 
       return true;
     }
+
     // ###|--------  |
     // |-------      v
-    if (cur_prefix_gr[dev] + EPSILON < prev_prefix_gr[dev]) {
       for (int i=0; i<=dev-1; i++) {
 	(*constraint)[i] = 1;
 	(*constraint)[nbDevices+i] = -1;
       }
 
       return true;
-    }
-
-
-    // Overlap both sides
-    // ###----###
-    // ----------
-    for (int i=0; i<=dev-1; i++) {
-      (*constraint)[i] += 1;
-      (*constraint)[nbDevices+i] -= 1;
-    }
-    for (int i=0; i<=dev; i++) {
-      (*constraint)[nbDevices+i] += 1;
-      (*constraint)[i] -= 1;
-    }
-
-    return true;
   }
 
   int
