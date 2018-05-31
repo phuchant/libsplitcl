@@ -69,7 +69,8 @@ SRC	 = src/Dispatch/OpenCLFunctions.cpp \
 	src/Driver.cpp \
 	src/Init.cpp \
 	src/Options.cpp \
-	src/Globals.cpp
+	src/Globals.cpp \
+	src/EventFactory.cpp
 
 OBJ	 = $(SRC:.cpp=.o)
 
