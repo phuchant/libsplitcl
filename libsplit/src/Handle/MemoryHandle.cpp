@@ -118,8 +118,10 @@ namespace libsplit {
     delete[] mBuffers;
 
     if (!(mFlags & CL_MEM_ALLOC_HOST_PTR) &&
-	!(mFlags & CL_MEM_USE_HOST_PTR) && !NOMEMCPY)
-      free(mLocalBuffer);
+	!(mFlags & CL_MEM_USE_HOST_PTR) && !NOMEMCPY) {
+      if (!optPinnedMem)
+	free(mLocalBuffer);
+    }
 
     delete[] devicesValidData;
 
