@@ -120,6 +120,20 @@ namespace libsplit {
   }
 
   void
+  Driver::enqueueDummyEvents() {
+    static bool done = false;
+    cl_int err;
+
+    if (done)
+      return;
+
+    done = true;
+
+    for (unsigned d=0; d<contextHandle->getNbDevices(); d++)
+      contextHandle->getQueueNo(d)->enqueueDummyEvents();
+  }
+
+  void
   Driver::enqueueReadBuffer(cl_command_queue queue,
 			    MemoryHandle *m,
 			    cl_bool blocking,
@@ -129,21 +143,13 @@ namespace libsplit {
 			    cl_uint num_events_in_wait_list,
 			    const cl_event *event_wait_list,
 			    cl_event *event) {
+    enqueueDummyEvents();
 
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     bufferMgr->read(m, blocking, offset, size, ptr);
 
     createFakeEvent(event, queue);
-
-    bool timelineDumped = false;
-    if (!timelineDumped) {
-      timelineDumped = true;
-      std::string fileout("timeline.nvvp");
-      timeline->writeTrace(fileout);
-      fileout = "partitions.dat";
-      timeline->writePartitions(fileout);
-    }
   }
 
   void
@@ -156,6 +162,8 @@ namespace libsplit {
 			     cl_uint num_events_in_wait_list,
 			     const cl_event *event_wait_list,
 			     cl_event *event) {
+    enqueueDummyEvents();
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     bufferMgr->write(m, blocking, offset, size, ptr);
@@ -173,6 +181,8 @@ namespace libsplit {
 			    cl_uint num_events_in_wait_list,
 			    const cl_event *event_wait_list,
 			    cl_event *event) {
+    enqueueDummyEvents();
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     bufferMgr->copy(src, dst, src_offset, dst_offset, size);
@@ -190,6 +200,8 @@ namespace libsplit {
 			   cl_uint num_events_in_wait_list,
 			   const cl_event *event_wait_list,
 			   cl_event *event) {
+    enqueueDummyEvents();
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     createFakeEvent(event, queue);
@@ -204,6 +216,8 @@ namespace libsplit {
 				cl_uint num_events_in_wait_list,
 				const cl_event *event_wait_list,
 				cl_event *event) {
+    enqueueDummyEvents();
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     bufferMgr->unmap(m, mapped_ptr);
@@ -221,6 +235,8 @@ namespace libsplit {
 			     cl_uint num_events_in_wait_list,
 			     const cl_event *event_wait_list,
 			     cl_event *event) {
+    enqueueDummyEvents();
+
     waitForEvents(num_events_in_wait_list, event_wait_list);
 
     bufferMgr->fill(m, pattern, pattern_size, offset, size);
@@ -273,6 +289,7 @@ namespace libsplit {
 			       cl_uint num_events_in_wait_list,
 			       const cl_event *event_wait_list,
 			       cl_event *event) {
+    enqueueDummyEvents();
 
     // Option skipKernels
     {
@@ -587,6 +604,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	scheduler->setD2HEvent(m->lastWriter, kerId, d, event);
       }
 
@@ -625,6 +643,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) m->mLocalBuffer + offset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
       }
 
       // 2) update valid data
@@ -662,6 +681,7 @@ namespace libsplit {
 			    offset, cb,
 			    (char *) m->mLocalBuffer + offset,
 			    event);
+	timeline->pushH2DEvent(event, queue->dev_id);
 	scheduler->setH2DEvent(m->lastWriter, kerId, d, event);
       }
 
@@ -703,6 +723,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	tmpOffset += cb;
       }
     }
@@ -740,6 +761,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	tmpOffset += cb;
       }
     }
@@ -778,6 +800,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	tmpOffset += cb;
       }
     }
@@ -816,6 +839,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	tmpOffset += cb;
       }
     }
@@ -858,6 +882,7 @@ namespace libsplit {
 			   offset, cb,
 			   (char *) transferList[i].tmp + tmpOffset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
 	tmpOffset += cb;
       }
     }
@@ -887,6 +912,8 @@ namespace libsplit {
 			 subkernels[i]->local_work_size,
 			 k->getKernelArgsForDevice(d),
 			 subkernels[i]->event);
+      std::string kernelName(k->getName());
+      timeline->pushEvent(subkernels[i]->event, kernelName, queue->dev_id);
     }
 
     // 2) update valid data

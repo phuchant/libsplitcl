@@ -1,6 +1,8 @@
 #ifndef TIMELINE_H
 #define TIMELINE_H
 
+#include <Queue/Event.h>
+
 #include <CL/cl.h>
 
 #include <map>
@@ -13,11 +15,10 @@ namespace libsplit {
   class Timeline {
   private:
     struct TimelineEvent {
-      TimelineEvent(cl_ulong timestart, cl_ulong timeend, std::string method);
+      TimelineEvent(Event *event, std::string method);
       ~TimelineEvent();
 
-      cl_ulong timestart;
-      cl_ulong timeend;
+      Event *event;
       std::string method;
     };
 
@@ -25,9 +26,9 @@ namespace libsplit {
     Timeline(unsigned nbDevices) : nbDevices(nbDevices) {}
     ~Timeline() {}
 
-    void pushKernelEvent(cl_ulong timestart, cl_ulong timeend, std::string &method, int devId);
-    void pushH2DEvent(cl_ulong timestart, cl_ulong timeend, int devId);
-    void pushD2HEvent(cl_ulong timestart, cl_ulong timeend, int devId);
+    void pushEvent(Event *event, std::string &method, int devId);
+    void pushH2DEvent(Event *event, int devId);
+    void pushD2HEvent(Event *event, int devId);
     void writeTrace(std::string &filename) const;
     void writePartitions(std::string &filename) const;
     void pushPartition(double *partition);

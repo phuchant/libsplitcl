@@ -17,6 +17,8 @@ namespace libsplit {
     Driver();
     virtual ~Driver();
 
+    void enqueueDummyEvents();
+
     void enqueueReadBuffer(cl_command_queue queue,
 			   MemoryHandle *m,
 			   cl_bool blocking,

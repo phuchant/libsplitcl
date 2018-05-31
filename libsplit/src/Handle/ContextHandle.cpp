@@ -32,11 +32,11 @@ namespace libsplit {
     if (optLockFreeQueue) {
       for (cl_uint i=0; i<nbDevices; ++i)
 	queues[i] = new DeviceLFQueue(getContext(i), getDevice(i),
-				      optDeviceSelection[i*2+1]);
+				      i);
     } else {
       for (cl_uint i=0; i<nbDevices; ++i)
 	queues[i] = new DevicePthreadQueue(getContext(i), getDevice(i),
-					   optDeviceSelection[i*2+1]);
+					   i);
     }
   }
 
@@ -54,6 +54,11 @@ namespace libsplit {
     delete[] contexts;
     delete[] devices;
     delete[] queues;
+
+    std::string fileout("timeline.nvvp");
+    timeline->writeTrace(fileout);
+    fileout = "partitions.dat";
+    timeline->writePartitions(fileout);
   }
 
   cl_context

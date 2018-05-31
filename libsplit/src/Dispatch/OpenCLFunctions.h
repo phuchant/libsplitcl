@@ -316,6 +316,11 @@ extern "C" {
 				 const cl_event * /* event_wait_list */,
 				 cl_event *       /* event */) ;
 
+  extern cl_int
+  (*real_clEnqueueMarker)(cl_command_queue    /* command_queue */,
+			  cl_event *          /* event */);
+
+
   void getOpenCLFunctions();
 }
 

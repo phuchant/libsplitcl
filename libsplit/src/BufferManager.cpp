@@ -85,6 +85,7 @@ namespace libsplit {
 			   mycb,
 			   (char *) ptr + myoffset - offset,
 			   event);
+	timeline->pushD2HEvent(event, queue->dev_id);
       }
     }
 
@@ -123,6 +124,7 @@ namespace libsplit {
 	Event *event = eventFactory->getNewEvent();
 	queue->enqueueWrite(m->mBuffers[d], offset, size, ptr,
 			    event);
+	timeline->pushH2DEvent(event, queue->dev_id);
       }
 
       // Update valid data.
@@ -199,6 +201,7 @@ namespace libsplit {
 			     mycb,
 			     (char *) src->mLocalBuffer + myoffset,
 			     event);
+	  timeline->pushD2HEvent(event, queue->dev_id);
 	}
 
 	missing.difference(*intersection);
@@ -264,6 +267,7 @@ namespace libsplit {
 	  queue->enqueueRead(m->mBuffers[d], myoffset, mycb,
 			     (char *) m->mLocalBuffer + myoffset,
 			     event);
+	  timeline->pushD2HEvent(event, queue->dev_id);
 	}
 	missing->difference(*toRead);
 	delete toRead;
@@ -314,6 +318,8 @@ namespace libsplit {
       Event *event = eventFactory->getNewEvent();
       queue->enqueueFill(m->mBuffers[d], pattern, pattern_size, offset, size,
 			 event);
+      std::string method("Fill");
+      timeline->pushEvent(event, method, queue->dev_id);
 
     }
 

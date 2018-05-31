@@ -314,6 +314,11 @@ cl_int
 			       const cl_event * /* event_wait_list */,
 			       cl_event *       /* event */) = NULL;
 
+cl_int
+(*real_clEnqueueMarker)(cl_command_queue    /* command_queue */,
+			cl_event *          /* event */) = NULL;
+
+
 void getOpenCLFunctions()
 {
   /* Platform API */
@@ -477,5 +482,7 @@ void getOpenCLFunctions()
 
   if (!real_clEnqueueNDRangeKernel)
     *(void **) &real_clEnqueueNDRangeKernel = dlsym(RTLD_NEXT, "clEnqueueNDRangeKernel");
+  if (!real_clEnqueueMarker)
+    *(void **) &real_clEnqueueMarker = dlsym(RTLD_NEXT, "clEnqueueMarker");
 }
 

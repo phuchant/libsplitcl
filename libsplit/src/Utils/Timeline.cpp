@@ -26,28 +26,27 @@ namespace libsplit {
   }
 
 
-  Timeline::TimelineEvent::TimelineEvent(cl_ulong timestart, cl_ulong timeend,
-					 std::string method)
-    : timestart(timestart), timeend(timeend), method(method) {}
+  Timeline::TimelineEvent::TimelineEvent(Event *event, std::string method)
+    : event(event), method(method) {}
 
   Timeline::TimelineEvent::~TimelineEvent() {}
 
   void
-  Timeline::pushKernelEvent(cl_ulong timestart, cl_ulong timeend, std::string &method, int devId) {
+  Timeline::pushEvent(Event *event, std::string &method, int devId) {
     devices.insert(devId);
-    timelineEvents[devId].push_back(TimelineEvent(timestart, timeend, method));
+    timelineEvents[devId].push_back(TimelineEvent(event, method));
   }
 
   void
-  Timeline:: pushH2DEvent(cl_ulong timestart, cl_ulong timeend, int devId) {
+  Timeline:: pushH2DEvent(Event *event, int devId) {
     devices.insert(devId);
-    timelineEvents[devId].push_back(TimelineEvent(timestart, timeend, "memcpyHtoDasync"));
+    timelineEvents[devId].push_back(TimelineEvent(event, "memcpyHtoDasync"));
   }
 
   void
-  Timeline::pushD2HEvent(cl_ulong timestart, cl_ulong timeend, int devId) {
+  Timeline::pushD2HEvent(Event *event, int devId) {
     devices.insert(devId);
-    timelineEvents[devId].push_back(TimelineEvent(timestart, timeend, "memcpyDtoHasync"));
+    timelineEvents[devId].push_back(TimelineEvent(event, "memcpyDtoHasync"));
   }
 
   void
@@ -68,23 +67,41 @@ namespace libsplit {
     outfile << "gpustarttimestamp,gpuendtimestamp,method,gputime,streamid\n";
 
 
+    cl_ulong timestart, timeend;
     for (auto IT : timelineEvents) {
       int devId = IT.first;
 
-      cl_ulong offset = IT.second[0].timestart-1;
+      cl_int err;
+      err = real_clGetEventProfilingInfo(IT.second[0].event->event,
+					 CL_PROFILING_COMMAND_START,
+					 sizeof(timestart),
+					 &timestart, NULL);
+      clCheck(err, __FILE__, __LINE__);
 
-      cl_ulong prevStart = IT.second[0].timestart;
+      cl_ulong offset = timestart-1;
+      cl_ulong prevStart = timestart;
 
       for (const TimelineEvent &e : IT.second) {
-      	if (e.timestart < prevStart) {
+	err = real_clGetEventProfilingInfo(e.event->event,
+					   CL_PROFILING_COMMAND_START,
+					   sizeof(timestart),
+					   &timestart, NULL);
+	clCheck(err, __FILE__, __LINE__);
+	err = real_clGetEventProfilingInfo(e.event->event,
+					   CL_PROFILING_COMMAND_END,
+					   sizeof(timeend),
+					      &timeend, NULL);
+	clCheck(err, __FILE__, __LINE__);
+
+	if (timestart < prevStart) {
       	  offset -= CL_ULONG_MAX;
       	}
-      	prevStart = e.timestart;
+      	prevStart = timestart;
 
-	outfile << longToHexString(e.timestart - offset) << ","
-		<< longToHexString(e.timeend - offset) << ","
+	outfile << longToHexString(timestart - offset) << ","
+		<< longToHexString(timeend - offset) << ","
 		<< e.method << ","
-		<< (e.timeend - e.timestart) * 1.0e-3 << ","
+		<< (timeend - timestart) * 1.0e-3 << ","
 		<< devId << "\n";
       }
     }

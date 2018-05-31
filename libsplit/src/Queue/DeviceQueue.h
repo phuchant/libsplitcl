@@ -18,6 +18,8 @@ namespace libsplit {
   public:
     virtual ~DeviceQueue();
 
+    virtual void enqueueDummyEvents();
+
     void enqueueWrite(cl_mem buffer,
 		      size_t offset,
 		      size_t cb,
@@ -50,6 +52,7 @@ namespace libsplit {
     virtual void run() = 0;
 
     cl_command_queue cl_queue;
+    const unsigned dev_id;
 
   protected:
     DeviceQueue(cl_context context, cl_device_id dev, unsigned dev_id);
@@ -61,7 +64,7 @@ namespace libsplit {
 
     cl_context context;
     cl_device_id device;
-    unsigned dev_id;
+
 
     Event *lastEvent;
 

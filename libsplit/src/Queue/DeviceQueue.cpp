@@ -1,5 +1,6 @@
 #include <Queue/Command.h>
 #include <Queue/DeviceQueue.h>
+#include <Globals.h>
 
 #include <cstring>
 
@@ -21,7 +22,7 @@ namespace libsplit {
 
 
   DeviceQueue::DeviceQueue(cl_context context, cl_device_id dev, unsigned dev_id)
-    : cl_queue(NULL), context(context), device(dev), dev_id(dev_id),
+    : cl_queue(NULL), dev_id(dev_id), context(context), device(dev),
       lastEvent(NULL), isCudaDevice(false), isAMDDevice(false) {
     size_t vendor_len;
     cl_int err;
@@ -53,6 +54,16 @@ namespace libsplit {
 #ifdef USE_HWLOC
     hwloc_topology_destroy(topology);
 #endif /* USE_HWLOC */
+  }
+
+  void
+  DeviceQueue::enqueueDummyEvents() {
+    Event *dummyEvent = eventFactory->getNewEvent();
+    cl_int err = real_clEnqueueMarker(cl_queue, &dummyEvent->event);
+    clCheck(err, __FILE__, __LINE__);
+    err = real_clFinish(cl_queue);
+    clCheck(err, __FILE__, __LINE__);
+    timeline->pushH2DEvent(dummyEvent, dev_id);
   }
 
   void

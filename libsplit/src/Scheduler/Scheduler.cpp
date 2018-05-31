@@ -37,8 +37,6 @@ namespace libsplit {
 	  clCheck(err, __FILE__, __LINE__);
 	  // IT.second[i]->release();
 
-	  timeline->pushH2DEvent(start, end, d);
-
 	  double t = (end - start) * 1e-6;
 	  H2DTimes[d] += t;
 
@@ -70,7 +68,7 @@ namespace libsplit {
 	  				     sizeof(end), &end, NULL);
 	  clCheck(err, __FILE__, __LINE__);
 	  // IT.second[i]->release();
-	  timeline->pushD2HEvent(start, end, d);
+
 	  double t = (end - start) * 1e-6;
 	  D2HTimes[d] += t;
 
@@ -98,8 +96,6 @@ namespace libsplit {
       					 CL_PROFILING_COMMAND_END,
       					 sizeof(end), &end, NULL);
       clCheck(err, __FILE__, __LINE__);
-      std::string kernelName(this->handle->getName());
-      timeline->pushKernelEvent(start, end, kernelName, dev);
       // subkernels[i]->event->release();
       kernelTimes[dev] += (end - start) * 1e-6;
     }
@@ -851,6 +847,12 @@ namespace libsplit {
     dataWrittenAtomicMin = SI->dataWrittenAtomicMin;
     dataWrittenAtomicMax = SI->dataWrittenAtomicMax;
     *needOtherExecutionToComplete = SI->needOtherExecToComplete;
+
+    double partition[nbDevices+1] = {0};
+    partition[0] = *id;
+    for (int i=0; i<SI->real_size_gr/3; i++)
+      partition[(int) SI->real_granu_dscr[i*3]+1] = SI->real_granu_dscr[i*3+2];
+    timeline->pushPartition(partition);
 
     // Increment call count.
     count++;
