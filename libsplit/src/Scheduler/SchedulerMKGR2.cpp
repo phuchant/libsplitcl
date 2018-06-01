@@ -186,12 +186,18 @@ namespace libsplit {
 	SubKernelSchedInfo *KSI = kerID2SchedInfoMap[k];
 	KSI->req_size_gr = 3 * nbDevices;
 
+	double total = 0;
+
 	for (unsigned d=0; d<nbDevices; d++) {
 	  KSI->req_granu_dscr[d*3+0] = d;
 	  KSI->req_granu_dscr[d*3+1] = 1.0;
 	  KSI->req_granu_dscr[d*3+2] =
 	    req_cycle_granu_dscr[k*nbDevices+d];
+	  total += KSI->req_granu_dscr[d*3+2];
 	}
+	if (total < 0.9)
+	  solver->dumpProb();
+	assert(total > 0.9);
       }
     }
   }
@@ -286,6 +292,7 @@ namespace libsplit {
 				   cur_prefix_gr, &constraint);
 
 	  double coef = kernelsH2DCoefs[samplingId];
+	  assert(isfinite(coef));
 	  for (unsigned i=0; i<2*nbDevices; i++)
 	    solvConstraint[i] = constraint[i] * coef;
 	  solver->setKernelsH2DConstraint(dst, src, d, solvConstraint);
@@ -352,7 +359,8 @@ namespace libsplit {
       int err = gsl_fit_linear(H2D_X, 1, H2D_Y, 1, nbSamples, &c0, &c1,
 			       &cov00, &cov01, &cov11, &sumsq);
       assert(err == 0);
-      H2DThroughputCoefs[d] = c1;
+      if (isfinite(c1) && c1 > 0)
+	H2DThroughputCoefs[d] = c1;
     }
 
     // D2H Throughput
@@ -373,7 +381,8 @@ namespace libsplit {
       int err = gsl_fit_linear(D2H_X, 1, D2H_Y, 1, nbSamples, &c0, &c1,
 			       &cov00, &cov01, &cov11, &sumsq);
       assert(err == 0);
-      D2HThroughputCoefs[d] = c1;
+      if (isfinite(c1) && c1 > 0)
+	D2HThroughputCoefs[d] = c1;
     }
   }
 
@@ -577,13 +586,17 @@ namespace libsplit {
 
 	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
 				   &cov00, &cov01, &cov11, &sumsq);
-	  if (err == 0 && computeSquaredResidual(X, Y, samplingSize, c1, c0) >
-	      RESIDUAL_TRESHOLD && c1 > 0)
-	    H2DCoefsPerBuffer[kerId][from][m->id] = c1;
-	  else
-	    H2DCoefsPerBuffer[kerId][from][m->id] = 0;
+	  if (err == 0 && isfinite(c1)) {
+	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
+		RESIDUAL_TRESHOLD && c1 > 0) {
+	      H2DCoefsPerBuffer[kerId][from][m->id] = c1;
+	      assert(isfinite(c1));
+	    } else {
+	      H2DCoefsPerBuffer[kerId][from][m->id] = 0;
+	    }
+	    isH2DCoefUpdated[kerId * cycleLength + from] = 1;
+	  }
 
-	  isH2DCoefUpdated[kerId * cycleLength + from] = 1;
 	}
       }
 
@@ -603,13 +616,17 @@ namespace libsplit {
 	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
 				   &cov00, &cov01, &cov11, &sumsq);
 
-	  if (err == 0 && computeSquaredResidual(X, Y, samplingSize, c1, c0) >
-	      RESIDUAL_TRESHOLD && c1 > 0)
-	    D2HCoefsPerBuffer[kerId][from][m->id] = c1;
-	  else
-	    D2HCoefsPerBuffer[kerId][from][m->id] = 0;
+	  if (err == 0 && isfinite(c1)) {
+	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
+		RESIDUAL_TRESHOLD && c1 > 0) {
+	      D2HCoefsPerBuffer[kerId][from][m->id] = c1;
+	    } else {
+	      assert(isfinite(c1));
+	      D2HCoefsPerBuffer[kerId][from][m->id] = 0;
+	    }
+	    isD2HCoefUpdated[kerId * cycleLength + from] = 1;
+	  }
 
-	  isD2HCoefUpdated[kerId * cycleLength + from] = 1;
 	}
       }
 

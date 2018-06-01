@@ -42,6 +42,8 @@ namespace libsplit {
     // unchanged.
     double *getGranularities();
 
+    void dumpProb();
+
   private:
     int nbDevices;
     int nbKernels;
@@ -75,7 +77,7 @@ namespace libsplit {
 
     void createGlpProb();
     void updateGlpMatrix();
-    void dumpProb();
+
   };
 
 };
