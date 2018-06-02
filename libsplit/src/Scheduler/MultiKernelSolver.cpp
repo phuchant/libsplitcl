@@ -11,7 +11,8 @@
 #include <cstring>
 
 #define EPSILON 1.0e-10
-#define PARTITIONEPSILON 0.001
+#define SPEED_TRESHOLD 1.10
+#define MIN_ITER 10
 
 namespace libsplit {
   MultiKernelSolver::MultiKernelSolver(int nbDevices, int nbKernels)
@@ -711,30 +712,36 @@ namespace libsplit {
       }
     }
 
-    // Return a new partition only if the distance from the last
-    // partition is greater than PARTITIONEPSILON
-    if (lastPartition == NULL) {
-      lastPartition = new double[nbKernels * nbDevices];
-      memcpy(lastPartition, ret, nbKernels * nbDevices * sizeof(double));
-      return ret;
+    // Get objective time with solution
+    double obj = glp_get_obj_val(lp);
+
+    // Get objective time with previous partition
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbDevices;j++) {
+	int colIdx = 1 + i * 2 * nbDevices + nbDevices + j; // gr_ki_dj
+	glp_set_col_bnds(lp, colIdx, GLP_FX, kernelGr[i][j], kernelGr[i][j]);
+      }
+    }
+    glp_simplex(lp,NULL);
+    double objcur = glp_get_obj_val(lp);
+
+    // Restore problem
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbDevices;j++) {
+	int colIdx = 1 + i * 2 * nbDevices + nbDevices + j; // gr_ki_dj
+	glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+      }
     }
 
-    double partitionDiff[nbKernels * nbDevices];
-    for (int i=0; i< nbKernels * nbDevices; i++)
-      partitionDiff[i] = lastPartition[i] - ret[i];
-    for (int i=0; i< nbKernels * nbDevices; i++)
-      partitionDiff[i] *= partitionDiff[i];
+    double potential_speedup = objcur / obj;
 
-    double norm = 0.0;
-    for (int i=0; i< nbKernels * nbDevices; i++)
-      norm += partitionDiff[i];
-    norm = sqrt(norm);
+    static int curiter = 0;
+    curiter++;
 
-    if (norm < PARTITIONEPSILON) {
+    // Do not return a new partition if the potential speedup is lower
+    // than SPEED_TRESHOLD
+    if (curiter > MIN_ITER && potential_speedup < SPEED_TRESHOLD)
       return NULL;
-    }
-
-    memcpy(lastPartition, ret, nbKernels * nbDevices * sizeof(double));
 
     return ret;
   }
