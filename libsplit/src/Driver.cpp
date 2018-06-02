@@ -546,7 +546,10 @@ namespace libsplit {
     double t5 = get_time();
 
     // Barrier with MKSTATIC scheduler for each cycle iteration.
-    if (optScheduler == Scheduler::MKSTATIC && kerId == optCycleLength-1) {
+    if ((optScheduler == Scheduler::MKSTATIC ||
+	 optScheduler == Scheduler::MKGR ||
+	 optScheduler == Scheduler::MKGR2)
+	&& kerId == optCycleLength-1) {
 
       for (unsigned i=0; i<context->getNbDevices(); i++)
 	context->getQueueNo(i)->finish();
