@@ -34,6 +34,12 @@ namespace libsplit {
 
     H2DThroughputCoefs = new double[nbDevices]();
     D2HThroughputCoefs = new double[nbDevices]();
+    isDeviceH2DThroughputSampled = new bool[nbDevices];
+    isDeviceD2HThroughputSampled = new bool[nbDevices];
+    for (unsigned d=0; d<nbDevices; d++) {
+      isDeviceH2DThroughputSampled[d] = false;
+      isDeviceD2HThroughputSampled[d] = false;
+    }
 
     isD2HCoefUpdated = new int[cycleLength * cycleLength];
     isH2DCoefUpdated = new int[cycleLength * cycleLength];
@@ -52,6 +58,8 @@ namespace libsplit {
     delete[] D2HThroughputCoefs;
     delete[] isH2DCoefUpdated;
     delete[] isD2HCoefUpdated;
+    delete[] isDeviceH2DThroughputSampled;
+    delete[] isDeviceD2HThroughputSampled;
   }
 
   void
@@ -346,6 +354,8 @@ namespace libsplit {
       unsigned nbSamples = H2DThroughputSamplingPerDevice[d].size();
       if (nbSamples < 2)
 	continue;
+      if (nbSamples > 20 && isDeviceH2DThroughputSampled[d])
+	continue;
 
       double H2D_X[nbSamples]; double H2D_Y[nbSamples];
       for (unsigned i=0; i<nbSamples; i++) {
@@ -359,14 +369,18 @@ namespace libsplit {
       int err = gsl_fit_linear(H2D_X, 1, H2D_Y, 1, nbSamples, &c0, &c1,
 			       &cov00, &cov01, &cov11, &sumsq);
       assert(err == 0);
-      if (isfinite(c1) && c1 > 0)
+      if (isfinite(c1) && c1 > 0) {
 	H2DThroughputCoefs[d] = c1;
+	isDeviceH2DThroughputSampled[d] = true;
+      }
     }
 
     // D2H Throughput
     for (unsigned d=0; d<nbDevices; d++) {
       unsigned nbSamples = D2HThroughputSamplingPerDevice[d].size();
       if (nbSamples < 2)
+	continue;
+      if (nbSamples > 20 && isDeviceD2HThroughputSampled[d])
 	continue;
 
       double D2H_X[nbSamples]; double D2H_Y[nbSamples];
@@ -381,8 +395,10 @@ namespace libsplit {
       int err = gsl_fit_linear(D2H_X, 1, D2H_Y, 1, nbSamples, &c0, &c1,
 			       &cov00, &cov01, &cov11, &sumsq);
       assert(err == 0);
-      if (isfinite(c1) && c1 > 0)
+      if (isfinite(c1) && c1 > 0) {
 	D2HThroughputCoefs[d] = c1;
+	isDeviceD2HThroughputSampled[d] = true;
+      }
     }
   }
 
@@ -553,81 +569,107 @@ namespace libsplit {
       bool D2HPointAdded = false;
       bool H2DPointAdded = false;
       for (unsigned d=0; d<nbDevices; d++) {
-	if (H2D_X[d] > 0) {
-	  H2DPointAdded = true;
-	  assert(H2D_X[d] < 2000000);
-	  dst2SrcBufferH2DSampling[kerId][from][m->id].
-	    push_back(std::make_pair((double) H2D_X[d] /
-				     GRANU2INTFACTOR, H2D_Y[d]));
-	}
-	if( D2H_X[d] > 0) {
+    	if (H2D_X[d] > 0) {
+    	  H2DPointAdded = true;
+	  double x_point = (double) H2D_X[d] / GRANU2INTFACTOR;
+	  double y_point = H2D_Y[d];
+	  for (unsigned i=0; i<dst2SrcBufferH2DSampling[kerId][from][m->id].size(); i++) {
+	    if (dst2SrcBufferH2DSampling[kerId][from][m->id][i].first == x_point &&
+		dst2SrcBufferH2DSampling[kerId][from][m->id][i].second == y_point) {
+	      H2DPointAdded = false;
+	      break;
+	    }
+	  }
+
+	  if (H2DPointAdded) {
+    	  assert(H2D_X[d] < 2000000);
+	       dst2SrcBufferH2DSampling[kerId][from][m->id].
+    	    push_back(std::make_pair((double) H2D_X[d] /
+    				     GRANU2INTFACTOR, H2D_Y[d]));
+	  }
+    	}
+
+    	if (D2H_X[d] > 0) {
 	  D2HPointAdded = true;
-	  assert(D2H_X[d] < 2000000);
-	  dst2SrcBufferD2HSampling[kerId][from][m->id].
-	    push_back(std::make_pair((double) D2H_X[d] /
-				     GRANU2INTFACTOR, D2H_Y[d]));
-	}
+	  double x_point = (double) D2H_X[d] / GRANU2INTFACTOR;
+	  double y_point = D2H_Y[d];
+
+	  for (unsigned i=0; i<dst2SrcBufferD2HSampling[kerId][from][m->id].size(); i++) {
+	    if (dst2SrcBufferD2HSampling[kerId][from][m->id][i].first == x_point &&
+		dst2SrcBufferD2HSampling[kerId][from][m->id][i].second == y_point) {
+	      D2HPointAdded = false;
+	      break;
+	    }
+	  }
+
+	  if (D2HPointAdded) {
+	    assert(D2H_X[d] < 2000000);
+	    dst2SrcBufferD2HSampling[kerId][from][m->id].
+	      push_back(std::make_pair((double) D2H_X[d] /
+				       GRANU2INTFACTOR, D2H_Y[d]));
+	  }
+    	}
       }
 
 
       // Update D2H coef
       if (H2DPointAdded) {
-	unsigned samplingSize =
-	  dst2SrcBufferH2DSampling[kerId][from][m->id].size();
-	if (samplingSize > 2) {
-	  double X[samplingSize]; double Y[samplingSize];
-	  for (unsigned i=0; i<samplingSize; i++) {
-	    X[i] = dst2SrcBufferH2DSampling[kerId][from][m->id][i].first;
-	    Y[i] = dst2SrcBufferH2DSampling[kerId][from][m->id][i].second;
-	  }
+      	unsigned samplingSize =
+      	  dst2SrcBufferH2DSampling[kerId][from][m->id].size();
+      	if (samplingSize > 2) {
+      	  double X[samplingSize]; double Y[samplingSize];
+      	  for (unsigned i=0; i<samplingSize; i++) {
+      	    X[i] = dst2SrcBufferH2DSampling[kerId][from][m->id][i].first;
+      	    Y[i] = dst2SrcBufferH2DSampling[kerId][from][m->id][i].second;
+      	  }
 
-	  double c0; double c1; double cov00; double cov01; double cov11;
-	  double sumsq;
+      	  double c0; double c1; double cov00; double cov01; double cov11;
+      	  double sumsq;
 
-	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
-				   &cov00, &cov01, &cov11, &sumsq);
-	  if (err == 0 && isfinite(c1)) {
-	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
-		RESIDUAL_TRESHOLD && c1 > 0) {
-	      H2DCoefsPerBuffer[kerId][from][m->id] = c1;
-	      assert(isfinite(c1));
-	    } else {
-	      H2DCoefsPerBuffer[kerId][from][m->id] = 0;
-	    }
-	    isH2DCoefUpdated[kerId * cycleLength + from] = 1;
-	  }
+      	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
+      				   &cov00, &cov01, &cov11, &sumsq);
+      	  if (err == 0 && isfinite(c1)) {
+      	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
+      		RESIDUAL_TRESHOLD && c1 > 0) {
+      	      H2DCoefsPerBuffer[kerId][from][m->id] = c1;
+      	      assert(isfinite(c1));
+      	    } else {
+      	      H2DCoefsPerBuffer[kerId][from][m->id] = 0;
+      	    }
+      	    isH2DCoefUpdated[kerId * cycleLength + from] = 1;
+      	  }
 
-	}
+      	}
       }
 
       if (D2HPointAdded) {
-	unsigned samplingSize =
-	  dst2SrcBufferD2HSampling[kerId][from][m->id].size();
-	if (samplingSize > 2) {
-	  double X[samplingSize]; double Y[samplingSize];
-	  for (unsigned i=0; i<samplingSize; i++) {
-	    X[i] = dst2SrcBufferD2HSampling[kerId][from][m->id][i].first;
-	    Y[i] = dst2SrcBufferD2HSampling[kerId][from][m->id][i].second;
-	  }
+      	unsigned samplingSize =
+      	  dst2SrcBufferD2HSampling[kerId][from][m->id].size();
+      	if (samplingSize > 2) {
+      	  double X[samplingSize]; double Y[samplingSize];
+      	  for (unsigned i=0; i<samplingSize; i++) {
+      	    X[i] = dst2SrcBufferD2HSampling[kerId][from][m->id][i].first;
+      	    Y[i] = dst2SrcBufferD2HSampling[kerId][from][m->id][i].second;
+      	  }
 
-	  double c0; double c1; double cov00; double cov01; double cov11;
-	  double sumsq;
+      	  double c0; double c1; double cov00; double cov01; double cov11;
+      	  double sumsq;
 
-	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
-				   &cov00, &cov01, &cov11, &sumsq);
+      	  int err = gsl_fit_linear(X, 1, Y, 1, samplingSize, &c0, &c1,
+      				   &cov00, &cov01, &cov11, &sumsq);
 
-	  if (err == 0 && isfinite(c1)) {
-	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
-		RESIDUAL_TRESHOLD && c1 > 0) {
-	      D2HCoefsPerBuffer[kerId][from][m->id] = c1;
-	    } else {
-	      assert(isfinite(c1));
-	      D2HCoefsPerBuffer[kerId][from][m->id] = 0;
-	    }
-	    isD2HCoefUpdated[kerId * cycleLength + from] = 1;
-	  }
+      	  if (err == 0 && isfinite(c1)) {
+      	    if (computeSquaredResidual(X, Y, samplingSize, c1, c0) >
+      		RESIDUAL_TRESHOLD && c1 > 0) {
+      	      D2HCoefsPerBuffer[kerId][from][m->id] = c1;
+      	    } else {
+      	      assert(isfinite(c1));
+      	      D2HCoefsPerBuffer[kerId][from][m->id] = 0;
+      	    }
+      	    isD2HCoefUpdated[kerId * cycleLength + from] = 1;
+      	  }
 
-	}
+      	}
       }
 
       // Update data required

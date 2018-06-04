@@ -66,6 +66,8 @@ namespace libsplit {
     // Transfer throughput coef per device
     double *H2DThroughputCoefs;
     double *D2HThroughputCoefs;
+    bool *isDeviceH2DThroughputSampled;
+    bool *isDeviceD2HThroughputSampled;
 
 
     unsigned getCycleIter() const;
