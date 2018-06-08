@@ -184,6 +184,7 @@ namespace libsplit {
       // Get next granularities.
       delete[] req_cycle_granu_dscr;
       req_cycle_granu_dscr = solver->getGranularities();
+
       if (req_cycle_granu_dscr == NULL) {
 	*needToInstantiateAnalysis = false;
 	return;
@@ -274,6 +275,7 @@ namespace libsplit {
 	  for (unsigned i=0; i<2*nbDevices; i++)
 	    solvConstraint[i] = constraint[i] * coef;
 	  solver->setKernelsD2HConstraint(dst, src, d, solvConstraint);
+	  solver->set_keri_from_kerj_Dk2H_coef(dst, src, d, coef);
 	  free(constraint);
 	}
       }
@@ -304,6 +306,7 @@ namespace libsplit {
 	  for (unsigned i=0; i<2*nbDevices; i++)
 	    solvConstraint[i] = constraint[i] * coef;
 	  solver->setKernelsH2DConstraint(dst, src, d, solvConstraint);
+	  solver->set_keri_from_kerj_H2Dk_coef(dst, src, d, coef);
 	  free(constraint);
 	}
       }

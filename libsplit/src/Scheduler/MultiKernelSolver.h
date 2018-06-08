@@ -14,8 +14,6 @@ namespace libsplit {
 
     void setKernelGr(int kerId, const double *gr);
     void setKernelPerf(int kerId, const double *perf);
-    void setD2HConstraint(int kerId, int devId, const double *coefs);
-    void setH2DConstraint(int kerId, int devId, const double *coefs);
     void setKernelsD2HConstraint(int kerId, int src, int devId,
 				 const double *coefs);
     void setKernelsH2DConstraint(int kerId, int src, int devId,
@@ -37,6 +35,11 @@ namespace libsplit {
 			  const double *prev_prefix_gr,
 			  const double *cur_prefix_gr, int **constraint);
 
+    void set_keri_from_kerj_Dk2H_coef(int i, int j, int k, double coef);
+    void set_keri_from_kerj_H2Dk_coef(int i, int j, int k, double coef);
+    double get_keri_from_kerj_Dk2H_coef(int i, int j, int k);
+    double get_keri_from_kerj_H2Dk_coef(int i, int j, int k);
+
 
     // Return the new partition for the cycle or NULL if the partition remains
     // unchanged.
@@ -51,6 +54,8 @@ namespace libsplit {
     double **kernelPerf;
     double ****kernelsD2HConstraints;
     double ****kernelsH2DConstraints;
+    double *kerikerjDk2HCoefs;
+    double *kerikerjH2DkCoefs;
 
     // GLPK
     glp_prob *lp;
@@ -67,13 +72,29 @@ namespace libsplit {
 
     int get_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
     int get_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+    int get_left_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
+    int get_right_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
+    int get_comm_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
+    int get_left_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+    int get_right_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+    int get_comm_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+    int get_coef_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const;
+    int get_coef_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const;
+
 
     int get_T_D2H_keri_colIdx(int i) const;
     int get_T_H2D_keri_colIdx(int i) const;
     int get_T_keri_colIdx(int i) const;
     int get_x_kidj_colIdx(int i, int j) const;
     int get_gr_kidj_colIdx(int i, int j) const;
-
+    int get_left_kikjdk_D2H_colIdx(int i, int j, int k) const;
+    int get_right_kikjdk_D2H_colIdx(int i, int j, int k) const;
+    int get_comm_kikjdk_D2H_colIdx(int i, int j, int k) const;
+    int get_left_kikjdk_H2D_colIdx(int i, int j, int k) const;
+    int get_right_kikjdk_H2D_colIdx(int i, int j, int k) const;
+    int get_comm_kikjdk_H2D_colIdx(int i, int j, int k) const;
+    int get_coef_kikjdk_D2H_colIdx(int i, int j, int k) const;
+    int get_coef_kikjdk_H2D_colIdx(int i, int j, int k) const;
 
     void createGlpProb();
     void updateGlpMatrix();

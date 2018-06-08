@@ -1,6 +1,7 @@
 #include <Options.h>
 #include <Scheduler/MultiKernelSolver.h>
 #include <Utils/Debug.h>
+#include <Utils/Utils.h>
 
 #include <iostream>
 
@@ -39,6 +40,9 @@ namespace libsplit {
       }
     }
 
+    kerikerjDk2HCoefs = new double[nbKernels * nbKernels * nbDevices]();
+    kerikerjH2DkCoefs = new double[nbKernels * nbKernels * nbDevices]();
+
     lastPartition = NULL;
 
     createGlpProb();
@@ -72,6 +76,8 @@ namespace libsplit {
 
     delete[] kernelsD2HConstraints;
     delete[] kernelsH2DConstraints;
+    delete[] kerikerjDk2HCoefs;
+    delete[] kerikerjH2DkCoefs;
   }
 
   void
@@ -352,6 +358,115 @@ namespace libsplit {
   }
 
   int
+  MultiKernelSolver::get_left_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_right_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_comm_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_left_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm D2H constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_right_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // left H2D constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_comm_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // left H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // right H2D constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_coef_keri_from_kerj_Dk2H_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // left H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // right H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm H2D constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_coef_keri_from_kerj_H2Dk_rowIdx(int i, int j, int k) const {
+    return 1 +
+      nbKernels * (2 * nbDevices + 1) + // kernels constraints offset
+      nbKernels * nbKernels * nbDevices  + // D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // left D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // right D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm D2H constraints offset
+      nbKernels * nbKernels * nbDevices  + // left H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // right H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // comm H2D constraints offset
+      nbKernels * nbKernels * nbDevices  + // coef D2H constraints offset
+      i * (nbKernels * nbDevices) +
+      j * nbDevices + k;
+  }
+
+
+  int
   MultiKernelSolver::get_T_D2H_keri_colIdx(int i) const {
     return 1 + nbKernels * (2 * nbDevices) + i * 2;
   }
@@ -376,7 +491,59 @@ namespace libsplit {
     return 1 + i * (2 * nbDevices) + nbDevices + j;
   }
 
+  int
+  MultiKernelSolver::get_left_kikjdk_D2H_colIdx(int i, int j, int k) const {
+    return  1 + nbKernels*3 + nbKernels*2*nbDevices +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
 
+  int
+  MultiKernelSolver::get_right_kikjdk_D2H_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices + nbKernels * nbKernels * nbDevices +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_comm_kikjdk_D2H_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      2 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_left_kikjdk_H2D_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      3 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_right_kikjdk_H2D_colIdx(int i, int j, int k) const {
+      return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      4 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+}
+
+  int
+  MultiKernelSolver::get_comm_kikjdk_H2D_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      5 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_coef_kikjdk_D2H_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      6 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
+
+  int
+  MultiKernelSolver::get_coef_kikjdk_H2D_colIdx(int i, int j, int k) const {
+    return 1 + nbKernels*3 + nbKernels*2*nbDevices +
+      7 * (nbKernels * nbKernels * nbDevices) +
+      i * (nbKernels * nbDevices) + j * nbDevices + k;
+  }
 
   void
   MultiKernelSolver::createGlpProb() {
@@ -390,8 +557,8 @@ namespace libsplit {
 
     nbRows = nbKernelTimeConstraints + nbGranuConstraints +
       nbGranuSumConstraints + nbKernelsD2HConstraints +
-      nbKernelsH2DConstraints;
-    nbCols = nbKernels*3 + nbKernels*2*nbDevices;
+      nbKernelsH2DConstraints + 8 * nbKernels * nbKernels * nbDevices;
+    nbCols = nbKernels*3 + nbKernels*2*nbDevices + 8 * nbKernels * nbKernels * nbDevices;
 
     ia = new int[1+nbRows*nbCols]();
     ja = new int[1+nbRows*nbCols]();
@@ -413,6 +580,7 @@ namespace libsplit {
     for (int i=0; i<nbKernels; i++) {
       // ker%d_dev%d
       for (int j=0; j<nbDevices; j++) {
+	assert(get_keri_devj_rowIdx(i, j) == rowIdx);
 	asprintf(&name, "ker%d_dev%d", i, j);
 	glp_set_row_name(lp, rowIdx, name);
 	free(name);
@@ -422,6 +590,7 @@ namespace libsplit {
 
       // gr_ker%d_dev%d
       for (int j=0; j<nbDevices; j++) {
+	assert(get_gr_keri_devj_rowIdx(i, j) == rowIdx);
 	asprintf(&name, "gr_ker%d_dev%d", i, j);
 	glp_set_row_name(lp, rowIdx, name);
 	free(name);
@@ -431,6 +600,7 @@ namespace libsplit {
 
       // gr_ker%d
       asprintf(&name, "gr_ker%d", i);
+      assert(get_gr_keri_rowIdx(i) == rowIdx);
       glp_set_row_name(lp, rowIdx, name);
       free(name);
       glp_set_row_bnds(lp, rowIdx, GLP_FX, 1.0, 0.0);
@@ -443,6 +613,7 @@ namespace libsplit {
       // ker%d_ker%d_D%dtoH
       for (int j=0; j<nbKernels; j++) {
 	for (int k=0; k<nbDevices; k++) {
+	  assert(get_keri_from_kerj_Dk2H_rowIdx(i, j, k) == rowIdx);
 	  asprintf(&name, "ker%d_from_k%d_D%dtoH", i, j, k);
 	  glp_set_row_name(lp, rowIdx, name);
 	  free(name);
@@ -457,6 +628,7 @@ namespace libsplit {
       // ker%d_ker%d_HtoD%d
       for (int j=0; j<nbKernels; j++) {
 	for (int k=0; k<nbDevices; k++) {
+	  assert(get_keri_from_kerj_H2Dk_rowIdx(i, j, k) == rowIdx);
 	  asprintf(&name, "ker%d_from_k%d_HtoD%d", i, j, k);
 	  glp_set_row_name(lp, rowIdx, name);
 	  free(name);
@@ -466,12 +638,134 @@ namespace libsplit {
       }
     }
 
+    // Left D2H Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // left_ker%d_ker%d_D%dtoH
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_left_keri_from_kerj_Dk2H_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "left_ker%d_from_k%d_D%dtoH", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Right D2H Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // right_ker%d_ker%d_D%dtoH
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_right_keri_from_kerj_Dk2H_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "right_ker%d_from_k%d_D%dtoH", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Comm D2H Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // comm_ker%d_ker%d_D%dtoH
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_comm_keri_from_kerj_Dk2H_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "comm_ker%d_from_k%d_D%dtoH", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Left H2D Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // left_ker%d_ker%d_HtoD%d
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_left_keri_from_kerj_H2Dk_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "left_ker%d_from_k%d_HtoD%d", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Right H2D Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // right_ker%d_ker%d_HtoD%d
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_right_keri_from_kerj_H2Dk_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "right_ker%d_from_k%d_HtoD%d", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Comm H2D Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // comm_ker%d_ker%d_HtoD%d
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_comm_keri_from_kerj_H2Dk_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "comm_ker%d_from_k%d_HtoD%d", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_UP, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Coef D2H Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // coef_ker%d_ker%d_D%dtoH
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_coef_keri_from_kerj_Dk2H_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "coef_ker%d_from_k%d_D%dtoH", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_FX, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+    // Coef H2D Comm constraints
+    for (int i=0; i<nbKernels; i++) {
+      // coef_ker%d_ker%d_HtoD%d
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  assert(get_coef_keri_from_kerj_H2Dk_rowIdx(i, j, k) == rowIdx);
+	  asprintf(&name, "coef_ker%d_from_k%d_HtoD%d", i, j, k);
+	  glp_set_row_name(lp, rowIdx, name);
+	  free(name);
+	  glp_set_row_bnds(lp, rowIdx, GLP_FX, 0.0, 0.0);
+	  rowIdx++;
+	}
+      }
+    }
+
+
     // Cols
     glp_add_cols(lp, nbCols);
 
     for (int i=0; i<nbKernels; i++) {
       // x_k%dd%d
       for (int j=0; j<nbDevices; j++) {
+	assert(get_x_kidj_colIdx(i, j) == colIdx);
 	asprintf(&name, "x_k%dd%d", i, j);
 	glp_set_col_name(lp, colIdx, name);
 	glp_set_obj_coef(lp, colIdx, 0);
@@ -482,6 +776,7 @@ namespace libsplit {
 
       // gr_k%dd%d
       for (int j=0; j<nbDevices; j++) {
+	assert(get_gr_kidj_colIdx(i, j) == colIdx);
 	asprintf(&name, "gr_k%dd%d", i, j);
 	glp_set_col_name(lp, colIdx, name);
 	glp_set_obj_coef(lp, colIdx, 0);
@@ -492,9 +787,9 @@ namespace libsplit {
 
     }
 
-
     for (int i=0; i<nbKernels; i++) {
       // T_D2H_ker%d
+      assert(get_T_D2H_keri_colIdx(i) == colIdx);
       asprintf(&name, "T_D2H_ker%d", i);
       glp_set_col_name(lp, colIdx, name);
       free(name);
@@ -503,6 +798,7 @@ namespace libsplit {
       colIdx++;
       // T_H2D_ker%d
       asprintf(&name, "T_H2D_ker%d", i);
+      assert(get_T_H2D_keri_colIdx(i) == colIdx);
       glp_set_col_name(lp, colIdx, name);
       free(name);
       glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
@@ -513,22 +809,138 @@ namespace libsplit {
     for (int i=0; i<nbKernels; i++) {
       // T_ker%d
       asprintf(&name, "T_ker%d", i);
+      assert(get_T_keri_colIdx(i) == colIdx);
       glp_set_col_name(lp, colIdx, name);
       free(name);
       glp_set_obj_coef(lp, colIdx, 1.0);
       glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
       colIdx++;
     }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Left_ker%d_ker%d_D%dtoH
+	  assert(get_left_kikjdk_D2H_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Left_ker%d_ker%d_D%dtoH", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Right_ker%d_ker%d_D%dtoH
+	  assert(get_right_kikjdk_D2H_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Right_ker%d_ker%d_D%dtoH", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Tcomm_ker%d_ker%d_D%dtoH
+	  assert(get_comm_kikjdk_D2H_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Tcomm_ker%d_ker%d_D%dtoH", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Left_ker%d_ker%d_HtoD%d
+	  assert(get_left_kikjdk_H2D_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Left_ker%d_ker%d_HtoD%d", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Right_ker%d_ker%d_HtoD%d
+	  assert(get_right_kikjdk_H2D_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Right_ker%d_ker%d_HtoD%d", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // Tcomm_ker%d_ker%d_HtoD%d
+	  assert(get_comm_kikjdk_H2D_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "Tcomm_ker%d_ker%d_HtoD%d", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // coef_ker%d_ker%d_D%dtoH
+	  assert(get_coef_kikjdk_D2H_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "coef_ker%d_ker%d_D%dtoH", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
+
+    for (int i=0; i<nbKernels; i++) {
+      for (int j=0; j<nbKernels; j++) {
+	for (int k=0; k<nbDevices; k++) {
+	  // coef_ker%d_ker%d_HtoD%d
+	  assert(get_coef_kikjdk_H2D_colIdx(i, j, k) == colIdx);
+	  asprintf(&name, "coef_ker%d_ker%d_HtoD%d", i, j, k);
+	  glp_set_col_name(lp, colIdx, name);
+	  free(name);
+	  glp_set_obj_coef(lp, colIdx, 0);
+	  glp_set_col_bnds(lp, colIdx, GLP_LO, 0.0, 0.0);
+	  colIdx++;
+	}
+      }
+    }
   }
 
   void
   MultiKernelSolver::updateGlpMatrix()
   {
-    // Reset matrix
-    memset(ia, 0, (1+nbRows*nbCols) * sizeof(int));
-    memset(ja, 0, (1+nbRows*nbCols) * sizeof(int));
-    memset(ar, 0, (1+nbRows*nbCols) * sizeof(double));
-
     // Fill matrix
 
     int idx = 1;
@@ -542,10 +954,14 @@ namespace libsplit {
 	ia[idx] = get_keri_devj_rowIdx(i, j);
 	ja[idx] = get_T_keri_colIdx(i);
 	ar[idx] = -1.0;
+	if (ia[idx] == 28 && ja[idx] == 3)
+	  std::cerr << "1\n";
 	idx++;
 	ia[idx] = ia[idx-1];
 	ja[idx] = get_x_kidj_colIdx(i, j);
 	ar[idx] = kernelPerf[i][j];
+	if (ia[idx] == 28 && ja[idx] == 3)
+	  std::cerr << "2\n";
 	idx++;
 
 	// kernelgr
@@ -553,10 +969,14 @@ namespace libsplit {
 	ia[idx] = get_gr_keri_devj_rowIdx(i, j);
 	ja[idx] = get_gr_kidj_colIdx(i, j);
 	ar[idx] = -1.0;
+	if (ia[idx] == 28 && ja[idx] == 3)
+	  std::cerr << "3\n";
 	idx++;
 	ia[idx] = ia[idx-1];
 	ja[idx] = get_x_kidj_colIdx(i, j);
 	ar[idx] = kernelGr[i][j];
+	if (ia[idx] == 28 && ja[idx] == 3)
+	  std::cerr << "4\n";
 	idx++;
       }
 
@@ -565,6 +985,8 @@ namespace libsplit {
 	ia[idx] = get_gr_keri_rowIdx(i);
 	ja[idx] = get_gr_kidj_colIdx(i, j);
 	ar[idx] = 1;
+	if (ia[idx] == 28 && ja[idx] == 3)
+	  std::cerr << "5\n";
 	idx++;
       }
     }
@@ -573,85 +995,228 @@ namespace libsplit {
       assert(ia[i] < get_keri_from_kerj_Dk2H_rowIdx(0, 0, 0));
     }
 
-    // Comm constraints
+
+    // T_D2H_ki >= comm_D2H_kikjdk
     for (int kcur=0; kcur<nbKernels; kcur++) {
       for (int kprev=0; kprev<nbKernels; kprev++) {
-	// if (kcur == kprev)
-	//   continue;
-
+	if (kcur == kprev)
+	  continue;
 	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  ia[idx] = get_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_comm_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = 1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "6\n";
+	  idx++;
+	  ia[idx] = get_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_T_D2H_keri_colIdx(kcur);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "7\n";
+	  idx++;
+	}
+      }
+    }
+    // T_H2D_ki >= comm_H2D_kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  ia[idx] = get_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_comm_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = 1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "8\n";
+	  idx++;
+	  ia[idx] = get_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_T_H2D_keri_colIdx(kcur);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "9\n";
+	  idx++;
+	}
+      }
+    }
 
-	  // D2HConstraints
-
-	  bool isConstraint = false;
-
-	  // kprev coefs
-	  for (int c=0; c<nbDevices; c++) {
-	    if (kernelsD2HConstraints[kcur][kprev][dev][c] == 0)
-	      continue;
-
-	    isConstraint = true;
-	    ia[idx] = get_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
-	    ja[idx] = get_gr_kidj_colIdx(kprev, c);
-	    ar[idx] = kernelsD2HConstraints[kcur][kprev][dev][c];
+    // Left D2H kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  for (int i=0; i<= dev-1; i++) {
+	    ia[idx] = get_left_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kcur, i);
+	    ar[idx] = 1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "10\n";
+	    idx++;
+	    ia[idx] = get_left_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kprev, i);
+	    ar[idx] = -1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "11\n";
 	    idx++;
 	  }
-
-	  // kcur coefs
-	  for (int c=0; c<nbDevices; c++) {
-	    if (kernelsD2HConstraints[kcur][kprev][dev][nbDevices+c] == 0)
-	      continue;
-
-	    isConstraint = true;
-	    ia[idx] = get_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
-
-	    ja[idx] = get_gr_kidj_colIdx(kcur, c);
-	    ar[idx] = kernelsD2HConstraints[kcur][kprev][dev][nbDevices+c];
+	  ia[idx] = get_left_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_left_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "12\n";
+	  idx++;
+	}
+      }
+    }
+    // Right D2H kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  for (int i=0; i<= dev; i++) {
+	    ia[idx] = get_right_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kcur, i);
+	    ar[idx] = -1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "13\n";
+	    idx++;
+	    ia[idx] = get_right_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kprev, i);
+	    ar[idx] = 1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "14\n";
 	    idx++;
 	  }
+	  ia[idx] = get_right_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_right_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  idx++;
+	}
+      }
+    }
+    // comm D2H kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  ia[idx] = get_comm_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_left_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev);
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "15\n";
+	  idx++;
+	  ia[idx] = get_comm_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_right_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = get_keri_from_kerj_Dk2H_coef(kcur, kprev, dev);
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "16\n";
+	  idx++;
+	  ia[idx] = get_comm_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_comm_kikjdk_D2H_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "17\n";
+	  idx++;
+	}
+      }
+    }
 
-	  // T_D2H_keri
-	  if (isConstraint) {
-	    ia[idx] = get_keri_from_kerj_Dk2H_rowIdx(kcur, kprev, dev);
-	    ja[idx] = get_T_D2H_keri_colIdx(kcur);
-	    ar[idx] = -1.0;
+    // Left H2D kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  for (int i=0; i<= dev-1; i++) {
+	    ia[idx] = get_left_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kcur, i);
+	    ar[idx] = 1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "18\n";
+	    idx++;
+	    ia[idx] = get_left_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kprev, i);
+	    ar[idx] = -1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "19\n";
 	    idx++;
 	  }
-
-	  // H2DConstraints
-	  isConstraint = false;
-
-	  // kprev coefs
-	  for (int c=0; c<nbDevices; c++) {
-	    if (kernelsH2DConstraints[kcur][kprev][dev][c] == 0)
-	      continue;
-
-	    isConstraint = true;
-	    ia[idx] = get_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
-	    ja[idx] = get_gr_kidj_colIdx(kprev, c);
-	    ar[idx] = kernelsH2DConstraints[kcur][kprev][dev][c];
+	  ia[idx] = get_left_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_left_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "20\n";
+	  idx++;
+	}
+      }
+    }
+    // Right H2D kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  for (int i=0; i<= dev; i++) {
+	    ia[idx] = get_right_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kcur, i);
+	    ar[idx] = -1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "21\n";
+	    idx++;
+	    ia[idx] = get_right_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	    ja[idx] = get_gr_kidj_colIdx(kprev, i);
+	    ar[idx] = 1;
+	    if (ia[idx] == 28 && ja[idx] == 3)
+	      std::cerr << "22\n";
 	    idx++;
 	  }
-
-	  // kcur coefs
-	  for (int c=0; c<nbDevices; c++) {
-	    if (kernelsH2DConstraints[kcur][kprev][dev][nbDevices+c] == 0)
-	      continue;
-
-	    isConstraint = true;
-	    ia[idx] = get_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
-	    ja[idx] = get_gr_kidj_colIdx(kcur, c);
-	    ar[idx] = kernelsH2DConstraints[kcur][kprev][dev][nbDevices+c];
-	    idx++;
-	  }
-
-	  // T_D2H_keri
-	  if (isConstraint) {
-	    ia[idx] = get_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
-	    ja[idx] = get_T_H2D_keri_colIdx(kcur);
-	    ar[idx] = -1.0;
-	    idx++;
-	  }
+	  ia[idx] = get_right_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_right_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "23\n";
+	  idx++;
+	}
+      }
+    }
+    // comm H2D kikjdk
+    for (int kcur=0; kcur<nbKernels; kcur++) {
+      for (int kprev=0; kprev<nbKernels; kprev++) {
+	if (kcur == kprev)
+	  continue;
+	for (int dev=0; dev<nbDevices; dev++) {
+	  if (get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev) == 0)
+	    continue;
+	  ia[idx] = get_comm_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_left_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev);
+	  if (ia[idx] == 28 && ja[idx] == 3)
+	    std::cerr << "24\n";
+	  idx++;
+	  ia[idx] = get_comm_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_right_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = get_keri_from_kerj_H2Dk_coef(kcur, kprev, dev);
+	  idx++;
+	  ia[idx] = get_comm_keri_from_kerj_H2Dk_rowIdx(kcur, kprev, dev);
+	  ja[idx] = get_comm_kikjdk_H2D_colIdx(kcur, kprev, dev);
+	  ar[idx] = -1;
+	  idx++;
 	}
       }
     }
@@ -664,7 +1229,10 @@ namespace libsplit {
       assert(ja[i] <= nbCols);
     }
 
+    double t1 = get_time();
     glp_load_matrix(lp, nnz, ia, ja, ar);
+    double t2 = get_time();
+    std::cerr << "load matrix time: " << (t2 - t1) * 1.0e3 << " ms\n";
   }
 
   void MultiKernelSolver::dumpProb() {
@@ -686,8 +1254,13 @@ namespace libsplit {
     glp_scale_prob(lp, GLP_SF_AUTO);
     glp_std_basis(lp);
 
+    glp_smcp parm;
+    glp_init_smcp(&parm);
+    parm.presolve = GLP_ON;
+    parm.meth = GLP_DUAL;
+
     // Resolve
-    glp_simplex(lp, NULL);
+    glp_simplex(lp, &parm);
 
     // debug
     DEBUG("mkgr_prob", dumpProb());
@@ -702,16 +1275,6 @@ namespace libsplit {
       }
     }
 
-    // Reset kernels comm constraints
-    for (int i=0; i<nbKernels; i++) {
-      for (int j=0; j<nbKernels; j++) {
-	for (int k=0; k<nbDevices; k++) {
-	  memset(kernelsD2HConstraints[i][j][k], 0, 2*nbDevices*sizeof(double));
-	  memset(kernelsH2DConstraints[i][j][k], 0, 2*nbDevices*sizeof(double));
-	}
-      }
-    }
-
     // Get objective time with solution
     double obj = glp_get_obj_val(lp);
 
@@ -722,7 +1285,9 @@ namespace libsplit {
 	glp_set_col_bnds(lp, colIdx, GLP_FX, kernelGr[i][j], kernelGr[i][j]);
       }
     }
-    glp_simplex(lp,NULL);
+
+    glp_simplex(lp,&parm);
+
     double objcur = glp_get_obj_val(lp);
 
     // Restore problem
@@ -745,5 +1310,34 @@ namespace libsplit {
 
     return ret;
   }
+
+  void
+  MultiKernelSolver::set_keri_from_kerj_Dk2H_coef(int i, int j, int k, double coef) {
+    kerikerjDk2HCoefs[i * nbKernels * nbDevices +
+		      j * nbDevices +
+		      k] = coef;
+  }
+
+  void
+  MultiKernelSolver::set_keri_from_kerj_H2Dk_coef(int i, int j, int k, double coef) {
+    kerikerjH2DkCoefs[i * nbKernels * nbDevices +
+		      j * nbDevices +
+		      k] = coef;
+  }
+
+  double
+  MultiKernelSolver::get_keri_from_kerj_Dk2H_coef(int i, int j, int k) {
+    return kerikerjDk2HCoefs[i * nbKernels * nbDevices +
+			     j * nbDevices +
+			     k];
+  }
+
+  double
+  MultiKernelSolver::get_keri_from_kerj_H2Dk_coef(int i, int j, int k) {
+    return kerikerjH2DkCoefs[i * nbKernels * nbDevices +
+			     j * nbDevices +
+			     k];
+  }
+
 
 };
