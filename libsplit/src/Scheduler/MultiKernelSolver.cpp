@@ -1313,6 +1313,9 @@ namespace libsplit {
 
   void
   MultiKernelSolver::set_keri_from_kerj_Dk2H_coef(int i, int j, int k, double coef) {
+    if (optMKGRNoComm)
+      return;
+
     kerikerjDk2HCoefs[i * nbKernels * nbDevices +
 		      j * nbDevices +
 		      k] = coef;
@@ -1320,6 +1323,9 @@ namespace libsplit {
 
   void
   MultiKernelSolver::set_keri_from_kerj_H2Dk_coef(int i, int j, int k, double coef) {
+    if (optMKGRNoComm)
+      return;
+
     kerikerjH2DkCoefs[i * nbKernels * nbDevices +
 		      j * nbDevices +
 		      k] = coef;
