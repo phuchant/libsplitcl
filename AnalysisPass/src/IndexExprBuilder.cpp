@@ -15,6 +15,7 @@ IndexExprBuilder::IndexExprBuilder(llvm::LoopInfo *loopInfo,
    scalarEvolution(scalarEvolution),
    dataLayout(dataLayout),
    computingBackedge(false),
+   computingMemcpy(false),
    indirectionsDisabled(false),
    buildingIndirection(false),
    doubleIndirectionReached(false),
@@ -64,7 +65,9 @@ IndexExprBuilder::buildMemcpyLoadExpr(llvm::CallInst *CI, IndexExpr **expr,
   IndexExpr *srcExpr, *sizeExpr;
   const Argument *srcArg = NULL, *sizeArg = NULL;
   parseSCEV(scSrc, &srcExpr, &srcArg); assert(srcExpr);
+  computingMemcpy = true;
   parseSCEV(scSize, &sizeExpr, &sizeArg); assert(sizeExpr);
+  computingMemcpy = false;
   IndexExpr *elemSizeInterval =
     new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
@@ -87,7 +90,9 @@ IndexExprBuilder::buildMemcpyStoreExpr(llvm::CallInst *CI, IndexExpr **expr,
   IndexExpr *dstExpr, *sizeExpr;
   const Argument *dstArg = NULL, *sizeArg = NULL;
   parseSCEV(scDst, &dstExpr, &dstArg); assert(dstExpr);
+  computingMemcpy = true;
   parseSCEV(scSize, &sizeExpr, &sizeArg); assert(sizeExpr);
+  computingMemcpy = false;
   IndexExpr *elemSizeInterval =
     new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
@@ -111,7 +116,21 @@ IndexExprBuilder::buildMemsetExpr(llvm::CallInst *CI, IndexExpr **expr,
   IndexExpr *dstExpr, *lenExpr;
   const Argument *dstArg = NULL, *lenArg = NULL;
   parseSCEV(scDst, &dstExpr, &dstArg); assert(dstExpr);
+
+  computingMemcpy = true;
   parseSCEV(scLen, &lenExpr, &lenArg); assert(lenExpr);
+  computingMemcpy = false;
+
+
+  if ((dstArg)->getArgNo() == 2) {
+    errs() << "MEMCPY SCEV " << *scDst << " len " << *scLen << "\n";
+    errs() << "dstExpr: ";
+    (*dstExpr).dump();
+    errs() << " lenExpr: ";
+    (*lenExpr).dump();
+    errs() << "\n";
+  }
+
   IndexExpr *elemSizeInterval =
     new IndexExprInterval(IndexExprValue::createLong(0),
 			  new IndexExprBinop(IndexExprBinop::Sub,
@@ -122,6 +141,7 @@ IndexExprBuilder::buildMemsetExpr(llvm::CallInst *CI, IndexExpr **expr,
 			       elemSizeInterval);
   *expr = dstExpr;
   *arg = dstArg;
+
 }
 
 void
@@ -194,7 +214,7 @@ IndexExprBuilder::buildExpr(Value *value) {
 	if (isOpenCLCall(inst, &oclFunc)) {
 	  IndexExpr *ret = new IndexExprOCL(oclFunc,
 					    buildExpr(user->getOperand(0)));
-	  if (computingBackedge)
+	  if (computingBackedge || computingMemcpy)
 	    ret = new IndexExprHB(ret);
 	  return ret;
 	}
@@ -223,6 +243,14 @@ IndexExprBuilder::buildExpr(Value *value) {
 	    called->getName().equals("_Z15convert_int_rtnf")) {
 	  return new IndexExprCast(buildExpr(call->getOperand(0)),
 				   IndexExprCast::FLOOR);
+	}
+
+	if (called->getName().equals("llvm.fmuladd.f64")) {
+	  return new IndexExprBinop(IndexExprBinop::Add,
+				    new IndexExprBinop(IndexExprBinop::Mul,
+						       buildExpr(call->getOperand(0)),
+						       buildExpr(call->getOperand(1))),
+				    buildExpr(call->getOperand(2)));
 	}
 
 	errs() << "buildexpr unknown function : " << *inst << "\n";
@@ -413,7 +441,7 @@ IndexExprBuilder::buildExpr(Value *value) {
 
 	// Check if an index expression has alreaby been computed for this load.
 	if (load2IndirectionID.find(load) != load2IndirectionID.end()) {
-	  if (computingBackedge)
+	  if (computingBackedge || computingMemcpy)
 	    return new IndexExprHB(new IndexExprIndirection(load2IndirectionID[load]));
 	  return new IndexExprIndirection(load2IndirectionID[load]);
 	}
@@ -443,7 +471,7 @@ IndexExprBuilder::buildExpr(Value *value) {
 						       load));
 	load2IndirectionID[load] = id;
 
-	if (computingBackedge)
+	if (computingBackedge || computingMemcpy)
 	  return new IndexExprHB(new IndexExprIndirection(id));
 
 	return new IndexExprIndirection(id);
@@ -777,7 +805,7 @@ IndexExprBuilder::parseSCEV(const llvm::SCEV *scev, IndexExpr **indexExpr,
       // for (int yy = y; yy < end; yy += step)
       // array[yy] = ...
 
-      if (computingBackedge)
+      if (computingBackedge || computingMemcpy)
 	*indexExpr = new IndexExprHB(*indexExpr);
 
       return;

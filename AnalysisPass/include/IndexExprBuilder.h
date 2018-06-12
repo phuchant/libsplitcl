@@ -79,6 +79,7 @@ private:
   IndexExpr *tryComputeLoopStart(llvm::Loop *L);
   IndexExpr *tryComputeLoopStep(llvm::Loop *L);
   bool computingBackedge;
+  bool computingMemcpy;
 
   /* Indirections */
   bool indirectionsDisabled;
