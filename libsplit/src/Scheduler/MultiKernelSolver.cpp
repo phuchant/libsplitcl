@@ -1260,7 +1260,7 @@ namespace libsplit {
     parm.meth = GLP_DUAL;
 
     // Resolve
-    glp_simplex(lp, &parm);
+    int err1 = glp_simplex(lp, &parm);
 
     // debug
     DEBUG("mkgr_prob", dumpProb());
@@ -1286,7 +1286,8 @@ namespace libsplit {
       }
     }
 
-    glp_simplex(lp,&parm);
+    int err2 = glp_simplex(lp,&parm);
+
 
     double objcur = glp_get_obj_val(lp);
 
@@ -1303,10 +1304,15 @@ namespace libsplit {
     static int curiter = 0;
     curiter++;
 
+    if (err2 != 0)
+      potential_speedup = SPEED_TRESHOLD;
+
     // Do not return a new partition if the potential speedup is lower
     // than SPEED_TRESHOLD
-    if (curiter > MIN_ITER && potential_speedup < SPEED_TRESHOLD)
+    if (curiter > MIN_ITER && potential_speedup < SPEED_TRESHOLD) {
+      std::cerr << "potential_speedup: " << potential_speedup << " RETURNING NULL\n";
       return NULL;
+    }
 
     return ret;
   }
