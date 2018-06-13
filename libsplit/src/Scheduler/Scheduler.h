@@ -239,7 +239,7 @@ namespace libsplit {
       void clearEvents();
       void clearTimers();
       void updatePerfDescr();
-      void printTimers() const;
+      void printTimers(int kerId=0) const;
 
       Scheduler *sched;
       KernelHandle *handle;

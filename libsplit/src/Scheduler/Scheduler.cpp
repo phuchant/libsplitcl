@@ -139,30 +139,30 @@ namespace libsplit {
   }
 
   void
-  Scheduler::SubKernelSchedInfo::printTimers() const {
+  Scheduler::SubKernelSchedInfo::printTimers(int kerId) const {
     double totalPerDevice[nbDevices] = {0};
 
     for (unsigned d=0; d<nbDevices; d++) {
-      std::cerr << "dev " << d << " H2D="
+      std::cerr << "ker " << kerId << " dev " << d << " H2D="
 		<< H2DTimes[d] << " D2H="
 		<< D2HTimes[d] << " kernel="
 		<< kernelTimes[d] << "\n";
 
-      for (auto IT : src2H2DTimes[d])
-	std::cerr << "H2D" << d << " from k" << IT.first
-		  << ": " << IT.second << "\n";
-      for (auto IT : src2D2HTimes[d])
-	std::cerr << "D" << d << "2H from k" << IT.first
-		  << ": " << IT.second << "\n";
+      // for (auto IT : src2H2DTimes[d])
+      // 	std::cerr << "H2D" << d << " from k" << IT.first
+      // 		  << ": " << IT.second << "\n";
+      // for (auto IT : src2D2HTimes[d])
+      // 	std::cerr << "D" << d << "2H from k" << IT.first
+      // 		  << ": " << IT.second << "\n";
 
-      totalPerDevice[d] = H2DTimes[d] + D2HTimes[d] + kernelTimes[d];
-      std::cerr << "total on device " << d << " " << totalPerDevice[d] << "\n";
+      // totalPerDevice[d] = H2DTimes[d] + D2HTimes[d] + kernelTimes[d];
+      // std::cerr << "total on device " << d << " " << totalPerDevice[d] << "\n";
     }
 
-    for (unsigned d=1; d<nbDevices; d++)
-      totalPerDevice[0] = totalPerDevice[d] > totalPerDevice[0] ?
-	totalPerDevice[d] : totalPerDevice[0];
-    std::cerr << "total for kernel: " << totalPerDevice[0] << "\n";
+    // for (unsigned d=1; d<nbDevices; d++)
+    //   totalPerDevice[0] = totalPerDevice[d] > totalPerDevice[0] ?
+    // 	totalPerDevice[d] : totalPerDevice[0];
+    // std::cerr << "total for kernel: " << totalPerDevice[0] << "\n";
   }
 
   Scheduler::Scheduler(BufferManager *buffManager, unsigned nbDevices) :

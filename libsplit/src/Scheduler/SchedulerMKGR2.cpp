@@ -96,7 +96,7 @@ namespace libsplit {
 	  DEBUG("timers",
 		KSI->updateTimers();
 		KSI->updatePerfDescr();
-		KSI->printTimers();
+		KSI->printTimers(k);
 		for (unsigned d=0; d<nbDevices; d++) {
 		  totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		    KSI->kernelTimes[d];
@@ -139,7 +139,7 @@ namespace libsplit {
 		totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		  KSI->kernelTimes[d];
 	      }
-	      KSI->printTimers();
+	      KSI->printTimers(k);
 	      );
       }
       eventFactory->freeEvents();

@@ -127,8 +127,7 @@ namespace libsplit {
 	DEBUG("timers",
 	      KSI->updateTimers();
 	      KSI->updatePerfDescr();
-	      std::cerr << "kernel " << k << "\n";
-	      KSI->printTimers();
+	      KSI->printTimers(k);
 	      for (unsigned d=0; d<nbDevices; d++) {
 		totalCyclePerDevice[d] += KSI->D2HTimes[d] + KSI->H2DTimes[d] +
 		  KSI->kernelTimes[d];
