@@ -8,7 +8,7 @@
 
 Each kernel is automatically split into sub-kernels (one per device) in order to leverage the computational power of all devices.
 
-![](resources//kernelsplitting.svg) 
+![](resources/kernelsplitting.svg) 
 
 ### Transparent Utilisation
 
@@ -16,7 +16,7 @@ Using **libsplitCL** is completely transparent to the user, it does not require 
 
 ### Automatic Data Partitioning
 
-By precisely analyzing the memory region of each buffer accessed by kernels, **libsplitCL** can automatically partition the data onto multiple devices and aims at minimizing the amount of data to transfer between devices.
+By precisely analyzing the memory region of each buffer accessed by kernels, **libsplitCL** can automatically partition the data onto multiple devices and aims at limiting the amount of data to transfer between devices.
 
 ![](resources/datapartitioning.svg) 
 
@@ -62,7 +62,7 @@ make install
 
 ### Installing
 
-First make sure to have installed a C++11 compiler, CMake and Git. Then install PARCOACH by running:
+First make sure to have installed a C++11 compiler, CMake and Git. Then install libsplitCL by running:
 
 ```bash
 git clone https://github.com/libsplitcl/libsplitcl.git
@@ -80,13 +80,13 @@ cmake .. -DCMAKE_PREFIX_PATH=/path/to/llvm-3.9.1/
 ## Usage
 Edit the file bin/lisplit, then add bin/ to your PATH.
 
-To display all available options :
+To display all available options:
 
 ```
 HELP=1 libsplit ./my-opencl-app
 ```
 
-To split the kernels onto 2 devices
+To split the kernels onto 2 devices;
 
 ```
 DEVICES="<platform0> <device0> <platform1> <device1> ./my-opencl-app
