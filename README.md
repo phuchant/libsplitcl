@@ -8,7 +8,7 @@
 
 Each kernel is automatically split into sub-kernels (one per device) in order to leverage the computational power of all devices.
 
-![](resources/kernelsplitting.svg) 
+![](resources/kernelsplitting.png) 
 
 ### Transparent Utilisation
 
