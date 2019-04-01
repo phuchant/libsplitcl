@@ -18,14 +18,14 @@ Using **libsplitCL** is completely transparent to the user, it does not require 
 
 By precisely analyzing the memory region of each buffer accessed by kernels, **libsplitCL** can automatically partition the data onto multiple devices and aims at limiting the amount of data to transfer between devices.
 
-![](resources/datapartitioning.svg) 
+![](resources/datapartitioning.png) 
 
 ### Dynamic Load Balancing
 
 **libsplitCL** automatically balance the load between devices.
 The load balancing method is purely dynamic and does not require offling profiling nor sampling.
 
-![](resources/dynamicloadbalancing.svg) 
+![](resources/dynamicloadbalancing.png) 
 
 ## Getting Started
 
