@@ -12,7 +12,7 @@ Each kernel is automatically split into sub-kernels (one per device) in order to
 
 ### Transparent Utilisation
 
-Using **libsplitCL** is completely transparent to the user, it does not require any modification or recompilation its OpenCL application.
+Using **libsplitCL** is completely transparent to the user, it does not require any modification or recompilation of the application.
 
 ### Automatic Data Partitioning
 
@@ -104,7 +104,7 @@ Pierre Huchant,	Marie-Christine Counilh, and Denis Bartou
 *Proceedings of the 22nd International Conference on Euro-Par 2016: Parallel Processing - Volume 9833 Pages 684-696, 2016*
 
 ## License
-TODO
+The project is licensed under the MIT license.
 
 ## Developper Documentation
 #### ClInline and ClTransform
@@ -122,8 +122,7 @@ regions accessed by a kernel depending on the NDRange.
 
 #### AnalysisPass
 
-This LLVM pass analyses OpenCL Kernels in SPIR intermediate representation in
-order to compute the parametric buffer regions accessed by a kernel.
+This LLVM pass analyses OpenCL Kernels in LLVM IR to compute the parametric buffer regions accessed by a kernel.
 
 #### Libsplit
 
@@ -137,7 +136,3 @@ At kernel execution, a scheduler determine a partitioning of the kernel among
 the devices, then the parametric analysis is instantiated with this partition in
 order to determine how to split the data. Finally the data required by each
 sub-kernel is sent to the devices and the sub-kernels are executed.
-
-## External links
-
-[libsplitCL benchmarks](https://github.comlibsplitcl/benchmarks)
